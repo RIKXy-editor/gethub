@@ -12,6 +12,7 @@ A Discord bot that helps moderators and users remind people about their open tic
 - Optional custom messages
 - Tracks who sent the reminder
 - Rotating status messages showing editing-related activities (changes every 15 seconds)
+- **Private bot security** - Only works in the authorized server, blocks all other servers and DMs
 
 ## Project Structure
 ```
@@ -91,12 +92,21 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Exporting Videos
 - Managing Tickets
 
+### Security Features
+The bot includes strict access controls to ensure it only works in your authorized server:
+- **Guild Verification**: Commands only work in the server specified by `DISCORD_GUILD_ID`
+- **DM Protection**: Commands sent via direct messages are rejected
+- **Unauthorized Access Logging**: All unauthorized attempts are logged with source information
+- Private bot ensures no one else can use it, even if they somehow get the invite link
+
 ### Error Handling
 - The bot handles cases where users have DMs disabled
 - Provides clear error messages when DM delivery fails
 - All responses are ephemeral (only visible to command user)
+- Unauthorized access attempts receive a clear rejection message
 
 ## Recent Changes
+- **October 30, 2025**: Added private bot security with guild verification and DM blocking
 - **October 30, 2025**: Added rotating status feature with editing-related activities
 - **October 30, 2025**: Initial bot creation with `/remind` command
 
