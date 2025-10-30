@@ -84,6 +84,16 @@ client.once('ready', async () => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
+  if (!interaction.guildId || interaction.guildId !== process.env.DISCORD_GUILD_ID) {
+    await interaction.reply({
+      content: '❌ This bot is private and can only be used in the authorized server.',
+      ephemeral: true
+    });
+    const source = interaction.guildId ? `guild ${interaction.guildId}` : 'DM';
+    console.log(`Unauthorized access attempt from ${source} by user ${interaction.user.tag}`);
+    return;
+  }
+
   if (interaction.commandName === 'remind') {
     const targetUser = interaction.options.getUser('user');
     const ticketInfo = interaction.options.getString('ticket');
