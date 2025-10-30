@@ -8,11 +8,13 @@ A Discord bot that helps moderators and users remind people about their open tic
 
 ## Features
 - `/remind` slash command to send ticket reminders via DM
+- `/ask` AI assistant command for video editing questions
 - Beautiful embedded reminder messages
 - Optional custom messages
 - Tracks who sent the reminder
 - Rotating status messages showing editing-related activities (changes every 15 seconds)
 - **Private bot security** - Only works in the authorized server, blocks all other servers and DMs
+- AI-powered assistance specializing in video editing, software, and techniques
 
 ## Project Structure
 ```
@@ -50,6 +52,32 @@ The bot will:
 3. Show who sent the reminder
 4. Confirm to you that the message was sent (only you can see this)
 
+### The /ask Command (AI Assistant)
+Ask the AI assistant anything about video editing:
+
+```
+/ask question:"How do I color grade footage to look cinematic?"
+```
+
+**Required Parameters:**
+- `question` - Your question about video editing, software, or techniques
+
+**Examples:**
+```
+/ask question:"What's the best way to stabilize shaky footage?"
+/ask question:"How do I sync audio in Premiere Pro?"
+/ask question:"What are some tips for faster rendering?"
+```
+
+The AI assistant specializes in:
+- Video editing software (Premiere Pro, DaVinci Resolve, Final Cut Pro, CapCut, etc.)
+- Editing techniques and workflows
+- Color grading and color correction
+- Audio mixing and sound design
+- Motion graphics and visual effects
+- Rendering and export settings
+- General video production tips
+
 ## Setup Information
 
 ### Required Secrets
@@ -57,6 +85,7 @@ The following environment variables are configured:
 - `DISCORD_TOKEN` - Bot token from Discord Developer Portal
 - `DISCORD_CLIENT_ID` - Application client ID
 - `DISCORD_GUILD_ID` - Your Discord server ID
+- `OPENAI_API_KEY` - OpenAI API key for AI assistant feature
 
 ### Bot Permissions Required
 Make sure your bot has these permissions in Discord:
@@ -76,6 +105,7 @@ Replace `YOUR_CLIENT_ID` with your actual Discord Client ID.
 
 ### Dependencies
 - **discord.js v14.14.1** - Discord API wrapper
+- **openai** - OpenAI API client for AI assistant
 - **Node.js 20** - JavaScript runtime
 
 ### Command Registration
@@ -106,6 +136,7 @@ The bot includes strict access controls to ensure it only works in your authoriz
 - Unauthorized access attempts receive a clear rejection message
 
 ## Recent Changes
+- **October 30, 2025**: Added AI assistant with `/ask` command for video editing questions
 - **October 30, 2025**: Added private bot security with guild verification and DM blocking
 - **October 30, 2025**: Added rotating status feature with editing-related activities
 - **October 30, 2025**: Initial bot creation with `/remind` command

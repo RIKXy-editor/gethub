@@ -1,4 +1,7 @@
 import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActivityType } from 'discord.js';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const client = new Client({
   intents: [
@@ -46,6 +49,15 @@ const commands = [
         .setName('message')
         .setDescription('Optional custom message to include')
         .setRequired(false)
+    ),
+  new SlashCommandBuilder()
+    .setName('ask')
+    .setDescription('Ask the AI assistant anything about video editing')
+    .addStringOption(option =>
+      option
+        .setName('question')
+        .setDescription('Your question about video editing, software, or techniques')
+        .setRequired(true)
     )
 ];
 
@@ -127,6 +139,49 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({
         content: `❌ Failed to send DM to ${targetUser.tag}. They may have DMs disabled or have blocked the bot.`,
         ephemeral: true
+      });
+    }
+  }
+
+  if (interaction.commandName === 'ask') {
+    const question = interaction.options.getString('question');
+
+    await interaction.deferReply();
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful AI assistant specializing in video editing. You have expertise in video editing software (Adobe Premiere Pro, DaVinci Resolve, Final Cut Pro, CapCut, etc.), editing techniques, color grading, audio mixing, motion graphics, visual effects, and all aspects of video production. Provide clear, practical advice that editors can use. Keep responses concise but informative."
+          },
+          {
+            role: "user",
+            content: question
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      });
+
+      const answer = response.choices[0].message.content;
+
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('🤖 AI Assistant')
+        .setDescription(answer)
+        .addFields({ name: 'Question', value: question, inline: false })
+        .setTimestamp()
+        .setFooter({ text: `Asked by ${interaction.user.tag}` });
+
+      await interaction.editReply({ embeds: [embed] });
+
+    } catch (error) {
+      console.error('Error with AI assistant:', error);
+      
+      await interaction.editReply({
+        content: '❌ Sorry, I encountered an error while processing your question. Please try again later.',
       });
     }
   }
