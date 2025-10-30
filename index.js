@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActivityType } from 'discord.js';
 
 const client = new Client({
   intents: [
@@ -11,6 +11,19 @@ const client = new Client({
     Partials.Channel
   ]
 });
+
+const statuses = [
+  { name: 'Managing Editors Club', type: ActivityType.Playing },
+  { name: 'Editing Videos', type: ActivityType.Playing },
+  { name: 'Searching Assets', type: ActivityType.Playing },
+  { name: 'Rendering Projects', type: ActivityType.Playing },
+  { name: 'Color Grading', type: ActivityType.Playing },
+  { name: 'Audio Mixing', type: ActivityType.Playing },
+  { name: 'Exporting Videos', type: ActivityType.Playing },
+  { name: 'Managing Tickets', type: ActivityType.Watching }
+];
+
+let currentStatusIndex = 0;
 
 const commands = [
   new SlashCommandBuilder()
@@ -53,9 +66,19 @@ async function deployCommands() {
   }
 }
 
+function updateStatus() {
+  const status = statuses[currentStatusIndex];
+  client.user.setActivity(status.name, { type: status.type });
+  currentStatusIndex = (currentStatusIndex + 1) % statuses.length;
+}
+
 client.once('ready', async () => {
   console.log(`Bot is ready! Logged in as ${client.user.tag}`);
   await deployCommands();
+  
+  updateStatus();
+  setInterval(updateStatus, 15000);
+  console.log('Rotating status started!');
 });
 
 client.on('interactionCreate', async interaction => {
