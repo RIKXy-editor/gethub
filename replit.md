@@ -11,6 +11,7 @@ A Discord bot that helps moderators and users remind people about their open tic
 - Beautiful embedded reminder messages
 - Optional custom messages
 - Tracks who sent the reminder
+- Rotating status messages showing editing-related activities (changes every 15 seconds)
 
 ## Project Structure
 ```
@@ -79,12 +80,24 @@ Replace `YOUR_CLIENT_ID` with your actual Discord Client ID.
 ### Command Registration
 Slash commands are automatically registered when the bot starts. Commands are registered as guild commands for instant updates.
 
+### Rotating Status
+The bot displays different editing-related activities that rotate every 15 seconds:
+- Managing Editors Club
+- Editing Videos
+- Searching Assets
+- Rendering Projects
+- Color Grading
+- Audio Mixing
+- Exporting Videos
+- Managing Tickets
+
 ### Error Handling
 - The bot handles cases where users have DMs disabled
 - Provides clear error messages when DM delivery fails
 - All responses are ephemeral (only visible to command user)
 
 ## Recent Changes
+- **October 30, 2025**: Added rotating status feature with editing-related activities
 - **October 30, 2025**: Initial bot creation with `/remind` command
 
 ## User Preferences
