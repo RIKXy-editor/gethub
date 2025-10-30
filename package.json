@@ -1,0 +1,16 @@
+{
+  "name": "discord-ticket-reminder-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot that reminds users about their open tickets",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": ["discord", "bot", "ticket", "reminder"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  }
+}
