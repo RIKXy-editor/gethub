@@ -14,7 +14,16 @@ export async function handleJobModal(interaction) {
   const samples = interaction.fields.getTextInputValue('job_samples') || 'Not provided';
 
   const config = getJobConfig(GUILD_ID);
-  const channel = await interaction.client.channels.fetch(config.channelId);
+  const targetChannelId = config.channelId || process.env.JOB_CHANNEL_ID || interaction.channelId;
+
+  if (!targetChannelId) {
+    return await interaction.reply({
+      content: '❌ Error: no valid channel ID configured. Please run `/jobconfig` to set up the job posting channel.',
+      ephemeral: true
+    });
+  }
+
+  const channel = await interaction.client.channels.fetch(targetChannelId);
 
   const jobMessage = `Want: ${want}\n\nVideo Type: ${type}\n\nContract: ${contract}\n\nBudget: ${budget}\n\nSamples: ${samples}\n\nDM ${interaction.user} or reply in the thread below to work with them.`;
 
