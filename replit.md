@@ -14,6 +14,7 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 - `/welcomer` - Auto-send welcome messages to new members + optional role assignment
 - `/sticky` - Create sticky messages that repost when users chat
 - `/schedule` - Schedule messages to send at specific times with repetition options (daily/weekly/monthly)
+- `/dm` - Send DMs to all members with a specific role (admin only)
 
 ### System Features
 - Rotating status messages showing editing-related activities (changes every 15 seconds)
@@ -31,7 +32,8 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 └── src/
     ├── commands/          # Slash command modules
     │   ├── announce.js    # Announcement command
-    │   ├── reminds.js     # Ticket reminder command
+    │   ├── dm.js          # Bulk DM to role command
+    │   ├── remind.js      # Ticket reminder command
     │   ├── welcomer.js    # Welcomer setup command
     │   ├── sticky.js      # Sticky message command
     │   └── schedule.js    # Message scheduling command
@@ -98,6 +100,21 @@ Subcommands:
 
 Frequency options: once, daily, weekly, monthly
 
+### The /dm Command
+Send DMs to all members with a specific role (Admin only):
+```
+/dm role:@RoleName message:"Your message here"
+```
+- `role` - Target role to send DMs to
+- `message` - Message to send (plain text)
+
+Features:
+- Automatically skips bots
+- Rate-limited to avoid crashing with large member counts
+- Skips members with DMs disabled and logs them
+- Shows summary with success/fail counts
+- Admin permission required
+
 ## Setup Information
 
 ### Required Secrets
@@ -161,6 +178,7 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Added bulk DM feature to send messages to all members with a specific role
 - **November 29, 2025** - Added 5 major features: announcements, welcomer, sticky messages, scheduled messages, and modular architecture
 - **October 30, 2025** - Removed AI assistant feature per user request
 - **October 30, 2025** - Added private bot security with guild verification and DM blocking
