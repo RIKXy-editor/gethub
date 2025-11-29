@@ -1,63 +1,68 @@
-import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActivityType } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ],
   partials: [
     Partials.Channel
   ]
 });
 
-const statuses = [
-  { name: 'Managing Editors Club', type: ActivityType.Playing },
-  { name: 'Editing Videos', type: ActivityType.Playing },
-  { name: 'Searching Assets', type: ActivityType.Playing },
-  { name: 'Rendering Projects', type: ActivityType.Playing },
-  { name: 'Color Grading', type: ActivityType.Playing },
-  { name: 'Audio Mixing', type: ActivityType.Playing },
-  { name: 'Exporting Videos', type: ActivityType.Playing },
-  { name: 'Managing Tickets', type: ActivityType.Watching }
-];
+const commands = new Map();
+const events = new Map();
 
-let currentStatusIndex = 0;
+async function loadCommands() {
+  const commandsPath = path.join(__dirname, 'src', 'commands');
+  const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-const commands = [
-  new SlashCommandBuilder()
-    .setName('remind')
-    .setDescription('Send a reminder DM to a user about their open ticket')
-    .addUserOption(option =>
-      option
-        .setName('user')
-        .setDescription('The user to remind')
-        .setRequired(true)
-    )
-    .addStringOption(option =>
-      option
-        .setName('ticket')
-        .setDescription('Ticket number or description')
-        .setRequired(true)
-    )
-    .addStringOption(option =>
-      option
-        .setName('message')
-        .setDescription('Optional custom message to include')
-        .setRequired(false)
-    )
-];
+  for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = await import(`file://${filePath}`);
+    commands.set(command.data.name, command);
+  }
 
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  console.log(`Loaded ${commands.size} commands`);
+}
+
+async function loadEvents() {
+  const eventsPath = path.join(__dirname, 'src', 'events');
+  const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
+  for (const file of eventFiles) {
+    const filePath = path.join(eventsPath, file);
+    const event = await import(`file://${filePath}`);
+    events.set(event.name, event);
+
+    if (event.once) {
+      client.once(event.name, (...args) => event.execute(...args, client));
+    } else {
+      client.on(event.name, (...args) => event.execute(...args, client));
+    }
+  }
+
+  console.log(`Loaded ${events.size} events`);
+}
 
 async function deployCommands() {
   try {
     console.log('Started refreshing application (/) commands.');
 
-    await rest.put(
+    const commandArray = Array.from(commands.values()).map(cmd => cmd.data.toJSON());
+
+    await new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN).put(
       Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID),
-      { body: commands.map(command => command.toJSON()) }
+      { body: commandArray }
     );
 
     console.log('Successfully reloaded application (/) commands.');
@@ -65,21 +70,6 @@ async function deployCommands() {
     console.error('Error deploying commands:', error);
   }
 }
-
-function updateStatus() {
-  const status = statuses[currentStatusIndex];
-  client.user.setActivity(status.name, { type: status.type });
-  currentStatusIndex = (currentStatusIndex + 1) % statuses.length;
-}
-
-client.once('ready', async () => {
-  console.log(`Bot is ready! Logged in as ${client.user.tag}`);
-  await deployCommands();
-  
-  updateStatus();
-  setInterval(updateStatus, 15000);
-  console.log('Rotating status started!');
-});
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
@@ -94,42 +84,30 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  if (interaction.commandName === 'remind') {
-    const targetUser = interaction.options.getUser('user');
-    const ticketInfo = interaction.options.getString('ticket');
-    const customMessage = interaction.options.getString('message');
+  const command = commands.get(interaction.commandName);
 
-    try {
-      const embed = new EmbedBuilder()
-        .setColor(0xFF9900)
-        .setTitle('🎫 Ticket Reminder')
-        .setDescription('This is a friendly reminder about your open ticket.')
-        .addFields(
-          { name: 'Ticket', value: ticketInfo, inline: false }
-        )
-        .setTimestamp()
-        .setFooter({ text: `Reminder sent by ${interaction.user.tag}` });
+  if (!command) {
+    console.error(`No command matching ${interaction.commandName} was found.`);
+    return;
+  }
 
-      if (customMessage) {
-        embed.addFields({ name: 'Additional Message', value: customMessage, inline: false });
-      }
-
-      await targetUser.send({ embeds: [embed] });
-
-      await interaction.reply({
-        content: `✅ Successfully sent a reminder to ${targetUser.tag} about ticket: ${ticketInfo}`,
-        ephemeral: true
-      });
-
-    } catch (error) {
-      console.error('Error sending DM:', error);
-      
-      await interaction.reply({
-        content: `❌ Failed to send DM to ${targetUser.tag}. They may have DMs disabled or have blocked the bot.`,
-        ephemeral: true
-      });
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(`Error executing ${interaction.commandName}:`, error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: '❌ There was an error while executing this command!', ephemeral: true });
+    } else {
+      await interaction.reply({ content: '❌ There was an error while executing this command!', ephemeral: true });
     }
   }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+async function start() {
+  await loadCommands();
+  await loadEvents();
+  await deployCommands();
+  await client.login(process.env.DISCORD_TOKEN);
+}
+
+start();
