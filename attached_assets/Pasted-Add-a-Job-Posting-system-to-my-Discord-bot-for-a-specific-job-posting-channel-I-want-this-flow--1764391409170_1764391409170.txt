@@ -1,0 +1,64 @@
+Add a Job Posting system to my Discord bot for a specific job-posting channel.
+
+I want this flow:
+
+1. In the job-posting channel, the bot should keep a single message with a button:
+   - Label: "Post Job"
+   - Style: Primary
+   - Only ONE such message per channel. If deleted, recreate it.
+
+2. When a user clicks "Post Job", open a Discord MODAL (like a form popup) with:
+   - Modal title: "Post a Job"
+
+   Fields (all required):
+   - Text input 1:
+     - Label: "Want"
+     - Style: paragraph
+     - Placeholder: "Example: Need an editor for gaming highlights…"
+   - Text input 2:
+     - Label: "Video Type"
+     - Style: short
+     - Placeholder: "YouTube / Reels / Shorts / Ads etc."
+   - Text input 3:
+     - Label: "Contract"
+     - Style: short
+     - Placeholder: "One-time / Monthly / Long-term"
+   - Text input 4:
+     - Label: "Budget"
+     - Style: short
+     - Placeholder: "e.g. $50 / video, 3k INR, Negotiable"
+
+   This should work exactly like the standard Discord modal UI (like the Adobe example form).
+
+3. After the user submits the modal, the bot posts a normal message in the SAME job channel with this template:
+
+   Want: <Want>
+   Video Type: <Video Type>
+   Contract: <Contract>
+   Budget: <Budget>
+
+   DM <@user_who_submitted> for work with them.
+
+   - The bot must actually mention/tag the user at the end.
+   - Preserve the text exactly as submitted.
+
+4. Extra features:
+   - Send the user an **ephemeral** confirmation:  
+     "Your job has been posted." + link to the message.
+   - Add a **per-user cooldown** (e.g. 5 minutes) on using the "Post Job" button.  
+     If they’re on cooldown, show an ephemeral message:  
+     "You are on cooldown. Please wait before posting another job."
+   - Add **optional role restriction**:
+     - If a role ID is set in config, only users with that role can use the button.
+     - If they don’t have permission, send an ephemeral error.
+   - (Optional but preferred) Create a thread under each job post:
+     - Name format: `Job: <first few words of Want> - <username>`
+     - Add the job poster to that thread.
+
+5. Config:
+   - Job channel ID, allowed role ID (if any), log channel ID (if used), cooldown time should all be configurable in one place, not hardcoded everywhere.
+
+6. Implementation:
+   - Use Discord buttons + modals (no fake text-input flows).
+   - Keep the rest of the bot untouched.
+   - Use clean, modular code and proper error handling for interaction failures/timeouts.
