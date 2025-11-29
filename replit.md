@@ -113,7 +113,7 @@ Schedule messages to send automatically with multi-line support:
 Parameters:
 - `channel` - Channel to send scheduled message to
 - `time` - Time in HH:MM format (24-hour)
-- `frequency` - Repetition: once, daily, weekly, monthly
+- `frequency` - Repetition: once, every 12 hours, daily, weekly, monthly
 - Type 'cancel' to abort message entry
 
 ### The /dm Command

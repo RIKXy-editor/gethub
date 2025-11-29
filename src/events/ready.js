@@ -44,9 +44,10 @@ async function startScheduledMessageLoop(client) {
 
       const timeSinceLastRun = now.getTime() - msg.lastRun;
       const shouldRun = msg.frequency === 'once' ? timeSinceLastRun > 60000 :
-                       msg.frequency === 'daily' ? timeSinceLastRun > 60000 :
-                       msg.frequency === 'weekly' ? timeSinceLastRun > 60000 :
-                       msg.frequency === 'monthly' ? timeSinceLastRun > 60000 : false;
+                       msg.frequency === '12h' ? timeSinceLastRun > 43200000 :
+                       msg.frequency === 'daily' ? timeSinceLastRun > 86400000 :
+                       msg.frequency === 'weekly' ? timeSinceLastRun > 604800000 :
+                       msg.frequency === 'monthly' ? timeSinceLastRun > 2592000000 : false;
 
       if (shouldRun) {
         try {
