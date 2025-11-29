@@ -1,8 +1,14 @@
-import { EmbedBuilder } from 'discord.js';
-import { getGuildConfig, getWelcomeText, getWelcomeDmConfig } from '../utils/storage.js';
-import { COLORS } from '../utils/constants.js';
+import { getGuildConfig, getWelcomeText } from '../utils/storage.js';
 
 export const name = 'guildMemberAdd';
+
+const WELCOME_DM_MESSAGE = `**Welcome to Editor's Club :wave:**
+
+You're now part of the community.
+
+• Get your Adobe subscription for cheap - https://discord.com/channels/1153309880644554804/1415963231108861952
+
+• Download assets, tools, and resources - https://discord.com/channels/1153309880644554804/1398375540158628031`;
 
 function replacePlaceholders(text, member) {
   return text
@@ -25,32 +31,11 @@ export async function execute(member) {
       await channel.send(`<@${member.id}> ${welcomeText}`);
     }
 
-    // Send DM embed welcome
+    // Send DM welcome message
     try {
-      const dmConfig = getWelcomeDmConfig(member.guild.id);
-      const titleText = replacePlaceholders(dmConfig.titleTemplate, member);
-      const descriptionText = replacePlaceholders(dmConfig.descriptionTemplate, member);
-
-      const embed = new EmbedBuilder()
-        .setTitle(titleText)
-        .setDescription(descriptionText)
-        .setColor(COLORS.info);
-
-      if (dmConfig.thumbnailUrl) {
-        embed.setThumbnail(dmConfig.thumbnailUrl);
-      }
-
-      if (dmConfig.imageUrl) {
-        embed.setImage(dmConfig.imageUrl);
-      }
-
-      if (dmConfig.footerGifUrl) {
-        embed.setImage(dmConfig.footerGifUrl);
-      }
-
-      await member.send({ embeds: [embed] });
+      await member.send(WELCOME_DM_MESSAGE);
     } catch (dmError) {
-      console.error(`Could not send welcome DM to ${member.user.tag}: ${dmError.message}`);
+      console.warn(`Could not send welcome DM to ${member.user.tag}: ${dmError.message}`);
     }
 
     // Assign role if configured
