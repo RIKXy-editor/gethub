@@ -1,4 +1,4 @@
-import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } from 'discord.js';
+import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } from 'discord.js';
 import { getJobConfig, getCooldownExpiry } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
@@ -20,14 +20,17 @@ export async function handleJobButton(interaction) {
     }
   }
 
-  // Check cooldown
-  const cooldownLeft = getCooldownExpiry(interaction.user.id, config.cooldownMinutes);
-  if (cooldownLeft > 0) {
-    await interaction.reply({
-      content: `⏳ You are on cooldown. Please wait ${cooldownLeft} seconds before posting another job.`,
-      ephemeral: true
-    });
-    return;
+  // Check cooldown (admins bypass cooldown)
+  const isAdmin = interaction.memberPermissions.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin) {
+    const cooldownLeft = getCooldownExpiry(interaction.user.id, config.cooldownMinutes);
+    if (cooldownLeft > 0) {
+      await interaction.reply({
+        content: `⏳ You are on cooldown. Please wait ${cooldownLeft} seconds before posting another job.`,
+        ephemeral: true
+      });
+      return;
+    }
   }
 
   const modal = new ModalBuilder()

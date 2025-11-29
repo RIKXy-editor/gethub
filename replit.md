@@ -36,6 +36,10 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 6. Banner+button MOVES to bottom (old banner deleted, new one posted below the job)
 7. User gets ephemeral confirmation with job link
 
+**Cooldown:**
+- Regular users: cooldown applies (default 5 min, configurable 1-60 min)
+- **Admins: NO cooldown** (can post unlimited jobs immediately)
+
 **Banner Message:**
 ```
 ──────────────────────────────
@@ -281,6 +285,7 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Added admin bypass for job posting cooldown (admins can post unlimited jobs)
 - **November 29, 2025** - Fixed job banner: added visual separator, ensured standalone message (never a reply), clean visual separation from job posts
 - **November 29, 2025** - Enhanced job posting: banner message with rules + button, "Samples" field in modal, improved job format, repositioning banner after each job
 - **November 29, 2025** - Updated job posting: button always stays at bottom (repositioned after each job), added ✔️ and ❌ reactions to job posts
