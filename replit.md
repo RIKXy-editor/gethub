@@ -62,13 +62,18 @@ Send ticket reminders to users via DM:
 - `message` - Optional custom message
 
 ### The /announce Command
-Send announcements to a channel:
+Send announcements to a channel with multi-line support:
 ```
-/announce channel:#announcements message:"Important update!"
+/announce channel:#announcements
 ```
-- `channel` - Target channel
-- `message` - Announcement text
-- `with-embed` - Send as embedded message (optional)
+**Flow:**
+1. Run the command with just the target channel
+2. Bot asks: "What is the announcement message content? Type 'cancel' to stop."
+3. Type your announcement (can be multi-line, with links, formatting, etc.)
+4. Bot sends it exactly as you wrote it to the target channel
+
+- `channel` - Target channel for the announcement
+- Type 'cancel' to abort
 
 ### The /welcomer Command
 Set up automatic welcome messages:
@@ -89,16 +94,27 @@ Subcommands:
 - `remove` - Remove sticky message from a channel
 
 ### The /schedule Command
-Schedule messages to send automatically:
-```
-/schedule add channel:#announcements message:"Daily reminder!" time:"09:00" frequency:"daily"
-```
-Subcommands:
-- `add` - Schedule a new message (time in HH:MM format)
-- `list` - View all scheduled messages
-- `remove` - Delete a scheduled message
+Schedule messages to send automatically with multi-line support:
 
-Frequency options: once, daily, weekly, monthly
+**Add a scheduled message:**
+```
+/schedule add channel:#announcements time:"09:00" frequency:"daily"
+```
+**Flow:**
+1. Run the command with channel, time, and frequency
+2. Bot asks: "What is the message's content? Type 'cancel' to stop."
+3. Type your message (can be multi-line, with links, formatting, etc.)
+4. Bot schedules it exactly as you wrote it
+
+**Manage scheduled messages:**
+- `/schedule list` - View all scheduled messages
+- `/schedule remove id:12345` - Delete a scheduled message
+
+Parameters:
+- `channel` - Channel to send scheduled message to
+- `time` - Time in HH:MM format (24-hour)
+- `frequency` - Repetition: once, daily, weekly, monthly
+- Type 'cancel' to abort message entry
 
 ### The /dm Command
 Send DMs to all members with a specific role (Admin only):
@@ -178,6 +194,7 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Updated announcement and scheduler to use message collection (multi-line, formatted messages with 120-second timeout)
 - **November 29, 2025** - Added bulk DM feature to send messages to all members with a specific role
 - **November 29, 2025** - Added 5 major features: announcements, welcomer, sticky messages, scheduled messages, and modular architecture
 - **October 30, 2025** - Removed AI assistant feature per user request

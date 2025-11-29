@@ -1,26 +1,14 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { COLORS, GUILD_ID } from '../utils/constants.js';
+import { SlashCommandBuilder } from 'discord.js';
+import { GUILD_ID } from '../utils/constants.js';
 
 export const data = new SlashCommandBuilder()
   .setName('announce')
-  .setDescription('Send a plain text announcement to a channel')
+  .setDescription('Send an announcement to a channel (you will be prompted for the message)')
   .addChannelOption(option =>
     option
       .setName('channel')
       .setDescription('Channel to send announcement to')
       .setRequired(true)
-  )
-  .addStringOption(option =>
-    option
-      .setName('message')
-      .setDescription('Your announcement message')
-      .setRequired(true)
-  )
-  .addBooleanOption(option =>
-    option
-      .setName('with-embed')
-      .setDescription('Send as embedded message (default: plain text)')
-      .setRequired(false)
   );
 
 export async function execute(interaction) {
@@ -29,30 +17,54 @@ export async function execute(interaction) {
     return;
   }
 
-  const channel = interaction.options.getChannel('channel');
-  const message = interaction.options.getString('message');
-  const withEmbed = interaction.options.getBoolean('with-embed') ?? false;
+  const targetChannel = interaction.options.getChannel('channel');
+
+  await interaction.reply({
+    content: "📝 What is the announcement message content? Type 'cancel' to stop.",
+    ephemeral: true
+  });
 
   try {
-    if (withEmbed) {
-      const embed = new EmbedBuilder()
-        .setColor(COLORS.info)
-        .setDescription(message)
-        .setTimestamp();
-      await channel.send({ embeds: [embed] });
-    } else {
-      await channel.send(message);
+    const messageFilter = msg => msg.author.id === interaction.user.id && msg.channelId === interaction.channelId;
+    const collected = await interaction.channel.awaitMessages({
+      filter: messageFilter,
+      max: 1,
+      time: 120000,
+      errors: ['time']
+    });
+
+    const userMessage = collected.first();
+
+    if (userMessage.content.toLowerCase() === 'cancel') {
+      await interaction.followUp({
+        content: '❌ Announcement cancelled.',
+        ephemeral: true
+      });
+      return;
     }
 
-    await interaction.reply({
-      content: `✅ Announcement sent to ${channel}`,
+    const announcementContent = userMessage.content;
+
+    await targetChannel.send(announcementContent);
+
+    await interaction.followUp({
+      content: `✅ Announcement sent to ${targetChannel}`,
       ephemeral: true
     });
   } catch (error) {
-    console.error('Error sending announcement:', error);
-    await interaction.reply({
-      content: '❌ Failed to send announcement',
-      ephemeral: true
-    });
+    if (error.code === 'INTERACTION_TOKEN_INVALID') {
+      console.log('Announcement timed out - interaction already responded');
+    } else if (error.message === 'Awaiting messages timed out after 120000ms') {
+      await interaction.followUp({
+        content: '⏱️ Announcement prompt timed out. Please try again.',
+        ephemeral: true
+      }).catch(() => console.log('Could not send timeout message'));
+    } else {
+      console.error('Error in announcement command:', error);
+      await interaction.followUp({
+        content: '❌ An error occurred while sending the announcement.',
+        ephemeral: true
+      }).catch(() => console.log('Could not send error message'));
+    }
   }
 }
