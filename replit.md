@@ -10,10 +10,11 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 
 ### Core Features
 - `/remind` - Send ticket reminder DMs to users with embedded messages
-- `/announce` - Send plain text or embedded announcements to any channel
+- `/announce` - Send announcements with multi-line message collection
 - `/welcomer` - Auto-send welcome messages to new members + optional role assignment
-- `/sticky` - Create sticky messages that repost when users chat
-- `/schedule` - Schedule messages to send at specific times with repetition options (daily/weekly/monthly)
+- `/sticky` - Create/update sticky messages (one per channel, auto-reposts at bottom)
+- `/unsticky` - Remove sticky message from channel
+- `/schedule` - Schedule messages (once, 12h, daily, weekly, monthly) with message collection
 - `/dm` - Send DMs to all members with a specific role (admin only)
 
 ### System Features
@@ -31,12 +32,13 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 ├── replit.md              # This file
 └── src/
     ├── commands/          # Slash command modules
-    │   ├── announce.js    # Announcement command
+    │   ├── announce.js    # Announcement command (message collection)
     │   ├── dm.js          # Bulk DM to role command
     │   ├── remind.js      # Ticket reminder command
     │   ├── welcomer.js    # Welcomer setup command
-    │   ├── sticky.js      # Sticky message command
-    │   └── schedule.js    # Message scheduling command
+    │   ├── sticky.js      # Sticky message command (message collection)
+    │   ├── unsticky.js    # Remove sticky message command
+    │   └── schedule.js    # Message scheduling command (message collection)
     ├── events/            # Discord event handlers
     │   ├── guildMemberAdd.js  # Welcome new members
     │   ├── messageCreate.js   # Handle sticky messages
@@ -85,13 +87,29 @@ Subcommands:
 - `disable` - Turn off welcomer
 
 ### The /sticky Command
-Create messages that repost when chatted in:
+Create or update a sticky message that reposts at the bottom when users chat:
 ```
-/sticky create channel:#rules message:"Please read the rules"
+/sticky
 ```
-Subcommands:
-- `create` - Create a sticky message in a channel
-- `remove` - Remove sticky message from a channel
+**Flow:**
+1. Run `/sticky` in the target channel
+2. Bot asks: "What is the sticky message content? Type 'cancel' to stop."
+3. Type your sticky message (multi-line, formatting preserved)
+4. Bot posts it and keeps it at the bottom of the channel
+
+**Features:**
+- Only ONE sticky per channel (replaces existing if you run again)
+- Auto-reposts whenever someone sends a message
+- Ignores bot messages (prevents infinite loops)
+- Multi-line and formatting preserved
+
+### The /unsticky Command
+Remove the sticky message from a channel:
+```
+/unsticky
+```
+- Deletes the current sticky message in that channel
+- Can only be run in the channel with an active sticky
 
 ### The /schedule Command
 Schedule messages to send automatically with multi-line support:
@@ -194,6 +212,8 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Updated sticky messages to use message collection, add replace logic (one per channel), and auto-repost at bottom
+- **November 29, 2025** - Added /unsticky command to remove sticky messages
 - **November 29, 2025** - Updated announcement and scheduler to use message collection (multi-line, formatted messages with 120-second timeout)
 - **November 29, 2025** - Added bulk DM feature to send messages to all members with a specific role
 - **November 29, 2025** - Added 5 major features: announcements, welcomer, sticky messages, scheduled messages, and modular architecture
