@@ -19,12 +19,22 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 - `/jobconfig` - Configure job posting system (admin only)
 
 ### Job Posting System
+**Setup:**
+```
+/jobconfig channel:#jobs role:@Poster cooldown:5
+```
+- `channel` - Where job posts appear
+- `role` - (Optional) Restrict posting to users with this role
+- `cooldown` - Minutes between posts per user (1-60, default 5)
+
 **Flow:**
-1. Run `/jobconfig` to set up: job channel, optional role restriction, cooldown time
-2. Bot maintains a "Post Job" button in the configured channel
-3. Users click "Post Job" → modal form opens with 4 fields
-4. Submit → job posts to channel + creates thread + mentions user for DMs
-5. Cooldown applies (default 5 min, configurable)
+1. Bot maintains a "Post Job" button message at the bottom of the job channel
+2. User clicks button → modal form opens with 4 fields
+3. User submits → job posts to channel (new separate message)
+4. Job post gets 👍 and ❌ reactions automatically
+5. Thread created under job post (if supported)
+6. Button MOVES to bottom (old button deleted, new one posted below the job)
+7. User gets ephemeral confirmation with job link
 
 **Modal Fields:**
 - "Want" (paragraph) - Job description
@@ -34,13 +44,22 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 
 **Job Post Template:**
 ```
-Want: <description>
-Video Type: <type>
-Contract: <contract>
-Budget: <budget>
+**Want:** <description>
+
+**Video Type:** <type>
+
+**Contract:** <contract>
+
+**Budget:** <budget>
 
 DM @user for work with them.
 ```
+
+**Button Behavior:**
+- ✅ Always the last message in the channel
+- ✅ Automatically repositioned after each job post
+- ✅ Recreated if deleted
+- ✅ Only one button exists at a time
 
 ### System Features
 - Rotating status messages showing editing-related activities (changes every 15 seconds)
@@ -237,6 +256,7 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Updated job posting: button always stays at bottom (repositioned after each job), added 👍 and ❌ reactions to job posts
 - **November 29, 2025** - Added complete job posting system: `/jobconfig`, "Post Job" button, modal forms, cooldown tracking, role restrictions, automatic thread creation
 - **November 29, 2025** - Updated sticky messages to use message collection, add replace logic (one per channel), and auto-repost at bottom
 - **November 29, 2025** - Added /unsticky command to remove sticky messages

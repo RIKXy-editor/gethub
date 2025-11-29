@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { getJobConfig, addCooldown } from '../utils/storage.js';
+import { getJobConfig, addCooldown, setJobConfig } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
 export async function handleJobModal(interaction) {
@@ -18,21 +18,51 @@ export async function handleJobModal(interaction) {
   const jobMessage = `**Want:** ${want}\n\n**Video Type:** ${type}\n\n**Contract:** ${contract}\n\n**Budget:** ${budget}\n\nDM ${interaction.user} for work with them.`;
 
   try {
+    // Post the job
     const postedJob = await channel.send(jobMessage);
+
+    // Add reactions to job post
+    try {
+      await postedJob.react('👍');
+      await postedJob.react('❌');
+    } catch (reactionError) {
+      console.error('Error adding reactions:', reactionError);
+    }
 
     // Create thread (optional - if supported by channel)
     try {
       const threadName = `Job: ${want.substring(0, 30)}... - ${interaction.user.username}`;
-      await postedJob.reply({ content: `Thread for discussion` }).then(msg => msg.delete());
       if (postedJob.startThread) {
         await postedJob.startThread({
           name: threadName.substring(0, 100),
           autoArchiveDuration: 10080 // 7 days
-        }).catch(() => null); // Silently fail if thread creation not supported
+        }).catch(() => null);
       }
     } catch (threadError) {
-      console.log('Thread creation skipped (may not be supported in this channel)');
+      console.log('Thread creation skipped');
     }
+
+    // Delete old button message if it exists
+    if (config.buttonMessageId) {
+      try {
+        const oldButton = await channel.messages.fetch(config.buttonMessageId).catch(() => null);
+        if (oldButton) {
+          await oldButton.delete().catch(() => null);
+        }
+      } catch (deleteError) {
+        console.log('Could not delete old button message');
+      }
+    }
+
+    // Post new button message at the bottom
+    const button = new ButtonBuilder()
+      .setCustomId('post_job_button')
+      .setLabel('Post Job')
+      .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(button);
+    const buttonMessage = await channel.send({ components: [row] });
+    setJobConfig(GUILD_ID, { buttonMessageId: buttonMessage.id });
 
     // Add cooldown
     addCooldown(interaction.user.id);
