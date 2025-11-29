@@ -26,7 +26,7 @@ export async function handleJobModal(interaction) {
   const config = getJobConfig(GUILD_ID);
   const channel = await interaction.client.channels.fetch(config.channelId);
 
-  const jobMessage = `Want: ${want}\n\nVideo Type: ${type}\n\nContract: ${contract}\n\nBudget: ${budget}\n\nSamples: ${samples}\n\nDM ${interaction.user} for work with them.`;
+  const jobMessage = `Want: ${want}\n\nVideo Type: ${type}\n\nContract: ${contract}\n\nBudget: ${budget}\n\nSamples: ${samples}\n\nDM ${interaction.user} or reply in the thread below to work with them.`;
 
   try {
     // Post the job

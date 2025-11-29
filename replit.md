@@ -70,7 +70,7 @@ Budget: <budget>
 
 Samples: <links or "Not provided">
 
-DM @user for work with them.
+DM @user or reply in the thread below to work with them.
 ```
 
 **Banner Behavior:**
