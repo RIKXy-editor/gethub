@@ -20,11 +20,19 @@ export async function handleJobModal(interaction) {
   try {
     const postedJob = await channel.send(jobMessage);
 
-    // Create thread
-    const threadName = `Job: ${want.substring(0, 30)}... - ${interaction.user.username}`;
-    await postedJob.thread.create({
-      name: threadName.substring(0, 100)
-    });
+    // Create thread (optional - if supported by channel)
+    try {
+      const threadName = `Job: ${want.substring(0, 30)}... - ${interaction.user.username}`;
+      await postedJob.reply({ content: `Thread for discussion` }).then(msg => msg.delete());
+      if (postedJob.startThread) {
+        await postedJob.startThread({
+          name: threadName.substring(0, 100),
+          autoArchiveDuration: 10080 // 7 days
+        }).catch(() => null); // Silently fail if thread creation not supported
+      }
+    } catch (threadError) {
+      console.log('Thread creation skipped (may not be supported in this channel)');
+    }
 
     // Add cooldown
     addCooldown(interaction.user.id);
@@ -32,13 +40,17 @@ export async function handleJobModal(interaction) {
     // Send confirmation to user
     await interaction.reply({
       content: `✅ Your job has been posted!\n\n[View Job](${postedJob.url})`,
-      ephemeral: true
+      flags: 64 // ephemeral flag
     });
   } catch (error) {
     console.error('Error posting job:', error);
-    await interaction.reply({
-      content: '❌ Failed to post job. Please try again.',
-      ephemeral: true
-    });
+    try {
+      await interaction.reply({
+        content: '❌ Failed to post job. Please try again.',
+        flags: 64 // ephemeral flag
+      });
+    } catch (replyError) {
+      console.error('Could not send error reply:', replyError);
+    }
   }
 }
