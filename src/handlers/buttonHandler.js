@@ -59,14 +59,22 @@ export async function handleJobButton(interaction) {
     .setCustomId('job_budget')
     .setLabel('Budget')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('e.g. $50 / video, 3k INR, Negotiable')
+    .setPlaceholder('e.g. 3000 INR / video, $50 / video, Negotiable')
     .setRequired(true);
+
+  const samplesInput = new TextInputBuilder()
+    .setCustomId('job_samples')
+    .setLabel('Samples (YouTube / Drive links)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder('Example: https://youtube.com/...  https://drive.google.com/...')
+    .setRequired(false);
 
   modal.addComponents(
     new ActionRowBuilder().addComponents(wantInput),
     new ActionRowBuilder().addComponents(typeInput),
     new ActionRowBuilder().addComponents(contractInput),
-    new ActionRowBuilder().addComponents(budgetInput)
+    new ActionRowBuilder().addComponents(budgetInput),
+    new ActionRowBuilder().addComponents(samplesInput)
   );
 
   await interaction.showModal(modal);

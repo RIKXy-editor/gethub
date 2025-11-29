@@ -2,6 +2,16 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getJobConfig, addCooldown, setJobConfig } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
+const BANNER_CONTENT = `**📋 Post Your Job Here**
+
+**Rules for posting jobs:**
+- Be clear about what you want (no vague "need editor" only).
+- Mention video type (YouTube, Reels, Shorts, Ads, etc.).
+- Mention contract type (one-time / monthly / long-term).
+- Mention budget honestly (fixed / range / negotiable).
+- Add sample links (YouTube / Google Drive) so editors can see your style.
+- No fake jobs, no trolling, no spam.`;
+
 export async function handleJobModal(interaction) {
   if (interaction.guildId !== GUILD_ID) return;
 
@@ -11,11 +21,12 @@ export async function handleJobModal(interaction) {
   const type = interaction.fields.getTextInputValue('job_type');
   const contract = interaction.fields.getTextInputValue('job_contract');
   const budget = interaction.fields.getTextInputValue('job_budget');
+  const samples = interaction.fields.getTextInputValue('job_samples') || 'Not provided';
 
   const config = getJobConfig(GUILD_ID);
   const channel = await interaction.client.channels.fetch(config.channelId);
 
-  const jobMessage = `**Want:** ${want}\n\n**Video Type:** ${type}\n\n**Contract:** ${contract}\n\n**Budget:** ${budget}\n\nDM ${interaction.user} for work with them.`;
+  const jobMessage = `Want: ${want}\n\nVideo Type: ${type}\n\nContract: ${contract}\n\nBudget: ${budget}\n\nSamples: ${samples}\n\nDM ${interaction.user} for work with them.`;
 
   try {
     // Post the job
@@ -42,27 +53,30 @@ export async function handleJobModal(interaction) {
       console.log('Thread creation skipped');
     }
 
-    // Delete old button message if it exists
+    // Delete old banner message if it exists
     if (config.buttonMessageId) {
       try {
-        const oldButton = await channel.messages.fetch(config.buttonMessageId).catch(() => null);
-        if (oldButton) {
-          await oldButton.delete().catch(() => null);
+        const oldBanner = await channel.messages.fetch(config.buttonMessageId).catch(() => null);
+        if (oldBanner) {
+          await oldBanner.delete().catch(() => null);
         }
       } catch (deleteError) {
-        console.log('Could not delete old button message');
+        console.log('Could not delete old banner message');
       }
     }
 
-    // Post new button message at the bottom
+    // Post new banner + button message at the bottom
     const button = new ButtonBuilder()
       .setCustomId('post_job_button')
       .setLabel('Post Job')
       .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder().addComponents(button);
-    const buttonMessage = await channel.send({ components: [row] });
-    setJobConfig(GUILD_ID, { buttonMessageId: buttonMessage.id });
+    const bannerMessage = await channel.send({ 
+      content: BANNER_CONTENT,
+      components: [row] 
+    });
+    setJobConfig(GUILD_ID, { buttonMessageId: bannerMessage.id });
 
     // Add cooldown
     addCooldown(interaction.user.id);

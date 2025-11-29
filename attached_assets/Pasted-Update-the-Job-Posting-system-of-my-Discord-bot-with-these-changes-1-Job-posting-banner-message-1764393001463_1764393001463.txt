@@ -1,0 +1,82 @@
+Update the Job Posting system of my Discord bot with these changes:
+
+1) Job posting banner message + button
+- In the job-posting channel, the bot should always keep ONE "banner" message at the bottom.
+- This banner message must include:
+  - A big title text, e.g.: **"Post Your Job Here"**
+  - Some rules/instructions text, for example:
+
+    **Rules for posting jobs:**
+    - Be clear about what you want (no vague "need editor" only).
+    - Mention video type (YouTube, Reels, Shorts, Ads, etc.).
+    - Mention contract type (one-time / monthly / long-term).
+    - Mention budget honestly (fixed / range / negotiable).
+    - Add sample links (YouTube / Google Drive) so editors can see your style.
+    - No fake jobs, no trolling, no spam.
+
+  - Below this text, there should be the **"Post Job"** button (Primary style).
+
+- This banner + button message must:
+  - Always stay at the bottom of the channel.
+  - After every job post, the bot should:
+    - Post the job as a new message.
+    - Then re-send the banner+button message below it, so the banner is again the last message.
+    - Delete the old banner if needed so only ONE banner exists.
+  - If someone deletes the banner manually, the bot should recreate it.
+
+2) Job form (modal) – add "Sample Links" field
+When a user clicks the "Post Job" button, open a modal with:
+
+- Title: "Post a Job"
+
+Fields (all required except samples):
+
+1) Want (required)
+   - Label: "Want"
+   - Style: paragraph
+   - Placeholder: "Example: Need a gaming highlights editor for 5 videos…"
+
+2) Video Type (required)
+   - Label: "Video Type"
+   - Style: short
+   - Placeholder: "YouTube / Reels / Shorts / Ads etc."
+
+3) Contract (required)
+   - Label: "Contract"
+   - Style: short
+   - Placeholder: "One-time / Monthly / Long-term"
+
+4) Budget (required)
+   - Label: "Budget"
+   - Style: short
+   - Placeholder: "e.g. 3000 INR / video, $50 / video, Negotiable"
+
+5) Sample Links (optional but strongly recommended)
+   - Label: "Samples (YouTube / Drive links)"
+   - Style: paragraph
+   - Placeholder: "Example: https://youtube.com/...  https://drive.google.com/..."
+
+3) Job post message format
+After the user submits the modal, the bot posts a NEW message in the same channel with this template:
+
+Want: <Want>
+Video Type: <Video Type>
+Contract: <Contract>
+Budget: <Budget>
+Samples: <Sample Links or "Not provided">
+
+DM <@user_who_submitted> for work with them.
+
+- The bot must mention the user at the end.
+- If the user did not fill "Samples", write something like: "Samples: Not provided".
+
+4) Reactions on job post
+- After posting the job message, the bot should automatically react with:
+  - Green check mark (✔️ or ✅)
+  - Red cross mark (❌)
+
+5) Keep previous behavior (do NOT remove):
+- Per-user cooldown (e.g. 5 minutes) on using the "Post Job" button. If on cooldown, send an ephemeral message.
+- Ephemeral confirmation after a successful post, including a jump link to the job message.
+- Optional role restriction: if a role ID is set, only users with that role can use the button; others get an ephemeral error.
+- Optio

@@ -28,38 +28,56 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 - `cooldown` - Minutes between posts per user (1-60, default 5)
 
 **Flow:**
-1. Bot maintains a "Post Job" button message at the bottom of the job channel
-2. User clicks button → modal form opens with 4 fields
+1. Bot maintains a banner message with rules + "Post Job" button at the bottom
+2. User clicks button → modal form opens with 5 fields
 3. User submits → job posts to channel (new separate message)
-4. Job post gets 👍 and ❌ reactions automatically
+4. Job post gets ✔️ and ❌ reactions automatically
 5. Thread created under job post (if supported)
-6. Button MOVES to bottom (old button deleted, new one posted below the job)
+6. Banner+button MOVES to bottom (old banner deleted, new one posted below the job)
 7. User gets ephemeral confirmation with job link
 
+**Banner Message:**
+```
+📋 Post Your Job Here
+
+Rules for posting jobs:
+- Be clear about what you want (no vague "need editor" only).
+- Mention video type (YouTube, Reels, Shorts, Ads, etc.).
+- Mention contract type (one-time / monthly / long-term).
+- Mention budget honestly (fixed / range / negotiable).
+- Add sample links (YouTube / Google Drive) so editors can see your style.
+- No fake jobs, no trolling, no spam.
+
+[Post Job button]
+```
+
 **Modal Fields:**
-- "Want" (paragraph) - Job description
-- "Video Type" (short) - YouTube/Reels/Shorts/Ads etc
-- "Contract" (short) - One-time/Monthly/Long-term
-- "Budget" (short) - e.g. $50/video, 3k INR, Negotiable
+- "Want" (paragraph, required) - Job description
+- "Video Type" (short, required) - YouTube/Reels/Shorts/Ads etc
+- "Contract" (short, required) - One-time/Monthly/Long-term
+- "Budget" (short, required) - e.g. 3000 INR/video, $50/video, Negotiable
+- "Samples" (paragraph, optional) - YouTube/Google Drive links
 
 **Job Post Template:**
 ```
-**Want:** <description>
+Want: <description>
 
-**Video Type:** <type>
+Video Type: <type>
 
-**Contract:** <contract>
+Contract: <contract>
 
-**Budget:** <budget>
+Budget: <budget>
+
+Samples: <links or "Not provided">
 
 DM @user for work with them.
 ```
 
-**Button Behavior:**
+**Banner Behavior:**
 - ✅ Always the last message in the channel
 - ✅ Automatically repositioned after each job post
 - ✅ Recreated if deleted
-- ✅ Only one button exists at a time
+- ✅ Only one banner exists at a time
 
 ### System Features
 - Rotating status messages showing editing-related activities (changes every 15 seconds)
@@ -256,7 +274,8 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
-- **November 29, 2025** - Updated job posting: button always stays at bottom (repositioned after each job), added 👍 and ❌ reactions to job posts
+- **November 29, 2025** - Enhanced job posting: banner message with rules + button, "Samples" field in modal, improved job format, repositioning banner after each job
+- **November 29, 2025** - Updated job posting: button always stays at bottom (repositioned after each job), added ✔️ and ❌ reactions to job posts
 - **November 29, 2025** - Added complete job posting system: `/jobconfig`, "Post Job" button, modal forms, cooldown tracking, role restrictions, automatic thread creation
 - **November 29, 2025** - Updated sticky messages to use message collection, add replace logic (one per channel), and auto-repost at bottom
 - **November 29, 2025** - Added /unsticky command to remove sticky messages

@@ -44,27 +44,40 @@ async function maintainJobPostingButton(client) {
       const channel = await client.channels.fetch(config.channelId).catch(() => null);
       if (!channel) return;
 
-      // Check if button message exists
+      // Check if banner message exists
       if (config.buttonMessageId) {
         try {
           await channel.messages.fetch(config.buttonMessageId);
           return; // Message exists, no action needed
         } catch (error) {
-          console.log('Job button message was deleted, recreating...');
+          console.log('Job banner message was deleted, recreating...');
         }
       }
 
-      // Create new button message
+      // Create new banner message with button
+      const BANNER_CONTENT = `**📋 Post Your Job Here**
+
+**Rules for posting jobs:**
+- Be clear about what you want (no vague "need editor" only).
+- Mention video type (YouTube, Reels, Shorts, Ads, etc.).
+- Mention contract type (one-time / monthly / long-term).
+- Mention budget honestly (fixed / range / negotiable).
+- Add sample links (YouTube / Google Drive) so editors can see your style.
+- No fake jobs, no trolling, no spam.`;
+
       const button = new ButtonBuilder()
         .setCustomId('post_job_button')
         .setLabel('Post Job')
         .setStyle(ButtonStyle.Primary);
 
       const row = new ActionRowBuilder().addComponents(button);
-      const message = await channel.send({ components: [row] });
+      const message = await channel.send({ 
+        content: BANNER_CONTENT,
+        components: [row] 
+      });
       setJobConfig(GUILD_ID, { buttonMessageId: message.id });
     } catch (error) {
-      console.error('Error maintaining job button:', error);
+      console.error('Error maintaining job banner:', error);
     }
   }, 60000); // Check every minute
 }
