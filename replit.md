@@ -111,6 +111,20 @@ DM @user or reply in the thread below to work with them.
 - Immediately updates the banner in the job channel
 - Survives bot restarts (persistent JSON storage)
 
+**`/setwelcomedm` - Configure Welcome DM Embed**
+- Admin-only command with 5 subcommands for DM embed customization:
+  - `title` - Set DM embed title (supports placeholders)
+  - `description` - Set DM embed description (supports placeholders)
+  - `thumbnail` - Set thumbnail URL (type `none` to remove)
+  - `image` - Set main image URL (type `none` to remove)
+  - `footergif` - Set footer GIF URL (type `none` to remove)
+- Each subcommand uses message collection (120-second timeout)
+- Supports placeholders: `{user}`, `{server}`, `{member_count}`
+- When new members join:
+  1. They receive the channel welcome message
+  2. They also receive a DM with the configured embed (if DMs enabled)
+- If DMs are disabled, logs error but doesn't crash the bot
+
 ### System Features
 - Rotating status messages showing editing-related activities (changes every 15 seconds)
 - **Private bot security** - Only works in the authorized server, blocks all other servers and DMs
@@ -306,6 +320,8 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Added `/setwelcomedm` command with 5 subcommands to configure welcome DM embed (title, description, thumbnail, image, footer GIF)
+- **November 29, 2025** - Implemented auto-DM welcome embed for new members (sends after channel welcome, gracefully handles DMs disabled)
 - **November 29, 2025** - Added `/setwelcome` and `/setjobbanner` commands for customizable text via message collection (admin only)
 - **November 29, 2025** - Added admin bypass for job posting cooldown (admins can post unlimited jobs)
 - **November 29, 2025** - Fixed job banner: added visual separator, ensured standalone message (never a reply), clean visual separation from job posts

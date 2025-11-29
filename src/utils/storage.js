@@ -136,3 +136,54 @@ export function setJobBannerText(guildId, text) {
   texts[guildId].jobBannerText = text;
   saveData('custom-texts', texts);
 }
+
+export function getWelcomeDmConfig(guildId) {
+  const configs = loadData('custom-texts', {});
+  return configs[guildId]?.welcomeDm || {
+    titleTemplate: 'Welcome to {server}!',
+    descriptionTemplate: 'Welcome to our server, {user}! You are member #{member_count}.',
+    thumbnailUrl: null,
+    imageUrl: null,
+    footerGifUrl: null
+  };
+}
+
+export function setWelcomeDmTitle(guildId, title) {
+  const texts = loadData('custom-texts', {});
+  if (!texts[guildId]) texts[guildId] = {};
+  if (!texts[guildId].welcomeDm) texts[guildId].welcomeDm = {};
+  texts[guildId].welcomeDm.titleTemplate = title;
+  saveData('custom-texts', texts);
+}
+
+export function setWelcomeDmDescription(guildId, description) {
+  const texts = loadData('custom-texts', {});
+  if (!texts[guildId]) texts[guildId] = {};
+  if (!texts[guildId].welcomeDm) texts[guildId].welcomeDm = {};
+  texts[guildId].welcomeDm.descriptionTemplate = description;
+  saveData('custom-texts', texts);
+}
+
+export function setWelcomeDmThumbnail(guildId, url) {
+  const texts = loadData('custom-texts', {});
+  if (!texts[guildId]) texts[guildId] = {};
+  if (!texts[guildId].welcomeDm) texts[guildId].welcomeDm = {};
+  texts[guildId].welcomeDm.thumbnailUrl = url || null;
+  saveData('custom-texts', texts);
+}
+
+export function setWelcomeDmImage(guildId, url) {
+  const texts = loadData('custom-texts', {});
+  if (!texts[guildId]) texts[guildId] = {};
+  if (!texts[guildId].welcomeDm) texts[guildId].welcomeDm = {};
+  texts[guildId].welcomeDm.imageUrl = url || null;
+  saveData('custom-texts', texts);
+}
+
+export function setWelcomeDmFooterGif(guildId, url) {
+  const texts = loadData('custom-texts', {});
+  if (!texts[guildId]) texts[guildId] = {};
+  if (!texts[guildId].welcomeDm) texts[guildId].welcomeDm = {};
+  texts[guildId].welcomeDm.footerGifUrl = url || null;
+  saveData('custom-texts', texts);
+}
