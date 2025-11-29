@@ -2,7 +2,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getJobConfig, addCooldown, setJobConfig } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
-const BANNER_CONTENT = `**📋 Post Your Job Here**
+const BANNER_CONTENT = `──────────────────────────────
+📢 Post Your Job Here
 
 **Rules for posting jobs:**
 - Be clear about what you want (no vague "need editor" only).

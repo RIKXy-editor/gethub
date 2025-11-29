@@ -38,7 +38,8 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 
 **Banner Message:**
 ```
-📋 Post Your Job Here
+──────────────────────────────
+📢 Post Your Job Here
 
 Rules for posting jobs:
 - Be clear about what you want (no vague "need editor" only).
@@ -50,6 +51,12 @@ Rules for posting jobs:
 
 [Post Job button]
 ```
+
+**Banner Behavior Details:**
+- Sent as a completely standalone message (never as a reply)
+- Visual separator at top distinguishes it from job posts
+- Always repositioned to the bottom after each job post
+- Deleted and recreated as one cohesive message with button
 
 **Modal Fields:**
 - "Want" (paragraph, required) - Job description
@@ -274,6 +281,7 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Fixed job banner: added visual separator, ensured standalone message (never a reply), clean visual separation from job posts
 - **November 29, 2025** - Enhanced job posting: banner message with rules + button, "Samples" field in modal, improved job format, repositioning banner after each job
 - **November 29, 2025** - Updated job posting: button always stays at bottom (repositioned after each job), added ✔️ and ❌ reactions to job posts
 - **November 29, 2025** - Added complete job posting system: `/jobconfig`, "Post Job" button, modal forms, cooldown tracking, role restrictions, automatic thread creation

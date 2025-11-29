@@ -55,7 +55,8 @@ async function maintainJobPostingButton(client) {
       }
 
       // Create new banner message with button
-      const BANNER_CONTENT = `**📋 Post Your Job Here**
+      const BANNER_CONTENT = `──────────────────────────────
+📢 Post Your Job Here
 
 **Rules for posting jobs:**
 - Be clear about what you want (no vague "need editor" only).
