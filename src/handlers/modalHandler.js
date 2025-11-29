@@ -75,14 +75,14 @@ export async function handleJobModal(interaction) {
     // Send confirmation to user
     await interaction.reply({
       content: `✅ Your job has been posted!\n\n[View Job](${postedJob.url})`,
-      flags: 64 // ephemeral flag
+      ephemeral: true
     });
   } catch (error) {
     console.error('Error posting job:', error);
     try {
       await interaction.reply({
         content: '❌ Failed to post job. Please try again.',
-        flags: 64 // ephemeral flag
+        ephemeral: true
       });
     } catch (replyError) {
       console.error('Could not send error reply:', replyError);
