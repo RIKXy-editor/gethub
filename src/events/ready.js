@@ -1,5 +1,6 @@
-import { ActivityType } from 'discord.js';
-import { getScheduledMessages } from '../utils/storage.js';
+import { ActivityType, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
+import { getScheduledMessages, getJobConfig, setJobConfig } from '../utils/storage.js';
+import { GUILD_ID } from '../utils/constants.js';
 
 const statuses = [
   { name: 'Managing Editors Club', type: ActivityType.Playing },
@@ -31,6 +32,41 @@ export async function execute(client) {
   console.log('Rotating status started!');
 
   startScheduledMessageLoop(client);
+  maintainJobPostingButton(client);
+}
+
+async function maintainJobPostingButton(client) {
+  setInterval(async () => {
+    try {
+      const config = getJobConfig(GUILD_ID);
+      if (!config.channelId) return;
+
+      const channel = await client.channels.fetch(config.channelId).catch(() => null);
+      if (!channel) return;
+
+      // Check if button message exists
+      if (config.buttonMessageId) {
+        try {
+          await channel.messages.fetch(config.buttonMessageId);
+          return; // Message exists, no action needed
+        } catch (error) {
+          console.log('Job button message was deleted, recreating...');
+        }
+      }
+
+      // Create new button message
+      const button = new ButtonBuilder()
+        .setCustomId('post_job_button')
+        .setLabel('Post Job')
+        .setStyle(ButtonStyle.Primary);
+
+      const row = new ActionRowBuilder().addComponents(button);
+      const message = await channel.send({ components: [row] });
+      setJobConfig(GUILD_ID, { buttonMessageId: message.id });
+    } catch (error) {
+      console.error('Error maintaining job button:', error);
+    }
+  }, 60000); // Check every minute
 }
 
 async function startScheduledMessageLoop(client) {

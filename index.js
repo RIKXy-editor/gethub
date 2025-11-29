@@ -1,7 +1,9 @@
-import { Client, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, REST, Routes, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { handleJobButton } from './src/handlers/buttonHandler.js';
+import { handleJobModal } from './src/handlers/modalHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,6 +74,27 @@ async function deployCommands() {
 }
 
 client.on('interactionCreate', async interaction => {
+  // Handle buttons
+  if (interaction.isButton()) {
+    try {
+      await handleJobButton(interaction);
+    } catch (error) {
+      console.error('Error handling button:', error);
+    }
+    return;
+  }
+
+  // Handle modals
+  if (interaction.isModalSubmit()) {
+    try {
+      await handleJobModal(interaction);
+    } catch (error) {
+      console.error('Error handling modal:', error);
+    }
+    return;
+  }
+
+  // Handle commands
   if (!interaction.isChatInputCommand()) return;
 
   if (!interaction.guildId || interaction.guildId !== process.env.DISCORD_GUILD_ID) {

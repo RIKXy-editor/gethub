@@ -77,3 +77,29 @@ export function removeStickyMessage(guildId, channelId) {
   if (sticky[guildId]) delete sticky[guildId][channelId];
   saveData('sticky-messages', sticky);
 }
+
+export function getJobConfig(guildId) {
+  const configs = loadData('job-config', {});
+  return configs[guildId] || { channelId: null, roleId: null, buttonMessageId: null, cooldownMinutes: 5 };
+}
+
+export function setJobConfig(guildId, config) {
+  const configs = loadData('job-config', {});
+  configs[guildId] = { ...configs[guildId], ...config };
+  saveData('job-config', configs);
+}
+
+export function addCooldown(userId) {
+  const cooldowns = loadData('job-cooldowns', {});
+  cooldowns[userId] = Date.now();
+  saveData('job-cooldowns', cooldowns);
+}
+
+export function getCooldownExpiry(userId, cooldownMinutes = 5) {
+  const cooldowns = loadData('job-cooldowns', {});
+  const lastUsed = cooldowns[userId];
+  if (!lastUsed) return 0;
+  const expiryTime = lastUsed + (cooldownMinutes * 60 * 1000);
+  const timeLeft = expiryTime - Date.now();
+  return timeLeft > 0 ? Math.ceil(timeLeft / 1000) : 0;
+}
