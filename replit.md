@@ -15,7 +15,7 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 - `/sticky` - Create/update sticky messages (one per channel, auto-reposts at bottom)
 - `/unsticky` - Remove sticky message from channel
 - `/schedule` - Schedule messages (once, 12h, daily, weekly, monthly) with message collection
-- `/dm` - Send DMs to all members with a specific role (admin only)
+- `/dm` - Send DMs to all members with a specific role (interactive message collection)
 - `/jobconfig` - Configure job posting system (admin only)
 - `/setwelcome` - Set custom welcome text with placeholder support (admin only)
 - `/setjobbanner` - Set custom job banner text (admin only)
@@ -110,6 +110,17 @@ DM @user or reply in the thread below to work with them.
 - Type `cancel` to abort (120-second timeout)
 - Immediately updates the banner in the job channel
 - Survives bot restarts (persistent JSON storage)
+
+**`/dm <role>` - Bulk DM Users with Role (Interactive)**
+- Admin-only command
+- Flow: Run command → bot asks for message → send multi-line message → DMs sent
+- Type `cancel` to abort (120-second timeout)
+- Features:
+  - Multi-line messages preserved exactly as typed
+  - Links, markdown, emojis all preserved
+  - Gracefully skips users with DMs disabled (logs failures)
+  - Shows success/fail count after sending
+  - 1-second delay between DMs to avoid rate limiting
 
 **Auto-DM Welcome Message**
 - When new members join, they receive:
@@ -313,6 +324,7 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Updated `/dm` command to use interactive message collection (like /announce and /schedule)
 - **November 29, 2025** - Updated auto-DM welcome message with exact text, links, and formatting
 - **November 29, 2025** - Simplified DM welcome to send exact message (no embed, plain text with markdown)
 - **November 29, 2025** - Removed `/setwelcomedm` command (auto-DM feature remains fully automatic)
