@@ -1,0 +1,85 @@
+Add admin commands so I can set/edit long text (welcome message + job banner) directly from Discord, using a "wait for next message" flow.
+
+I want this behavior pattern:
+
+- I run a command.
+- The bot asks me for the new text.
+- Then it waits for my next message in the same channel, from the same user.
+- That reply becomes the stored text (multi-line, formatting preserved).
+- If I type "cancel", it aborts.
+- The bot stores the text and later uses it exactly as I typed it.
+
+Implement this pattern for TWO things:
+
+--------------------------------
+1) Welcome embed description text
+--------------------------------
+
+Command example: `/setwelcome` or `!setwelcome`
+
+Flow:
+- Only admins (and server owner) can use this command.
+- When I run the command, the bot sends:
+
+  "Send the new welcome description text now.  
+   It can be multi-line.  
+   Type `cancel` to stop."
+
+- Then it waits for my next message in the same channel, from the same user.
+  - That reply (full message, multi-line) becomes the **welcomeDescription** template.
+  - If I send `cancel` (case-insensitive), it aborts and keeps the old text.
+
+- The welcome embed will then use this stored **welcomeDescription** every time a new member joins.
+- The text must be stored somewhere persistent (JSON file, database, etc.) so it survives bot restarts.
+- All formatting must be preserved exactly: line breaks, channel mentions, links, etc.
+- Still allow these placeholders inside the stored text:
+  - `{user}` -> mention or username of the new member
+  - `{server}` -> server name
+  - `{member_count}` -> member count
+
+The bot should replace these placeholders when sending the welcome embed.
+
+--------------------------------
+2) Job banner text (the message above the "Post Job" button)
+--------------------------------
+
+Command example: `/setjobbanner` or `!setjobbanner`
+
+Flow:
+- Only admins (and server owner) can use this command.
+- When I run the command, the bot sends:
+
+  "Send the new Job Banner text now (the text above the Post Job button).  
+   It can be multi-line.  
+   Type `cancel` to stop."
+
+- Then it waits for my next message in the same channel, from the same user.
+  - That reply becomes the **jobBannerText** used in the job-posting channel above the Post Job button.
+  - If I send `cancel`, abort and keep the old banner text.
+
+- The bot must use **jobBannerText** exactly as typed (multi-line, bold, lists, etc.) when recreating the banner.
+- Store this text persistently so it survives restarts.
+
+--------------------------------
+General rules for both commands
+--------------------------------
+
+- Use a message collector / interaction with a timeout (e.g. 60–120 seconds).  
+  If the user doesn’t respond in time, cancel and send an info message.
+
+- While waiting, only accept messages from:
+  - the same user
+  - in the same channel
+- Ignore all other users/messages.
+
+- After successfully saving the new text:
+  - Send a short confirmation (e.g. "Welcome text updated." / "Job banner text updated.")
+  - For the job banner: immediately update/re-send the banner in the job channel using the new text.
+
+- No cooldown on these commands, but **restricted to admins + server owner** only.
+
+- Do NOT break existing behavior of:
+  - Welcome trigger on member join
+  - Job posting modal + button + reactions + thread, etc.
+
+Implement all this in the same language/framework the bot is already using.

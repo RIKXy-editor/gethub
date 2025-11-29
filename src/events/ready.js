@@ -1,5 +1,5 @@
 import { ActivityType, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
-import { getScheduledMessages, getJobConfig, setJobConfig } from '../utils/storage.js';
+import { getScheduledMessages, getJobConfig, setJobConfig, getJobBannerText } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
 const statuses = [
@@ -55,17 +55,7 @@ async function maintainJobPostingButton(client) {
       }
 
       // Create new banner message with button
-      const BANNER_CONTENT = `──────────────────────────────
-📢 Post Your Job Here
-
-**Rules for posting jobs:**
-- Be clear about what you want (no vague "need editor" only).
-- Mention video type (YouTube, Reels, Shorts, Ads, etc.).
-- Mention contract type (one-time / monthly / long-term).
-- Mention budget honestly (fixed / range / negotiable).
-- Add sample links (YouTube / Google Drive) so editors can see your style.
-- No fake jobs, no trolling, no spam.`;
-
+      const bannerContent = getJobBannerText(GUILD_ID);
       const button = new ButtonBuilder()
         .setCustomId('post_job_button')
         .setLabel('Post Job')
@@ -73,7 +63,7 @@ async function maintainJobPostingButton(client) {
 
       const row = new ActionRowBuilder().addComponents(button);
       const message = await channel.send({ 
-        content: BANNER_CONTENT,
+        content: bannerContent,
         components: [row] 
       });
       setJobConfig(GUILD_ID, { buttonMessageId: message.id });

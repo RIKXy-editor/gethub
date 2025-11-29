@@ -103,3 +103,36 @@ export function getCooldownExpiry(userId, cooldownMinutes = 5) {
   const timeLeft = expiryTime - Date.now();
   return timeLeft > 0 ? Math.ceil(timeLeft / 1000) : 0;
 }
+
+export function getWelcomeText(guildId) {
+  const texts = loadData('custom-texts', {});
+  return texts[guildId]?.welcomeText || 'Welcome to {server}, {user}! You are member #{member_count}.';
+}
+
+export function setWelcomeText(guildId, text) {
+  const texts = loadData('custom-texts', {});
+  if (!texts[guildId]) texts[guildId] = {};
+  texts[guildId].welcomeText = text;
+  saveData('custom-texts', texts);
+}
+
+export function getJobBannerText(guildId) {
+  const texts = loadData('custom-texts', {});
+  return texts[guildId]?.jobBannerText || `──────────────────────────────
+📢 Post Your Job Here
+
+**Rules for posting jobs:**
+- Be clear about what you want (no vague "need editor" only).
+- Mention video type (YouTube, Reels, Shorts, Ads, etc.).
+- Mention contract type (one-time / monthly / long-term).
+- Mention budget honestly (fixed / range / negotiable).
+- Add sample links (YouTube / Google Drive) so editors can see your style.
+- No fake jobs, no trolling, no spam.`;
+}
+
+export function setJobBannerText(guildId, text) {
+  const texts = loadData('custom-texts', {});
+  if (!texts[guildId]) texts[guildId] = {};
+  texts[guildId].jobBannerText = text;
+  saveData('custom-texts', texts);
+}

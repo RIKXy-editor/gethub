@@ -1,17 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { getJobConfig, addCooldown, setJobConfig } from '../utils/storage.js';
+import { getJobConfig, addCooldown, setJobConfig, getJobBannerText } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
-
-const BANNER_CONTENT = `──────────────────────────────
-📢 Post Your Job Here
-
-**Rules for posting jobs:**
-- Be clear about what you want (no vague "need editor" only).
-- Mention video type (YouTube, Reels, Shorts, Ads, etc.).
-- Mention contract type (one-time / monthly / long-term).
-- Mention budget honestly (fixed / range / negotiable).
-- Add sample links (YouTube / Google Drive) so editors can see your style.
-- No fake jobs, no trolling, no spam.`;
 
 export async function handleJobModal(interaction) {
   if (interaction.guildId !== GUILD_ID) return;
@@ -73,8 +62,9 @@ export async function handleJobModal(interaction) {
       .setStyle(ButtonStyle.Primary);
 
     const row = new ActionRowBuilder().addComponents(button);
+    const bannerContent = getJobBannerText(GUILD_ID);
     const bannerMessage = await channel.send({ 
-      content: BANNER_CONTENT,
+      content: bannerContent,
       components: [row] 
     });
     setJobConfig(GUILD_ID, { buttonMessageId: bannerMessage.id });

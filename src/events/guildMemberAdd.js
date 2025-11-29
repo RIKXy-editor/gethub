@@ -1,4 +1,4 @@
-import { getGuildConfig } from '../utils/storage.js';
+import { getGuildConfig, getWelcomeText } from '../utils/storage.js';
 
 export const name = 'guildMemberAdd';
 
@@ -10,7 +10,15 @@ export async function execute(member) {
   try {
     const channel = await member.guild.channels.fetch(config.welcomer.channelId);
     if (channel) {
-      await channel.send(`<@${member.id}> ${config.welcomer.message}`);
+      const welcomeTemplate = getWelcomeText(member.guild.id);
+      
+      // Replace placeholders
+      let welcomeText = welcomeTemplate
+        .replace(/{user}/g, `<@${member.id}>`)
+        .replace(/{server}/g, member.guild.name)
+        .replace(/{member_count}/g, member.guild.memberCount);
+      
+      await channel.send(`<@${member.id}> ${welcomeText}`);
     }
 
     if (config.welcomer.roleId) {

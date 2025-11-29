@@ -17,6 +17,8 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 - `/schedule` - Schedule messages (once, 12h, daily, weekly, monthly) with message collection
 - `/dm` - Send DMs to all members with a specific role (admin only)
 - `/jobconfig` - Configure job posting system (admin only)
+- `/setwelcome` - Set custom welcome text with placeholder support (admin only)
+- `/setjobbanner` - Set custom job banner text (admin only)
 
 ### Job Posting System
 **Setup:**
@@ -89,6 +91,25 @@ DM @user or reply in the thread below to work with them.
 - ✅ Automatically repositioned after each job post
 - ✅ Recreated if deleted
 - ✅ Only one banner exists at a time
+
+### Admin Customization Commands
+
+**`/setwelcome` - Set Welcome Message Text**
+- Admin-only command
+- Flow: Run command → bot asks for text → send multi-line message → text saved
+- Type `cancel` to abort (120-second timeout)
+- Supports placeholders:
+  - `{user}` - member mention
+  - `{server}` - server name
+  - `{member_count}` - total members
+- Survives bot restarts (persistent JSON storage)
+
+**`/setjobbanner` - Set Job Banner Text**
+- Admin-only command
+- Flow: Run command → bot asks for text → send multi-line message → text saved
+- Type `cancel` to abort (120-second timeout)
+- Immediately updates the banner in the job channel
+- Survives bot restarts (persistent JSON storage)
 
 ### System Features
 - Rotating status messages showing editing-related activities (changes every 15 seconds)
@@ -285,6 +306,7 @@ The bot displays different editing-related activities that rotate every 15 secon
 - Scheduled message failures logged without stopping the bot
 
 ## Recent Changes
+- **November 29, 2025** - Added `/setwelcome` and `/setjobbanner` commands for customizable text via message collection (admin only)
 - **November 29, 2025** - Added admin bypass for job posting cooldown (admins can post unlimited jobs)
 - **November 29, 2025** - Fixed job banner: added visual separator, ensured standalone message (never a reply), clean visual separation from job posts
 - **November 29, 2025** - Enhanced job posting: banner message with rules + button, "Samples" field in modal, improved job format, repositioning banner after each job
