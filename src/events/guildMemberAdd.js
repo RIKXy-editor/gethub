@@ -18,6 +18,15 @@ function replacePlaceholders(text, member) {
 }
 
 export async function execute(member) {
+  // Always send DM welcome message (automatic, no setup needed)
+  try {
+    await member.send(WELCOME_DM_MESSAGE);
+    console.log(`Sent welcome DM to ${member.user.tag}`);
+  } catch (dmError) {
+    console.warn(`Could not send welcome DM to ${member.user.tag}: ${dmError.message}`);
+  }
+
+  // Handle channel welcome and role assignment (only if welcomer is configured)
   const config = getGuildConfig(member.guild.id);
   
   if (!config.welcomer || !config.welcomer.enabled) return;
@@ -29,13 +38,6 @@ export async function execute(member) {
       const welcomeTemplate = getWelcomeText(member.guild.id);
       let welcomeText = replacePlaceholders(welcomeTemplate, member);
       await channel.send(`<@${member.id}> ${welcomeText}`);
-    }
-
-    // Send DM welcome message
-    try {
-      await member.send(WELCOME_DM_MESSAGE);
-    } catch (dmError) {
-      console.warn(`Could not send welcome DM to ${member.user.tag}: ${dmError.message}`);
     }
 
     // Assign role if configured
