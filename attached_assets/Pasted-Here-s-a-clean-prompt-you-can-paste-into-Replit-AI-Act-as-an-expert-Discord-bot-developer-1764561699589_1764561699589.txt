@@ -1,0 +1,116 @@
+Here’s a clean prompt you can paste into Replit AI:
+
+---
+
+Act as an expert Discord bot developer.
+
+I already have a working Discord bot project in this Replit. **Do NOT remove, break, or modify any existing features or commands** other than what is strictly necessary to integrate the new ones.
+
+I want you to **add a full giveaway system** similar to the reference screenshot I’ve provided. Build it using the same language and framework my bot is already using (keep the current project structure).
+
+### Core requirements
+
+1. **Slash command to create giveaways**
+
+   * Command: `/gcreate`
+   * Options:
+
+     * `prize` (string) – what the winner gets (e.g. “1 Month of Adobe Creative Cloud”).
+     * `duration` (string like `10m`, `2h`, `1d`, etc.).
+     * `winners` (integer, default 1).
+     * `required_role` (optional role) – only members with this role can enter.
+     * `multiplier_roles` (optional) – roles that give extra entries.
+       Example multipliers like in the reference:
+
+       * `Server Booster` → x2 entries
+       * `Supporter` → x3 entries
+   * Only staff (e.g. users with `MANAGE_GUILD` or a specific “Staff” role) can run this command.
+
+2. **Giveaway message & layout (embed)**
+
+   * Send an embed in the selected channel that looks close to the reference:
+
+     * Title: “Editor’s Club Giveaways” (keep generic so I can change it).
+     * Section “Giveaway Details”:
+
+       * Prize
+       * Winner(s) (initially “TBD”)
+       * Host (the user who ran `/gcreate`)
+       * Ends: show both absolute and relative Discord timestamps (e.g. `<t:...:F>` and `<t:...:R>`).
+     * Section “Multiplier”:
+
+       * List the multiplier roles and their multipliers (e.g. `@Server Booster – x2 entries`, `@Supporter – x3 entries`).
+     * Section “Requirements”:
+
+       * Show any required role (e.g. `Any of the Required Role(s) – @Member`).
+     * A line at the bottom like: “Giveaway has been ended.” once it’s finished.
+   * Below the embed, add a **button** or **reaction** to enter, depending on what fits best with the existing codebase. Prefer buttons if possible.
+
+3. **Live entry count**
+
+   * The giveaway embed must show a **live count of how many people have joined**.
+   * Add a field like `Entries: X` that automatically updates whenever:
+
+     * Someone joins the giveaway.
+     * Someone leaves the server or loses the required role so they are removed from entries.
+   * Make sure it doesn’t spam edits or hit rate limits (e.g. batch updates or debounce them).
+
+4. **Entry logic**
+
+   * When a user clicks the “Enter Giveaway” button (or reacts), check:
+
+     * They meet the required role (if set).
+     * They’re not already entered.
+   * Store each valid participant in a persistent way so giveaways survive bot restarts (e.g. JSON file or simple database, consistent with the existing project).
+   * If multiplier roles are configured, give extra chances to users with those roles when picking winners.
+
+     * Example: normal user = 1 ticket, Server Booster = 2 tickets, Supporter = 3 tickets, etc.
+
+5. **Ending giveaways**
+
+   * Command: `/gend` with an argument like `message_id` or some identifier.
+   * When the giveaway ends (either automatically after duration OR via `/gend`):
+
+     * Randomly select the configured number of winners from valid entries, respecting multipliers.
+     * Edit the original embed:
+
+       * Update the “Winners” field to mention the winner(s).
+       * Mark the giveaway as ended (e.g. change footer or add a line “Giveaway has been ended.” and disable the enter button / remove the reaction).
+     * DM each winner that they won, including the prize name.
+   * If there are no valid entries, show “No valid entries” in the Winners field.
+
+6. **Reroll command**
+
+   * Command: `/greroll` to reroll winners for a finished giveaway.
+   * Uses the same entry list and multipliers.
+   * Only staff can use it.
+
+7. **Listing command (optional but preferred)**
+
+   * Command: `/glist` to show current active giveaways with:
+
+     * Channel
+     * Prize
+     * Time remaining
+   * Keep the output compact.
+
+8. **Persistence & robustness**
+
+   * Persist giveaways and entries so they survive restarts (file or simple DB).
+   * Handle edge cases:
+
+     * If a user leaves the server, remove them from entries.
+     * If a required role is removed from a user, they should no longer count as an entry.
+     * Clean error messages if commands are misused (e.g. wrong ID, no active giveaways).
+
+9. **Code style**
+
+   * Match the existing style and structure of the project.
+   * Put giveaway-related logic in clear, well-named modules/files.
+   * Add comments explaining where to change:
+
+     * Default titles/text
+     * Multiplier roles
+     * Required permissions
+
+Again: **don’t change or break any of my bot’s existing commands or features**. Only add the new giveaway system and any absolutely necessary integrations to make it work.
