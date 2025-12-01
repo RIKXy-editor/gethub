@@ -187,3 +187,77 @@ export function setWelcomeDmFooterGif(guildId, url) {
   texts[guildId].welcomeDm.footerGifUrl = url || null;
   saveData('custom-texts', texts);
 }
+
+// Giveaway storage functions
+export function addGiveaway(guildId, giveawayData) {
+  const giveaways = loadData('giveaways', {});
+  if (!giveaways[guildId]) giveaways[guildId] = {};
+  
+  const id = giveawayData.messageId;
+  giveaways[guildId][id] = giveawayData;
+  saveData('giveaways', giveaways);
+}
+
+export function getGiveaway(guildId, messageId) {
+  const giveaways = loadData('giveaways', {});
+  return giveaways[guildId]?.[messageId] || null;
+}
+
+export function updateGiveaway(guildId, messageId, updates) {
+  const giveaways = loadData('giveaways', {});
+  if (!giveaways[guildId] || !giveaways[guildId][messageId]) return;
+  
+  giveaways[guildId][messageId] = { ...giveaways[guildId][messageId], ...updates };
+  saveData('giveaways', giveaways);
+}
+
+export function removeGiveaway(guildId, messageId) {
+  const giveaways = loadData('giveaways', {});
+  if (giveaways[guildId]) delete giveaways[guildId][messageId];
+  saveData('giveaways', giveaways);
+}
+
+export function getAllGiveaways(guildId) {
+  const giveaways = loadData('giveaways', {});
+  return giveaways[guildId] || {};
+}
+
+export function addEntry(guildId, messageId, userId, userRoles = []) {
+  const entries = loadData('giveaway-entries', {});
+  if (!entries[guildId]) entries[guildId] = {};
+  if (!entries[guildId][messageId]) entries[guildId][messageId] = [];
+  
+  if (!entries[guildId][messageId].find(e => e.userId === userId)) {
+    entries[guildId][messageId].push({ userId, userRoles });
+  }
+  
+  saveData('giveaway-entries', entries);
+}
+
+export function removeEntry(guildId, messageId, userId) {
+  const entries = loadData('giveaway-entries', {});
+  if (entries[guildId]?.[messageId]) {
+    entries[guildId][messageId] = entries[guildId][messageId].filter(e => e.userId !== userId);
+  }
+  saveData('giveaway-entries', entries);
+}
+
+export function getEntries(guildId, messageId) {
+  const entries = loadData('giveaway-entries', {});
+  return entries[guildId]?.[messageId] || [];
+}
+
+export function hasEntry(guildId, messageId, userId) {
+  const entries = getEntries(guildId, messageId);
+  return entries.some(e => e.userId === userId);
+}
+
+export function removeUserFromAllEntries(guildId, userId) {
+  const entries = loadData('giveaway-entries', {});
+  if (entries[guildId]) {
+    for (const messageId in entries[guildId]) {
+      entries[guildId][messageId] = entries[guildId][messageId].filter(e => e.userId !== userId);
+    }
+  }
+  saveData('giveaway-entries', entries);
+}

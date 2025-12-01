@@ -1,9 +1,15 @@
-import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } from 'discord.js';
-import { getJobConfig, getCooldownExpiry } from '../utils/storage.js';
+import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { getJobConfig, getCooldownExpiry, addEntry, hasEntry, getEntries } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
 export async function handleJobButton(interaction) {
   if (interaction.guildId !== GUILD_ID) return;
+
+  // Handle giveaway entry button
+  if (interaction.customId.startsWith('giveaway_enter_')) {
+    await handleGiveawayEntry(interaction);
+    return;
+  }
 
   if (interaction.customId !== 'post_job_button') return;
 
@@ -81,4 +87,79 @@ export async function handleJobButton(interaction) {
   );
 
   await interaction.showModal(modal);
+}
+
+async function handleGiveawayEntry(interaction) {
+  try {
+    const messageId = interaction.customId.split('_')[2];
+    const { getGiveaway } = await import('../utils/storage.js');
+    
+    const giveaway = getGiveaway(interaction.guildId, messageId);
+    
+    if (!giveaway || giveaway.ended) {
+      await interaction.reply({
+        content: '❌ This giveaway is no longer active.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Check required role
+    if (giveaway.requiredRoleId) {
+      if (!interaction.member.roles.cache.has(giveaway.requiredRoleId)) {
+        await interaction.reply({
+          content: `❌ You don't have the required role to enter.`,
+          ephemeral: true
+        });
+        return;
+      }
+    }
+
+    // Check if already entered
+    if (hasEntry(interaction.guildId, messageId, interaction.user.id)) {
+      await interaction.reply({
+        content: '❌ You\'ve already entered this giveaway.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Get user roles for multiplier calculation
+    const userRoles = Array.from(interaction.member.roles.cache.keys());
+
+    // Add entry
+    addEntry(interaction.guildId, messageId, interaction.user.id, userRoles);
+
+    // Update embed entry count
+    try {
+      const message = await interaction.channel.messages.fetch(messageId);
+      const embed = message.embeds[0];
+      
+      if (embed) {
+        const newEmbed = EmbedBuilder.from(embed);
+        const entries = getEntries(interaction.guildId, messageId);
+        
+        newEmbed.spliceFields(
+          newEmbed.data.fields.findIndex(f => f.name === '👥 Entries'),
+          1,
+          { name: '👥 Entries', value: entries.length.toString(), inline: false }
+        );
+        
+        await message.edit({ embeds: [newEmbed] });
+      }
+    } catch (error) {
+      console.log('Could not update entry count:', error.message);
+    }
+
+    await interaction.reply({
+      content: '✅ You\'ve entered the giveaway!',
+      ephemeral: true
+    });
+  } catch (error) {
+    console.error('Error handling giveaway entry:', error);
+    await interaction.reply({
+      content: '❌ Error entering giveaway.',
+      ephemeral: true
+    }).catch(() => {});
+  }
 }

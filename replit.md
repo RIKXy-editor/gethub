@@ -1,10 +1,10 @@
 # Discord Ticket Reminder Bot
 
 ## Overview
-A powerful Discord bot that helps moderators and server administrators manage tickets, announcements, welcome messages, and scheduled communications. The bot uses Discord's slash commands and provides comprehensive server management features.
+A powerful Discord bot that helps moderators and server administrators manage tickets, announcements, welcome messages, scheduled communications, and giveaways. The bot uses Discord's slash commands and provides comprehensive server management features.
 
 **Current Status:** Active and running
-**Last Updated:** November 29, 2025
+**Last Updated:** December 1, 2025
 
 ## Features
 
@@ -19,6 +19,12 @@ A powerful Discord bot that helps moderators and server administrators manage ti
 - `/jobconfig` - Configure job posting system (admin only)
 - `/setwelcome` - Set custom welcome text with placeholder support (admin only)
 - `/setjobbanner` - Set custom job banner text (admin only)
+
+### Giveaway System
+- `/gcreate` - Create a new giveaway (admin only)
+- `/glist` - List all active giveaways
+- `/gend` - End a giveaway and select winners (admin only)
+- `/greroll` - Reroll winners for a finished giveaway (admin only)
 
 ### Job Posting System
 **Setup:**
@@ -72,6 +78,75 @@ Rules for posting jobs:
 - "Samples" (paragraph, optional) - YouTube/Google Drive links
 
 **Job Post Template:**
+```
+
+### Giveaway System
+
+**Create a Giveaway:**
+```
+/gcreate channel:#giveaways prize:"1 Month Adobe Creative Cloud" duration:7d winners:2 multiplier_roles:123456:2,789012:3
+```
+
+**Parameters:**
+- `channel` - Channel to post giveaway embed (required)
+- `prize` - What the winner gets (required)
+- `duration` - How long giveaway lasts: `10m`, `2h`, `1d`, etc. (required)
+- `winners` - Number of winners to select (optional, default 1)
+- `required_role` - Role required to enter (optional)
+- `multiplier_roles` - Role IDs with entry multipliers: `roleId:multiplier,roleId:multiplier` (optional)
+
+**How It Works:**
+
+1. **Giveaway Embed Sent:**
+   - Title: "Editor's Club Giveaways" (customizable)
+   - Shows Prize, Winner(s) (TBD), Host, End time (absolute + relative timestamps)
+   - Shows multiplier roles if configured
+   - Shows required role if set
+   - Live entry count that updates in real-time
+   - "✨ Enter Giveaway" button at bottom
+
+2. **User Enters:**
+   - Clicks button
+   - Bot checks if they meet required role (if set)
+   - Bot checks if already entered (prevents duplicates)
+   - User added to entries with their roles for multiplier calculation
+   - Embed entry count updates automatically
+
+3. **Winners Selected (Automatic or Manual):**
+   - Automatic: When duration expires, bot auto-ends giveaway
+   - Manual: Use `/gend message_id` to end immediately
+   - Winners calculated respecting role multipliers:
+     - Normal user = 1 ticket
+     - Server Booster (if x2) = 2 tickets
+     - Supporter (if x3) = 3 tickets, etc.
+   - Embed updated with winner mentions
+   - Each winner gets a DM: "🎉 You Won! Prize: [prize name]"
+   - Giveaway marked as ended
+
+4. **Reroll Winners:**
+   - Use `/greroll message_id` to pick new winners
+   - Uses same entry list and multipliers
+   - Winners updated in embed and sent new DMs
+
+**Edge Cases Handled:**
+- If user leaves server → removed from entries automatically
+- If user loses required role → removed from entries automatically
+- If no valid entries → Winner field shows "No valid entries"
+- Entries persist across bot restarts (saved in JSON)
+
+**List Active Giveaways:**
+```
+/glist
+```
+Shows all active giveaways with prize, channel, and time remaining.
+
+**Customization:**
+To change default text "Editor's Club Giveaways", edit `src/utils/giveawayManager.js`:
+```javascript
+const GIVEAWAY_TITLE = "Your Custom Title";
+```
+
+**Giveaway Embed:**
 ```
 Want: <description>
 

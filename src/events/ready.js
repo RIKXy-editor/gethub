@@ -1,6 +1,7 @@
 import { ActivityType, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import { getScheduledMessages, getJobConfig, setJobConfig, getJobBannerText } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
+import { startGiveawayAutoEnd } from './giveawayManager.js';
 
 const statuses = [
   { name: 'Managing Editors Club', type: ActivityType.Playing },
@@ -33,6 +34,8 @@ export async function execute(client) {
 
   startScheduledMessageLoop(client);
   maintainJobPostingButton(client);
+  startGiveawayAutoEnd(client);
+  console.log('Giveaway auto-end started!');
 }
 
 async function maintainJobPostingButton(client) {
