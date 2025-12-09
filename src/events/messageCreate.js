@@ -1,17 +1,3 @@
-import { loadData, addStickyMessage } from '../utils/storage.js';
-
-export const name = 'messageCreate';
-
-const TARGET_USER_ID = '1085920853604175962';
-const FUNNY_REPLIES = [
-  "He's probably busy editing something again 😂",
-  "He's definitely lost in the editing timeline 🎬",
-  "Probably rendering a 4K video as we speak 😂",
-  "He's vibing with those Adobe subscriptions 😂",
-  "Cutting clips as we speak! ✂️😂",
-  "He's out there creating masterpieces 🎥😂"
-];
-
 export async function execute(message) {
   // Ignore bot messages to prevent infinite loops
   if (message.author.bot) return;
