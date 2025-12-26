@@ -1,0 +1,119 @@
+Alright, here’s the **clean, scope-locked REMOVAL + ADD prompt**.
+This tells Replit **exactly what to remove**, **what to add**, and **what NOT to touch**. No wiggle room.
+
+---
+
+## ✅ FINAL REPLIT AI PROMPT — REMOVE IMAGE GEN, ADD LIVE MEMBER COUNT
+
+**Copy–paste EVERYTHING below as ONE prompt:**
+
+---
+
+You are working on an **existing Discord bot project** built with **Node.js** and **discord.js v14**.
+
+---
+
+## 🔒 CRITICAL RULES (READ CAREFULLY)
+
+* **REMOVE ONLY the image generation feature (`/generate`, Stable Diffusion, Nano Banana, or any image-related logic)**
+* **DO NOT remove or modify any other existing features**
+* **DO NOT refactor, rename, optimize, or restructure the project**
+* After removal, **ADD the new feature described below**
+* Keep changes **minimal and isolated**
+
+---
+
+## ❌ FEATURE TO REMOVE (ONLY THIS)
+
+* Remove the **image generation feature completely**
+* This includes:
+
+  * `/generate` slash command
+  * Image API calls
+  * Rate limits related to image generation
+  * Image-related environment variables (if unused)
+
+⚠️ Do NOT touch anything else.
+
+---
+
+## ✅ FEATURE TO ADD
+
+Add **ONE new feature only**:
+
+### 🔁 Live Server Member Count in Bot Activity (Status)
+
+---
+
+## 🧠 BOT ACTIVITY BEHAVIOR
+
+The bot’s activity (status) should:
+
+* Display **live server member count**
+* Rotate with **existing activity messages** (if any already exist)
+* Update automatically when:
+
+  * A member joins
+  * A member leaves
+  * Bot restarts
+
+---
+
+## 📊 ACTIVITY FORMAT (EXAMPLES)
+
+Rotate between formats like:
+
+* `👥 15,248 members`
+* `📊 Members: 15.2K`
+* Any **existing activity texts already in the bot**
+
+Do NOT remove existing activity messages — only **add member count into the rotation**.
+
+---
+
+## ⚙️ TECH IMPLEMENTATION RULES
+
+* Use existing activity/status system if present
+* If activity rotation already exists:
+
+  * Append member count as one of the rotation items
+* If not:
+
+  * Create a simple interval-based rotation
+* Update activity without spamming Discord API
+* Use `client.guilds.cache` to get member count
+* Support large servers (use cached count safely)
+
+---
+
+## 🚫 ABSOLUTELY DO NOT
+
+* Remove any other commands
+* Change command behavior
+* Add new slash commands
+* Add image, AI, music, XP, economy features
+* Change bot permissions
+* Break existing activity logic
+
+---
+
+## 🎯 FINAL EXPECTATION
+
+* Image generation feature is **fully removed**
+* All other features remain **100% untouched**
+* Bot activity shows **live server member count**
+* Member count updates correctly and safely
+* Existing activity rotation still works
+
+---
+
+This prompt **forces controlled removal + safe addition**.
+If Replit still messes this up, the fix is manual (and fast).
+
+If you want next, I can:
+
+* add **smart formatting (1.2K / 15.3K)**
+* handle **multi-server bots correctly**
+* or make the activity **role-aware (VIP / Mods)**
+
+Say what’s next.

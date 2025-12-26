@@ -3,7 +3,7 @@ import { getScheduledMessages, getJobConfig, setJobConfig, getJobBannerText } fr
 import { GUILD_ID } from '../utils/constants.js';
 import { startGiveawayAutoEnd } from './giveawayManager.js';
 
-const statuses = [
+const baseStatuses = [
   { name: 'Managing Editors Club', type: ActivityType.Playing },
   { name: 'Editing Videos', type: ActivityType.Playing },
   { name: 'Searching Assets', type: ActivityType.Playing },
@@ -15,8 +15,19 @@ const statuses = [
 ];
 
 let currentStatusIndex = 0;
+let lastMemberCount = 0;
 
 function updateStatus(client) {
+  const guild = client.guilds.cache.get(GUILD_ID);
+  
+  // Create dynamic status with live member count
+  const dynamicStatus = {
+    name: `👥 ${guild?.memberCount || 0} members`,
+    type: ActivityType.Watching
+  };
+  
+  // Alternate between base statuses and member count
+  const statuses = [...baseStatuses, dynamicStatus];
   const status = statuses[currentStatusIndex];
   client.user.setActivity(status.name, { type: status.type });
   currentStatusIndex = (currentStatusIndex + 1) % statuses.length;
