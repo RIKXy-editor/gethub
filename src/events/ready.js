@@ -22,7 +22,7 @@ function updateStatus(client) {
   currentStatusIndex = (currentStatusIndex + 1) % statuses.length;
 }
 
-export const name = 'ready';
+export const name = 'clientReady';
 export const once = true;
 
 export async function execute(client) {
