@@ -1,0 +1,65 @@
+Here’s the **clean, strict, no-BS prompt** you should give to your bot builder.
+This does **exactly** what you asked — nothing extra, nothing missing.
+
+---
+
+### ✅ FINAL BOT PROMPT (TTS ONLY, VC ONLY)
+
+> Add a Text-to-Speech (TTS) system that works **only in voice channels**.
+>
+> The bot must **NOT auto-join** any voice channel.
+>
+> Implement a `/join` slash command:
+>
+> * When a user runs `/join`, the bot must join **the same voice channel as the user**.
+> * If the user is not in a voice channel, the bot must reply with an error message and not join.
+>
+> Implement a `/tts` slash command:
+>
+> * The bot must convert the provided text into speech using a **free, basic TTS engine**.
+> * The bot must play the generated voice **only in the currently connected voice channel**.
+> * If the bot is not connected to a voice channel, it must tell the user to use `/join` first.
+>
+> Apply strict limits:
+>
+> * Maximum 200 characters per TTS request.
+> * Cooldown per user to prevent spam.
+> * Strip @everyone, @here, links, and excessive emojis.
+>
+> The bot must:
+>
+> * Reuse the existing voice connection.
+> * Stay in the voice channel after speaking.
+> * Not leave unless manually disconnected or idle for a long time.
+>
+> Do **NOT** remove, change, or override any existing bot features.
+
+---
+
+## Why this prompt is correct (read this)
+
+* `/join` = **manual control** → no random joins
+* `/tts` works **only after joining** → predictable behavior
+* VC-only → no chat spam, no audio files
+* Limits → prevents abuse
+* Free TTS → realistic expectations
+
+If someone complains “bot didn’t speak”, the reason will be **user error**, not your system.
+
+---
+
+### One last reality check
+
+If your builder:
+
+* ❌ doesn’t allow voice connections
+* ❌ doesn’t allow audio playback
+* ❌ doesn’t allow external libraries
+
+Then **this will not work**, no matter how good the prompt is.
+
+---
+
+Now answer **one thing clearly** so I can guide you properly next:
+Are you deploying this bot on
+**Replit free / Replit paid / VPS**?
