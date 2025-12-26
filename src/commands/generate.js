@@ -71,8 +71,18 @@ export async function execute(interaction) {
         'Authorization': `Bearer ${process.env.STABLE_DIFFUSION_API_KEY}`
       },
       body: JSON.stringify({
-        prompt: finalPrompt,
-        negative_prompt: negativePrompt,
+        text_prompts: [
+          {
+            text: finalPrompt,
+            weight: 1
+          }
+        ],
+        negative_prompts: [
+          {
+            text: negativePrompt,
+            weight: -1
+          }
+        ],
         aspect_ratio: ratio,
         output_format: 'jpeg'
       })
