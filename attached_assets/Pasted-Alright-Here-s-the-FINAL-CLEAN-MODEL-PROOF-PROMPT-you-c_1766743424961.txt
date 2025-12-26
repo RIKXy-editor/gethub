@@ -1,0 +1,153 @@
+Alright. Here’s the **FINAL, CLEAN, MODEL-PROOF PROMPT** you can give to **Replit AI** to add **Stable Diffusion image generation** to your **existing Discord bot**.
+
+No fluff. No scope creep. No breaking your bot.
+
+---
+
+## ✅ FINAL REPLIT AI PROMPT — STABLE DIFFUSION (FREE TIER SAFE)
+
+**Copy-paste EVERYTHING below as ONE prompt:**
+
+---
+
+You are working on an **existing Discord bot project** built with **Node.js** and **discord.js v14**.
+
+---
+
+## 🔒 CRITICAL RULE (NON-NEGOTIABLE)
+
+* **DO NOT modify, remove, rename, refactor, or optimize any existing features, commands, files, or logic**
+* **DO NOT touch pre-applied features**
+* **ONLY ADD** the feature described below
+* Keep all changes **minimal and isolated**
+
+---
+
+## 🎯 FEATURE TO ADD
+
+Add **ONE new feature only**:
+**Image generation using Stable Diffusion API**
+
+No other features.
+
+---
+
+## 🔧 SLASH COMMAND TO ADD
+
+### `/generate`
+
+### Options
+
+* `prompt` (string, required)
+  → User’s image idea
+
+* `style` (string, optional)
+  Examples: `cinematic`, `realistic`, `dark`, `anime`
+
+* `ratio` (string, optional)
+  Allowed values only:
+  `1:1`, `16:9`, `9:16`
+  Default: `1:1`
+
+---
+
+## 🧠 COMMAND FLOW (MUST FOLLOW EXACTLY)
+
+1. When `/generate` is used, immediately reply (defer or editable):
+
+   ```
+   🎨 Generating image, please wait...
+   ```
+
+2. Send a request to the **Stable Diffusion API** using the API key from `.env`
+
+3. Wrap the prompt before sending (MANDATORY):
+
+### Base Prompt (fixed)
+
+```
+high quality, sharp focus, professional lighting, clean composition, detailed, realistic
+```
+
+### User Prompt
+
+```
+{user_input}
+```
+
+### Negative Prompt (fixed)
+
+```
+blurry, low quality, distorted, watermark, text, artifacts, extra limbs
+```
+
+4. Receive the generated image (base64 or URL)
+
+5. Edit the original reply and send:
+
+   * The generated image
+   * The user’s original prompt as text
+
+---
+
+## ⏱ RATE LIMITING (REQUIRED)
+
+* 1 image per user every **120 seconds**
+* If user hits limit, reply:
+
+  ```
+  ⏳ Please wait before generating another image.
+  ```
+
+---
+
+## 🛠 TECH REQUIREMENTS
+
+* Use **existing project setup exactly as-is**
+* discord.js v14
+* Slash commands only
+* Store API key in `.env`:
+
+  ```
+  STABLE_DIFFUSION_API_KEY=your_key_here
+  ```
+* Async / await handling
+* Proper error handling:
+
+  * API failure
+  * Timeout
+  * Invalid response
+* Add comments **ONLY where this feature is implemented**
+
+---
+
+## 🚫 ABSOLUTELY DO NOT
+
+* Change any existing commands
+* Add AI chat
+* Add prompt generators
+* Add auto critique
+* Add music, XP, economy
+* Let users choose models
+* Expose API keys
+* Allow NSFW generation
+
+---
+
+## 🎯 FINAL EXPECTATION
+
+* Existing bot features remain **100% untouched**
+* `/generate` works cleanly
+* Images generate correctly using Stable Diffusion
+* Code is clean, controlled, and production-safe
+
+---
+
+That’s it.
+If Replit still messes this up, the next step is **manual code** (no AI involved), which is honestly more reliable.
+
+If you want next, say ONE thing:
+
+* “Give me **manual Node.js code**”
+* “Add **VIP / premium limits**”
+* “Optimize for **lowest cost usage**”
