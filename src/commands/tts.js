@@ -82,7 +82,7 @@ export async function execute(interaction) {
     
     // Use espeak for TTS (available on Linux)
     try {
-      await execAsync(`espeak-ng "${text}" -w "${audioFile}" --speed=150`);
+      await execAsync(`espeak-ng -s 150 "${text}" -w "${audioFile}"`);
     } catch (error) {
       console.error('TTS generation error:', error);
       return await interaction.editReply({
