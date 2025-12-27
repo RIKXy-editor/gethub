@@ -1,13 +1,11 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior } from '@discordjs/voice';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const userCooldowns = new Map();
 const COOLDOWN_MS = 5000; // 5 seconds cooldown per user
@@ -91,15 +89,15 @@ export async function execute(interaction) {
     }
     
     // Create audio resource and player
-    const resource = createAudioResource(audioFile);
+    const resource = createAudioResource(fs.createReadStream(audioFile));
     const player = createAudioPlayer({
       behaviors: {
         noSubscriber: NoSubscriberBehavior.Play
       }
     });
     
-    connection.subscribe(player);
     player.play(resource);
+    connection.subscribe(player);
     
     // Wait for playback to finish and clean up
     player.once(AudioPlayerStatus.Idle, () => {
