@@ -1,426 +1,137 @@
-# Discord Ticket Reminder Bot
-
-## Overview
-A powerful Discord bot that helps moderators and server administrators manage tickets, announcements, welcome messages, scheduled communications, and giveaways. The bot uses Discord's slash commands and provides comprehensive server management features.
-
-**Current Status:** Active and running
-**Last Updated:** December 1, 2025
-
-## Features
-
-### Core Features
-- `/remind` - Send ticket reminder DMs to users with embedded messages
-- `/announce` - Send announcements with multi-line message collection
-- `/welcomer` - Auto-send welcome messages to new members + optional role assignment
-- `/sticky` - Create/update sticky messages (one per channel, auto-reposts at bottom)
-- `/unsticky` - Remove sticky message from channel
-- `/schedule` - Schedule messages (once, 12h, daily, weekly, monthly) with message collection
-- `/dm` - Send DMs to all members with a specific role (interactive message collection)
-- `/jobconfig` - Configure job posting system (admin only)
-- `/setwelcome` - Set custom welcome text with placeholder support (admin only)
-- `/setjobbanner` - Set custom job banner text (admin only)
-
-### Giveaway System
-- `/gcreate` - Create a new giveaway (admin only)
-- `/glist` - List all active giveaways
-- `/gend` - End a giveaway and select winners (admin only)
-- `/greroll` - Reroll winners for a finished giveaway (admin only)
-
-### Job Posting System
-**Setup:**
-```
-/jobconfig channel:#jobs role:@Poster cooldown:5
-```
-- `channel` - Where job posts appear
-- `role` - (Optional) Restrict posting to users with this role
-- `cooldown` - Minutes between posts per user (1-60, default 5)
-
-**Flow:**
-1. Bot maintains a banner message with rules + "Post Job" button at the bottom
-2. User clicks button → modal form opens with 5 fields
-3. User submits → job posts to channel (new separate message)
-4. Job post gets ✔️ and ❌ reactions automatically
-5. Thread created under job post (if supported)
-6. Banner+button MOVES to bottom (old banner deleted, new one posted below the job)
-7. User gets ephemeral confirmation with job link
-
-**Cooldown:**
-- Regular users: cooldown applies (default 5 min, configurable 1-60 min)
-- **Admins: NO cooldown** (can post unlimited jobs immediately)
-
-**Banner Message:**
-```
-──────────────────────────────
-📢 Post Your Job Here
-
-Rules for posting jobs:
-- Be clear about what you want (no vague "need editor" only).
-- Mention video type (YouTube, Reels, Shorts, Ads, etc.).
-- Mention contract type (one-time / monthly / long-term).
-- Mention budget honestly (fixed / range / negotiable).
-- Add sample links (YouTube / Google Drive) so editors can see your style.
-- No fake jobs, no trolling, no spam.
-
-[Post Job button]
-```
-
-**Banner Behavior Details:**
-- Sent as a completely standalone message (never as a reply)
-- Visual separator at top distinguishes it from job posts
-- Always repositioned to the bottom after each job post
-- Deleted and recreated as one cohesive message with button
-
-**Modal Fields:**
-- "Want" (paragraph, required) - Job description
-- "Video Type" (short, required) - YouTube/Reels/Shorts/Ads etc
-- "Contract" (short, required) - One-time/Monthly/Long-term
-- "Budget" (short, required) - e.g. 3000 INR/video, $50/video, Negotiable
-- "Samples" (paragraph, optional) - YouTube/Google Drive links
-
-**Job Post Template:**
-```
-
-### Giveaway System
-
-**Create a Giveaway:**
-```
-/gcreate channel:#giveaways prize:"1 Month Adobe Creative Cloud" duration:7d winners:2 multiplier_roles:123456:2,789012:3
-```
-
-**Parameters:**
-- `channel` - Channel to post giveaway embed (required)
-- `prize` - What the winner gets (required)
-- `duration` - How long giveaway lasts: `10m`, `2h`, `1d`, etc. (required)
-- `winners` - Number of winners to select (optional, default 1)
-- `required_role` - Role required to enter (optional)
-- `multiplier_roles` - Role IDs with entry multipliers: `roleId:multiplier,roleId:multiplier` (optional)
-
-**How It Works:**
-
-1. **Giveaway Embed Sent:**
-   - Title: "Editor's Club Giveaways" (customizable)
-   - Shows Prize, Winner(s) (TBD), Host, End time (absolute + relative timestamps)
-   - Shows multiplier roles if configured
-   - Shows required role if set
-   - Live entry count that updates in real-time
-   - "✨ Enter Giveaway" button at bottom
-
-2. **User Enters:**
-   - Clicks button
-   - Bot checks if they meet required role (if set)
-   - Bot checks if already entered (prevents duplicates)
-   - User added to entries with their roles for multiplier calculation
-   - Embed entry count updates automatically
-
-3. **Winners Selected (Automatic or Manual):**
-   - Automatic: When duration expires, bot auto-ends giveaway
-   - Manual: Use `/gend message_id` to end immediately
-   - Winners calculated respecting role multipliers:
-     - Normal user = 1 ticket
-     - Server Booster (if x2) = 2 tickets
-     - Supporter (if x3) = 3 tickets, etc.
-   - Embed updated with winner mentions
-   - Each winner gets a DM: "🎉 You Won! Prize: [prize name]"
-   - Giveaway marked as ended
-
-4. **Reroll Winners:**
-   - Use `/greroll message_id` to pick new winners
-   - Uses same entry list and multipliers
-   - Winners updated in embed and sent new DMs
-
-**Edge Cases Handled:**
-- If user leaves server → removed from entries automatically
-- If user loses required role → removed from entries automatically
-- If no valid entries → Winner field shows "No valid entries"
-- Entries persist across bot restarts (saved in JSON)
-
-**List Active Giveaways:**
-```
-/glist
-```
-Shows all active giveaways with prize, channel, and time remaining.
-
-**Customization:**
-To change default text "Editor's Club Giveaways", edit `src/utils/giveawayManager.js`:
-```javascript
-const GIVEAWAY_TITLE = "Your Custom Title";
-```
-
-**Giveaway Embed:**
-```
-Want: <description>
-
-Video Type: <type>
-
-Contract: <contract>
-
-Budget: <budget>
-
-Samples: <links or "Not provided">
-
-DM @user or reply in the thread below to work with them.
-```
-
-**Banner Behavior:**
-- ✅ Always the last message in the channel
-- ✅ Automatically repositioned after each job post
-- ✅ Recreated if deleted
-- ✅ Only one banner exists at a time
-
-### Admin Customization Commands
-
-**`/setwelcome` - Set Welcome Message Text**
-- Admin-only command
-- Flow: Run command → bot asks for text → send multi-line message → text saved
-- Type `cancel` to abort (120-second timeout)
-- Supports placeholders:
-  - `{user}` - member mention
-  - `{server}` - server name
-  - `{member_count}` - total members
-- Survives bot restarts (persistent JSON storage)
-
-**`/setjobbanner` - Set Job Banner Text**
-- Admin-only command
-- Flow: Run command → bot asks for text → send multi-line message → text saved
-- Type `cancel` to abort (120-second timeout)
-- Immediately updates the banner in the job channel
-- Survives bot restarts (persistent JSON storage)
-
-**`/dm <role>` - Bulk DM Users with Role (Interactive)**
-- Admin-only command
-- Flow: Run command → bot asks for message → send multi-line message → DMs sent
-- Type `cancel` to abort (120-second timeout)
-- Features:
-  - Multi-line messages preserved exactly as typed
-  - Links, markdown, emojis all preserved
-  - Gracefully skips users with DMs disabled (logs failures)
-  - Shows success/fail count after sending
-  - 1-second delay between DMs to avoid rate limiting
-
-**Auto-DM Welcome Message**
-- When new members join, they receive:
-  1. A channel welcome message (configured via `/setwelcome`)
-  2. A DM with the welcome message (automatic, no config needed)
-- DM message includes: welcome title, community message, and resource links
-- Gracefully handles disabled DMs (logs warning but doesn't crash)
-
-### System Features
-- Rotating status messages showing editing-related activities (changes every 15 seconds)
-- **Private bot security** - Only works in the authorized server, blocks all other servers and DMs
-- Modular architecture with commands, events, and utilities
-- Persistent data storage using JSON files
-
-## Project Structure
-```
-.
-├── index.js                 # Main bot file with command & event loader
-├── package.json            # Node.js dependencies
-├── .gitignore             # Git ignore patterns
-├── replit.md              # This file
-└── src/
-    ├── commands/          # Slash command modules
-    │   ├── announce.js    # Announcement command (message collection)
-    │   ├── dm.js          # Bulk DM to role command
-    │   ├── remind.js      # Ticket reminder command
-    │   ├── welcomer.js    # Welcomer setup command
-    │   ├── sticky.js      # Sticky message command (message collection)
-    │   ├── unsticky.js    # Remove sticky message command
-    │   └── schedule.js    # Message scheduling command (message collection)
-    ├── events/            # Discord event handlers
-    │   ├── guildMemberAdd.js  # Welcome new members
-    │   ├── messageCreate.js   # Handle sticky messages
-    │   └── ready.js           # Bot startup & status rotation
-    └── utils/             # Utility functions
-        ├── storage.js     # Data persistence (JSON files)
-        └── constants.js   # Shared constants & colors
-└── data/                  # Data storage directory
-    ├── configs.json           # Guild configurations
-    ├── scheduled-messages.json # Scheduled messages
-    └── sticky-messages.json   # Sticky message data
-```
-
-## How to Use
-
-### The /remind Command
-Send ticket reminders to users via DM:
-```
-/remind user:@username ticket:"Ticket #123" message:"Please update your ticket"
-```
-- `user` - Target Discord user
-- `ticket` - Ticket number/description
-- `message` - Optional custom message
-
-### The /announce Command
-Send announcements to a channel with multi-line support:
-```
-/announce channel:#announcements
-```
-**Flow:**
-1. Run the command with just the target channel
-2. Bot asks: "What is the announcement message content? Type 'cancel' to stop."
-3. Type your announcement (can be multi-line, with links, formatting, etc.)
-4. Bot sends it exactly as you wrote it to the target channel
-
-- `channel` - Target channel for the announcement
-- Type 'cancel' to abort
-
-### The /welcomer Command
-Set up automatic welcome messages:
-```
-/welcomer setup channel:#welcome message:"Welcome to the server!" role:@NewMember
-```
-Subcommands:
-- `setup` - Configure welcome message, channel, and optional role assignment
-- `disable` - Turn off welcomer
-
-### The /sticky Command
-Create or update a sticky message that reposts at the bottom when users chat:
-```
-/sticky
-```
-**Flow:**
-1. Run `/sticky` in the target channel
-2. Bot asks: "What is the sticky message content? Type 'cancel' to stop."
-3. Type your sticky message (multi-line, formatting preserved)
-4. Bot posts it and keeps it at the bottom of the channel
-
-**Features:**
-- Only ONE sticky per channel (replaces existing if you run again)
-- Auto-reposts whenever someone sends a message
-- Ignores bot messages (prevents infinite loops)
-- Multi-line and formatting preserved
-
-### The /unsticky Command
-Remove the sticky message from a channel:
-```
-/unsticky
-```
-- Deletes the current sticky message in that channel
-- Can only be run in the channel with an active sticky
-
-### The /schedule Command
-Schedule messages to send automatically with multi-line support:
-
-**Add a scheduled message:**
-```
-/schedule add channel:#announcements time:"09:00" frequency:"daily"
-```
-**Flow:**
-1. Run the command with channel, time, and frequency
-2. Bot asks: "What is the message's content? Type 'cancel' to stop."
-3. Type your message (can be multi-line, with links, formatting, etc.)
-4. Bot schedules it exactly as you wrote it
-
-**Manage scheduled messages:**
-- `/schedule list` - View all scheduled messages
-- `/schedule remove id:12345` - Delete a scheduled message
-
-Parameters:
-- `channel` - Channel to send scheduled message to
-- `time` - Time in HH:MM format (24-hour)
-- `frequency` - Repetition: once, every 12 hours, daily, weekly, monthly
-- Type 'cancel' to abort message entry
-
-### The /dm Command
-Send DMs to all members with a specific role (Admin only):
-```
-/dm role:@RoleName message:"Your message here"
-```
-- `role` - Target role to send DMs to
-- `message` - Message to send (plain text)
-
-Features:
-- Automatically skips bots
-- Rate-limited to avoid crashing with large member counts
-- Skips members with DMs disabled and logs them
-- Shows summary with success/fail counts
-- Admin permission required
-
-## Setup Information
-
-### Required Secrets
-Configure these environment variables:
-- `DISCORD_TOKEN` - Bot token from Discord Developer Portal
-- `DISCORD_CLIENT_ID` - Application client ID
-- `DISCORD_GUILD_ID` - Your Discord server ID
-
-### Bot Permissions Required
-Ensure your bot has these Discord permissions:
-- Send Messages
-- Embed Links
-- Manage Roles (for welcomer role assignment)
-- Manage Messages (for sticky message deletion)
-- Use Slash Commands
-
-### Invite Link
-```
-https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=274877975552&scope=bot%20applications.commands
-```
-Replace `YOUR_CLIENT_ID` with your actual Discord Client ID.
-
-## Technical Details
-
-### Dependencies
-- **discord.js v14.14.1** - Discord API wrapper
-- **Node.js 20** - JavaScript runtime
-
-### Architecture
-- **Modular Design** - Commands and events are separate, importable modules
-- **Event-Driven** - Discord events (ready, guildMemberAdd, messageCreate) trigger appropriate handlers
-- **Persistent Storage** - JSON-based data storage for configurations and scheduled items
-- **Clean Separation** - Commands handle slash interactions, events handle Discord events
-
-### Data Persistence
-- **configs.json** - Guild-specific settings (welcomer config, etc.)
-- **scheduled-messages.json** - All scheduled messages with timing and repetition
-- **sticky-messages.json** - Active sticky messages per channel
-
-### Rotating Status
-The bot displays different editing-related activities that rotate every 15 seconds:
-- Managing Editors Club
-- Editing Videos
-- Searching Assets
-- Rendering Projects
-- Color Grading
-- Audio Mixing
-- Exporting Videos
-- Managing Tickets
-
-### Security Features
-- **Guild Verification** - Commands only work in authorized server
-- **DM Protection** - Commands sent via DM are rejected
-- **Unauthorized Access Logging** - All unauthorized attempts logged
-- **Private Bot** - Only your server can use it
-
-### Error Handling
-- DM failures handled gracefully with error messages
-- All responses are ephemeral (only visible to command user)
-- Missing channels/roles won't crash the bot
-- Scheduled message failures logged without stopping the bot
-
-## Recent Changes
-- **November 29, 2025** - Updated `/dm` command to use interactive message collection (like /announce and /schedule)
-- **November 29, 2025** - Updated auto-DM welcome message with exact text, links, and formatting
-- **November 29, 2025** - Simplified DM welcome to send exact message (no embed, plain text with markdown)
-- **November 29, 2025** - Removed `/setwelcomedm` command (auto-DM feature remains fully automatic)
-- **November 29, 2025** - Added `/setwelcome` and `/setjobbanner` commands for customizable text via message collection (admin only)
-- **November 29, 2025** - Added admin bypass for job posting cooldown (admins can post unlimited jobs)
-- **November 29, 2025** - Fixed job banner: added visual separator, ensured standalone message (never a reply), clean visual separation from job posts
-- **November 29, 2025** - Enhanced job posting: banner message with rules + button, "Samples" field in modal, improved job format, repositioning banner after each job
-- **November 29, 2025** - Updated job posting: button always stays at bottom (repositioned after each job), added ✔️ and ❌ reactions to job posts
-- **November 29, 2025** - Added complete job posting system: `/jobconfig`, "Post Job" button, modal forms, cooldown tracking, role restrictions, automatic thread creation
-- **November 29, 2025** - Updated sticky messages to use message collection, add replace logic (one per channel), and auto-repost at bottom
-- **November 29, 2025** - Added /unsticky command to remove sticky messages
-- **November 29, 2025** - Updated announcement and scheduler to use message collection (multi-line, formatted messages with 120-second timeout)
-- **November 29, 2025** - Added bulk DM feature to send messages to all members with a specific role
-- **November 29, 2025** - Added 5 major features: announcements, welcomer, sticky messages, scheduled messages, and modular architecture
-- **October 30, 2025** - Removed AI assistant feature per user request
-- **October 30, 2025** - Added private bot security with guild verification and DM blocking
-- **October 30, 2025** - Added rotating status feature with editing-related activities
-- **October 30, 2025** - Initial bot creation with `/remind` command
+# Editors Club Discord Bot - Admin Control System
+
+## Project Overview
+
+Private Discord bot for Editors Club server with **complete admin website control**. Website is the single source of truth for all bot configuration.
+
+## Current Status
+
+**Both Workflows Running:**
+- ✅ **Discord Bot** (`npm start`) - 14 commands, 4 events, executor pattern
+- ✅ **Admin Dashboard** (`npm run dashboard`) - Full control panel on port 5000
+
+## Architecture
+
+**Website → Config → Bot**
+
+1. Admin logs into dashboard (password-protected)
+2. Admin toggles features/commands in dark red/black UI
+3. Admin clicks "SAVE"
+4. Changes written to `data/admin-config.json`
+5. Bot reads config and enforces rules immediately
+6. No restart needed
+
+## Bot Features (All Controllable from Website)
+
+### Commands (14 total)
+- `/announce` - Post announcements
+- `/dm` - Send direct messages
+- `/gcreate` - Create giveaways
+- `/gend` - End giveaways
+- `/glist` - List active giveaways
+- `/greroll` - Reroll giveaway winners
+- `/jobconfig` - Configure job posting
+- `/remind` - Send ticket reminders
+- `/schedule` - Schedule messages
+- `/setjobbanner` - Set job banner text
+- `/setwelcome` - Set welcome message
+- `/sticky` - Create sticky message
+- `/unsticky` - Remove sticky message
+- `/welcomer` - Trigger welcome system
+
+### Features (9 total)
+1. **Welcomer** - Welcome new members
+2. **Announcements** - Post announcements to channel
+3. **Tickets** - Ticket reminder system
+4. **Job Posting** - Job listing management
+5. **Giveaways** - Server giveaways
+6. **Scheduled Messages** - Message scheduling
+7. **Sticky Messages** - Pinned messages system
+8. **Leveling** (disabled by default) - Activity tracking
+9. **Moderation** - Admin tools
+
+## Admin Dashboard
+
+**URL:** Your Replit project link (/)
+
+**Login:**
+- Default password: `admin123`
+- Change via env: `DASHBOARD_PASSWORD=your_password`
+
+**Sections:**
+1. **📊 Overview** - Server status, member count, bot status
+2. **🤖 Bot Control** - Master enable/disable, maintenance mode
+3. **🎯 Features** - Toggle and configure all features with parameters
+4. **⚡ Commands** - Enable/disable each command
+
+**Theme:** Dark red (#cc0000) and black (#0a0a0a) - minimalist admin style
+
+## Configuration Structure
+
+**File:** `data/admin-config.json`
+
+Single source of truth containing:
+- Bot enable/disable status
+- Maintenance mode toggle
+- All 9 feature states and parameters
+- All 14 command states
 
 ## User Preferences
-- Uses embedded messages for better visual presentation
-- Commands are ephemeral to keep server channels clean
-- Simple, straightforward interface for ease of use
-- Modular, scalable design for future feature additions
+
+- **Workflow:** Both dashboard + bot running simultaneously
+- **Control Style:** Website-only (no Discord commands for configuration)
+- **Philosophy:** Website decides, bot executes
+
+## Recent Changes
+
+1. **Complete Admin Control System** - Full dashboard for managing all features and commands
+2. **Dark Red/Black UI** - Professional admin theme with #cc0000 red accents
+3. **Bot Executor Pattern** - Bot only runs what config allows
+4. **Single Source of Truth** - All settings in admin-config.json
+5. **Zero-Downtime Updates** - Config changes apply instantly without restart
+
+## Key Files
+
+- `server.js` - Express backend for dashboard
+- `public/admin.html` - Admin control panel UI
+- `data/admin-config.json` - Configuration (single source of truth)
+- `src/utils/botExecutor.js` - Bot config checking functions
+- `src/middleware/commandCheck.js` - Command execution guard
+
+## Security
+
+✅ Password-protected login
+✅ Session tokens (24-hour expiration)
+✅ Admin-only access
+✅ Config stored locally on Replit
+
+## Bot Integration
+
+To make commands respect the config:
+
+```javascript
+import { handleCommandExecution } from '../middleware/commandCheck.js';
+
+export async function execute(interaction) {
+  const check = await handleCommandExecution(interaction, 'command_name');
+  if (!check.allowed) return;
+  
+  // Rest of command logic
+}
+```
+
+## Deployment
+
+Uses Replit's built-in hosting. No external services required.
+
+## Next Steps
+
+1. ✅ Admin dashboard live and ready
+2. ✅ Both workflows running
+3. 📝 Integrate command checks into all 14 commands (optional enhancement)
+4. 🔐 Change default password immediately
+
+## Resources
+
+- See `ADMIN_PANEL.md` for complete dashboard documentation
+- See `DASHBOARD.md` for legacy feature config info (deprecated)
