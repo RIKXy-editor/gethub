@@ -48,8 +48,11 @@ export async function execute(oldMember, newMember) {
       embed.addFields({ name: 'Roles Removed', value: roleNames, inline: false });
     }
 
-    // Add GIF at bottom
-    embed.setImage('https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYXl6dHJhYTBucDlyb3pvZ29hd2hwYmczYTMxZXR4b3JvODd4ZnJmZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BzCLJGxXQbwH09jzq0/giphy.gif');
+    // Add GIF at bottom (different GIF based on action)
+    const gifUrl = removedRoles.size > 0 && addedRoles.size === 0
+      ? 'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZ2o0dncxMGxhOWZ6dDBseHlqZDBxaW1xOTBsOWtleng1aWN3c3l4biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/G1ZPWPIszGDPh2NeG5/giphy.gif'
+      : 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYXl6dHJhYTBucDlyb3pvZ29hd2hwYmczYTMxZXR4b3JvODd4ZnJmZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BzCLJGxXQbwH09jzq0/giphy.gif';
+    embed.setImage(gifUrl);
 
     // Send DM to user
     await newMember.user.send({ embeds: [embed] }).catch(() => {
