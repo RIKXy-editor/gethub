@@ -1,4 +1,5 @@
 import { Client, GatewayIntentBits, Partials, REST, Routes, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
+import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -126,10 +127,24 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+async function startHealthServer() {
+  const app = express();
+  const healthPort = process.env.PORT || 3000;
+  
+  app.get('/', (req, res) => {
+    res.send('Bot is alive');
+  });
+  
+  app.listen(healthPort, '0.0.0.0', () => {
+    console.log(`Health check server running on port ${healthPort}`);
+  });
+}
+
 async function start() {
   await loadCommands();
   await loadEvents();
   await deployCommands();
+  startHealthServer();
   await client.login(process.env.DISCORD_TOKEN);
 }
 
