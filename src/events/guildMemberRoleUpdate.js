@@ -49,7 +49,7 @@ export async function execute(oldMember, newMember) {
     }
 
     // Add GIF at bottom
-    embed.setImage('https://media.tenor.com/images/xxiisoul-thanos/xxiisoul-thanos.gif');
+    embed.setImage('https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYXl6dHJhYTBucDlyb3pvZ29hd2hwYmczYTMxZXR4b3JvODd4ZnJmZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BzCLJGxXQbwH09jzq0/giphy.gif');
 
     // Send DM to user
     await newMember.user.send({ embeds: [embed] }).catch(() => {
