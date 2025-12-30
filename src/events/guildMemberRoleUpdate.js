@@ -49,7 +49,7 @@ export async function execute(oldMember, newMember) {
     }
 
     // Add GIF at bottom
-    embed.setImage('https://tenor.com/view/xxiisoul-thanos-gif-23843096.gif');
+    embed.setImage('https://media.tenor.com/images/xxiisoul-thanos/xxiisoul-thanos.gif');
 
     // Send DM to user
     await newMember.user.send({ embeds: [embed] }).catch(() => {
