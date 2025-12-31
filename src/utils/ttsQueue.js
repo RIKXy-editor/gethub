@@ -1,5 +1,5 @@
 import { VoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus } from '@discordjs/voice';
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -53,22 +53,41 @@ class TTSQueue {
     return { valid: true };
   }
 
-  // Convert text to speech using Edge TTS
+  // Convert text to speech using Python edge-tts CLI
   async textToSpeech(text, userId) {
     return new Promise((resolve, reject) => {
-      const filename = `tts_${userId}_${Date.now()}.mp3`;
-      const filepath = path.join(tempDir, filename);
+      try {
+        const filename = `tts_${userId}_${Date.now()}.mp3`;
+        const filepath = path.join(tempDir, filename);
 
-      // Use edge-tts through Node's exec
-      const command = `edge-tts --text "${text.replace(/"/g, '\\"')}" --write-media "${filepath}"`;
+        // Call Python edge-tts CLI
+        const process = spawn('python3', [
+          '-m', 'edge_tts',
+          '--text', text,
+          '--voice', 'en-US-AriaNeural',
+          '--write-media', filepath
+        ]);
 
-      exec(command, (error) => {
-        if (error) {
-          reject(new Error(`TTS generation failed: ${error.message}`));
-        } else {
-          resolve(filepath);
-        }
-      });
+        let stderr = '';
+
+        process.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        process.on('close', (code) => {
+          if (code === 0 && fs.existsSync(filepath)) {
+            resolve(filepath);
+          } else {
+            reject(new Error(`TTS generation failed: ${stderr || 'Unknown error'}`));
+          }
+        });
+
+        process.on('error', (error) => {
+          reject(new Error(`TTS process error: ${error.message}`));
+        });
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
