@@ -19,10 +19,13 @@ const EDITING_JOKES = [
   "The only thing scarcer than a client who knows what they want is an editor who met a deadline."
 ];
 
-// Array of GIF URLs - Replace with your own GIFs
-const FUN_GIFS = [
-  "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYXl6dHJhYTBucDlyb3pvZ29hd2hwYmczYTMxZXR4b3JvODd4ZnJmZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BzCLJGxXQbwH09jzq0/giphy.gif",
-  "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZ2o0dncxMGxhOWZ6dDBseHlqZDBxaW1xOTBsOWtleng1aWN3c3l4biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/G1ZPWPIszGDPh2NeG5/giphy.gif"
+const GIPHY_KEYWORDS = [
+  'video editing',
+  'after effects',
+  'timeline',
+  'rendering',
+  'editor life',
+  'client revisions'
 ];
 
 const EMBED_TITLES = [
@@ -39,21 +42,53 @@ export const data = new SlashCommandBuilder()
   .setName('fun')
   .setDescription('Get a random editing-related joke with a fun GIF!');
 
+async function fetchRandomGif() {
+  try {
+    const apiKey = process.env.GIPHY_API_KEY;
+    if (!apiKey) {
+      console.warn('GIPHY_API_KEY not set, skipping GIF fetch');
+      return null;
+    }
+
+    const keyword = GIPHY_KEYWORDS[Math.floor(Math.random() * GIPHY_KEYWORDS.length)];
+    const response = await fetch(
+      `https://api.giphy.com/v1/gifs/random?api_key=${apiKey}&tag=${keyword}&rating=g`
+    );
+
+    if (!response.ok) {
+      console.warn(`Giphy API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.data?.images?.original?.url || null;
+  } catch (error) {
+    console.error('Error fetching GIF from Giphy:', error);
+    return null;
+  }
+}
+
 export async function execute(interaction) {
   try {
-    // Select random joke and GIF
+    // Select random joke
     const randomJoke = EDITING_JOKES[Math.floor(Math.random() * EDITING_JOKES.length)];
-    const randomGif = FUN_GIFS[Math.floor(Math.random() * FUN_GIFS.length)];
     const randomTitle = EMBED_TITLES[Math.floor(Math.random() * EMBED_TITLES.length)];
     const randomColor = EMBED_COLORS[Math.floor(Math.random() * EMBED_COLORS.length)];
+
+    // Fetch random GIF from Giphy (gracefully handles failures)
+    const gifUrl = await fetchRandomGif();
 
     // Create embed
     const embed = new EmbedBuilder()
       .setTitle(randomTitle)
       .setDescription(randomJoke)
-      .setImage(randomGif)
       .setColor(randomColor)
       .setFooter({ text: '😄 Keep creating! Your future self will thank you.' });
+
+    // Add image only if GIF was successfully fetched
+    if (gifUrl) {
+      embed.setImage(gifUrl);
+    }
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
