@@ -1,0 +1,180 @@
+Good. That’s finally a **clear requirement**. Now listen carefully, because this is where most people screw it up.
+
+You want a **REAL TTS bot**, not a toy.
+
+> **Behavior you want (corrected):**
+> When a user is **in a voice channel** and **types a normal message in a specific text channel**, the bot **automatically speaks that message in the VC**.
+
+No slash commands. No manual trigger. **Auto-speak.**
+
+That’s doable — but only if you do it properly.
+
+---
+
+## Reality check (don’t ignore this)
+
+* This **can get annoying FAST** if you don’t add rules.
+* Without filters, cooldowns, and limits → your VC will become cancer.
+* So we’ll design it **clean + controlled**.
+
+---
+
+## Core concept (simple logic)
+
+### Trigger
+
+* User sends a message in a **specific text channel** (example: `#vc-tts`)
+* User **must be in a voice channel**
+
+### Action
+
+* Bot joins the user’s VC
+* Converts message text → speech
+* Plays audio
+* Stays connected (or leaves after idle)
+
+---
+
+## Platform & stack (no overengineering)
+
+* Platform: **Discord**
+* Language: **Node.js**
+* Library: `discord.js v14`
+* Voice: `@discordjs/voice`
+* TTS engine: **Edge TTS (FREE & good quality)**
+
+If you try Python now, you’ll struggle more. Node.js is smoother for voice.
+
+---
+
+## Message flow (exact)
+
+1. `messageCreate` event fires
+2. Check ALL of these:
+
+   * ❌ Message from bot → ignore
+   * ❌ Message not in `#vc-tts` → ignore
+   * ❌ User not in VC → ignore
+   * ❌ Message too long → ignore
+3. Convert text → audio
+4. Play audio in the VC
+
+That’s it. No magic.
+
+---
+
+## HARD RULES (non-negotiable)
+
+If you skip these, your bot is trash.
+
+### 1️⃣ Channel lock
+
+Only read messages from **ONE text channel**
+
+```
+#vc-tts
+```
+
+### 2️⃣ Character limit
+
+```
+Max 150–200 characters
+```
+
+### 3️⃣ Cooldown
+
+```
+Per user: 10–15 seconds
+```
+
+### 4️⃣ Mention filter
+
+Block:
+
+```
+@everyone
+@here
+<@user>
+```
+
+### 5️⃣ Queue system
+
+If 2 people type together:
+
+* Messages go in a queue
+* Bot speaks one by one
+
+No queue = audio overlap = disaster.
+
+---
+
+## Voice behavior (important)
+
+* Bot joins **only once**
+* Reuses the connection
+* Leaves after **60–90 seconds idle**
+
+If you join/leave every message → lag + rate limits.
+
+---
+
+## TTS Engine choice (final verdict)
+
+### ❌ Discord TTS
+
+* Robotic
+* Trash
+
+### ✅ Edge TTS (recommended)
+
+* Free
+* Natural voices
+* No credit card
+* Stable
+
+Later you can upgrade to ElevenLabs if you want premium voices.
+
+---
+
+## Example real usage (what users will do)
+
+**User is in VC “General”**
+**Types in `#vc-tts`:**
+
+```
+bro start the stream in 5 minutes
+```
+
+**Bot speaks in VC:**
+
+> “Bro, start the stream in five minutes.”
+
+That’s a **proper TTS bot**.
+
+---
+
+## Brutal warning (read this twice)
+
+If you let the bot:
+
+* read every channel ❌
+* read long paragraphs ❌
+* read spam ❌
+
+People will mute or kick it within a day.
+
+---
+
+## Next step (answer clearly)
+
+Reply with **ONE word only**:
+
+**`Node`** or **`Python`**
+
+After that, I’ll give you:
+
+* Exact event logic
+* Folder structure
+* Ready-to-use code (clean, not bloated)
+
+No fluff. No guessing.
