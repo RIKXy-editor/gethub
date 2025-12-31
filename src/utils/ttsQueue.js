@@ -69,23 +69,37 @@ class TTSQueue {
         ]);
 
         let stderr = '';
+        let stdout = '';
 
         process.stderr.on('data', (data) => {
           stderr += data.toString();
         });
 
+        process.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+
         process.on('close', (code) => {
+          console.log(`[TTS] Process closed with code ${code}, file exists: ${fs.existsSync(filepath)}, stderr: ${stderr}, stdout: ${stdout}`);
           if (code === 0 && fs.existsSync(filepath)) {
             resolve(filepath);
           } else {
-            reject(new Error(`TTS generation failed: ${stderr || 'Unknown error'}`));
+            reject(new Error(`TTS generation failed (code ${code}): ${stderr || stdout || 'Unknown error'}`));
           }
         });
 
         process.on('error', (error) => {
+          console.error(`[TTS] Process error:`, error);
           reject(new Error(`TTS process error: ${error.message}`));
         });
+
+        setTimeout(() => {
+          if (!fs.existsSync(filepath)) {
+            console.log(`[TTS] Timeout - file not created after 15 seconds`);
+          }
+        }, 15000);
       } catch (error) {
+        console.error(`[TTS] Catch error:`, error);
         reject(error);
       }
     });
@@ -123,21 +137,35 @@ class TTSQueue {
     }
 
     try {
+      console.log(`[TTS] Starting TTS generation for: "${message.text}"`);
       const audioFile = await this.textToSpeech(message.text, message.userId);
+      console.log(`[TTS] Audio file generated: ${audioFile}, exists: ${fs.existsSync(audioFile)}`);
+      
+      if (!fs.existsSync(audioFile)) {
+        throw new Error(`Audio file not found: ${audioFile}`);
+      }
+
       const resource = createAudioResource(audioFile);
       const player = this.getOrCreatePlayer(guildId, connection);
 
+      console.log(`[TTS] Playing audio resource`);
       player.play(resource);
 
       // Wait for audio to finish
       await new Promise((resolve) => {
         const onFinish = () => {
           player.off(AudioPlayerStatus.Idle, onFinish);
+          console.log(`[TTS] Audio finished playing`);
           // Clean up temp file
           fs.unlink(audioFile, () => {});
           resolve();
         };
         player.once(AudioPlayerStatus.Idle, onFinish);
+
+        // Fallback timeout
+        setTimeout(() => {
+          onFinish();
+        }, 30000);
       });
 
       // Move to next message
@@ -148,7 +176,7 @@ class TTSQueue {
         this.processQueue(guildId);
       }
     } catch (error) {
-      console.error(`Error processing TTS for guild ${guildId}:`, error);
+      console.error(`[TTS] Error processing TTS for guild ${guildId}:`, error);
       queue.shift();
       if (queue.length > 0) {
         this.processQueue(guildId);
