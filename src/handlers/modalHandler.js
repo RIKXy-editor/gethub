@@ -11,8 +11,7 @@ export async function handleJobModal(interaction) {
   const type = interaction.fields.getTextInputValue('job_type');
   const contract = interaction.fields.getTextInputValue('job_contract');
   const budget = interaction.fields.getTextInputValue('job_budget');
-  // const samples = interaction.fields.getTextInputValue('job_samples') || 'Not provided';
-  const samples = 'Not provided'; // Samples field removed from modal to make room for warning
+  const samples = interaction.fields.getTextInputValue('job_samples') || 'Not provided';
 
   const config = getJobConfig(GUILD_ID);
   const targetChannelId = config.channelId || process.env.JOB_CHANNEL_ID || interaction.channelId;
@@ -93,7 +92,7 @@ export async function handleJobModal(interaction) {
       const dmEmbed = new EmbedBuilder()
         .setColor('#00ff00')
         .setTitle('✅ Job Posted Successfully!')
-        .setDescription(`Your job listing has been posted in the server.`)
+        .setDescription(`Your job listing has been posted in the server.\n\n⚠️ **WARNING:** We do not allow agencies to post jobs, any hiring jobs, or free jobs. Violating this rule may result in a ban.`)
         .addFields(
           { name: '📋 Job Details', value: want.substring(0, 1024) },
           { name: '🔗 Link to Post', value: `[Click here to view your post](${postedJob.url})` }
