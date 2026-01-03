@@ -92,7 +92,7 @@ export async function handleJobModal(interaction) {
       const dmEmbed = new EmbedBuilder()
         .setColor('#00ff00')
         .setTitle('✅ Job Posted Successfully!')
-        .setDescription(`Your job listing has been posted in the server.\n\n⚠️ **WARNING:** We do not allow agencies to post jobs, any hiring jobs, or free jobs. Violating this rule may result in a ban.`)
+        .setDescription(`Your job listing has been posted in the server.\n\n⚠️ **WARNING:** We do not allow agencies to post jobs or free jobs. Violating this rule may result in a ban.`)
         .addFields(
           { name: '📋 Job Details', value: want.substring(0, 1024) },
           { name: '🔗 Link to Post', value: `[Click here to view your post](${postedJob.url})` }
