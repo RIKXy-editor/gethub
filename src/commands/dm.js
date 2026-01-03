@@ -76,19 +76,21 @@ export async function execute(interaction) {
     let failCount = 0;
     const failed = [];
 
-    // Process in batches to avoid rate limiting
+    // Process in slow batches to avoid Discord anti-spam ban
     for (const member of targetMembers.values()) {
       try {
         await member.user.send(messageContent);
         successCount++;
+        console.log(`[DM Success] Sent to ${member.user.tag} (${successCount}/${targetMembers.size})`);
       } catch (error) {
         failCount++;
         failed.push(`${member.user.tag}: ${error.message}`);
         console.log(`[DM Failed] ${member.user.tag} - ${error.message}`);
       }
 
-      // Rate limit: 1 second between each DM
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // SAFEST DELAY: 5-8 seconds randomized per user
+      const safetyDelay = Math.floor(Math.random() * (8000 - 5000 + 1) + 5000);
+      await new Promise(resolve => setTimeout(resolve, safetyDelay));
     }
 
     const summary = `✅ Sent to ${successCount}/${targetMembers.size} members with role ${targetRole}`;
