@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { getJobConfig, addCooldown, setJobConfig, getJobBannerText } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
@@ -11,7 +11,8 @@ export async function handleJobModal(interaction) {
   const type = interaction.fields.getTextInputValue('job_type');
   const contract = interaction.fields.getTextInputValue('job_contract');
   const budget = interaction.fields.getTextInputValue('job_budget');
-  const samples = interaction.fields.getTextInputValue('job_samples') || 'Not provided';
+  // const samples = interaction.fields.getTextInputValue('job_samples') || 'Not provided';
+  const samples = 'Not provided'; // Samples field removed from modal to make room for warning
 
   const config = getJobConfig(GUILD_ID);
   const targetChannelId = config.channelId || process.env.JOB_CHANNEL_ID || interaction.channelId;
@@ -86,6 +87,23 @@ export async function handleJobModal(interaction) {
       content: `✅ Your job has been posted!\n\n[View Job](${postedJob.url})`,
       ephemeral: true
     });
+
+    // Send success DM with embed
+    try {
+      const dmEmbed = new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle('✅ Job Posted Successfully!')
+        .setDescription(`Your job listing has been posted in the server.`)
+        .addFields(
+          { name: '📋 Job Details', value: want.substring(0, 1024) },
+          { name: '🔗 Link to Post', value: `[Click here to view your post](${postedJob.url})` }
+        )
+        .setTimestamp();
+
+      await interaction.user.send({ embeds: [dmEmbed] });
+    } catch (dmError) {
+      console.log(`Could not send DM to ${interaction.user.tag}: ${dmError.message}`);
+    }
   } catch (error) {
     console.error('Error posting job:', error);
     try {

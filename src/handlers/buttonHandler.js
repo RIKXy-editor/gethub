@@ -43,6 +43,13 @@ export async function handleJobButton(interaction) {
     .setCustomId('job_posting_modal')
     .setTitle('Post a Job');
 
+  const warningInput = new TextInputBuilder()
+    .setCustomId('job_warning')
+    .setLabel('⚠️ READ CAREFULLY ⚠️')
+    .setStyle(TextInputStyle.Short)
+    .setValue('NO AGENCIES | NO HIRING | NO FREE JOBS')
+    .setRequired(false);
+
   const wantInput = new TextInputBuilder()
     .setCustomId('job_want')
     .setLabel('Want')
@@ -79,11 +86,12 @@ export async function handleJobButton(interaction) {
     .setRequired(false);
 
   modal.addComponents(
+    new ActionRowBuilder().addComponents(warningInput),
     new ActionRowBuilder().addComponents(wantInput),
     new ActionRowBuilder().addComponents(typeInput),
     new ActionRowBuilder().addComponents(contractInput),
-    new ActionRowBuilder().addComponents(budgetInput),
-    new ActionRowBuilder().addComponents(samplesInput)
+    new ActionRowBuilder().addComponents(budgetInput)
+    // Note: Max 5 components per modal, removing samples to make room for warning
   );
 
   await interaction.showModal(modal);
