@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDatabase } from './src/utils/database.js';
+import { checkReminders } from './src/utils/reminders.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,6 +56,14 @@ client.on('interactionCreate', async interaction => {
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
+  
+  // Initial check on startup
+  checkReminders(client);
+  
+  // Run every 12 hours (12 * 60 * 60 * 1000 ms)
+  setInterval(() => {
+    checkReminders(client);
+  }, 12 * 60 * 60 * 1000);
 });
 
 const app = express();
