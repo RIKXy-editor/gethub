@@ -3,6 +3,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { initDatabase } from './src/utils/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +64,7 @@ app.listen(process.env.PORT || 3000);
 async function start() {
   await loadCommands();
   await deployCommands();
+  initDatabase();
   client.login(process.env.DISCORD_TOKEN);
 }
 
