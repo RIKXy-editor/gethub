@@ -1,8 +1,17 @@
-import { getGuildConfig, getWelcomeText } from '../utils/storage.js';
+import { EmbedBuilder } from 'discord.js';
 
 export const name = 'guildMemberAdd';
+export const once = false;
 
-const WELCOME_DM_MESSAGE = `**Welcome to Editor's Club :wave:**
+export async function execute(member) {
+  // ================= CONFIGURATION =================
+  const WELCOME_CHANNEL_ID = '1322234972559016016'; // <--- WELCOME CHANNEL ID
+  const RESOURCE_CHANNEL_ID = '1231862597720375357'; // <--- RESOURCE CHANNEL ID
+  const BANNER_IMAGE_URL = 'https://media.discordapp.net/attachments/1322234972559016016/1325792437653241856/Untitled_design_6.png?ex=677ce098&is=677b8f18&hm=46892557343e5c9b1e311229a13944124c&'; // <--- BANNER IMAGE URL
+  // =================================================
+
+  // DM Welcome Message (Keeping as it was)
+  const WELCOME_DM_MESSAGE = `**Welcome to Editor's Club :wave:**
 
 You're now part of the community.
 
@@ -10,44 +19,33 @@ You're now part of the community.
 
 • Download assets, tools, and resources - https://discord.com/channels/1153309880644554804/1398375540158628031`;
 
-function replacePlaceholders(text, member) {
-  return text
-    .replace(/{user}/g, `<@${member.id}>`)
-    .replace(/{server}/g, member.guild.name)
-    .replace(/{member_count}/g, member.guild.memberCount);
-}
-
-export async function execute(member) {
-  // Always send DM welcome message (automatic, no setup needed)
   try {
     await member.send(WELCOME_DM_MESSAGE);
-    console.log(`Sent welcome DM to ${member.user.tag}`);
-  } catch (dmError) {
-    console.warn(`Could not send welcome DM to ${member.user.tag}: ${dmError.message}`);
+  } catch (err) {
+    console.warn(`Could not DM ${member.user.tag}`);
   }
 
-  // Handle channel welcome and role assignment (only if welcomer is configured)
-  const config = getGuildConfig(member.guild.id);
-  
-  if (!config.welcomer || !config.welcomer.enabled) return;
+  // Channel Welcome Embed
+  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+  if (!channel) return;
+
+  const joinPosition = member.guild.memberCount;
+
+  const welcomeEmbed = new EmbedBuilder()
+    .setColor('#FF0000') // Red theme
+    .setTitle(`Hey ${member.user.username}, Welcome to Editors Club !!`)
+    .setDescription(`Welcome to the server, ${member}! We're glad to have you here.\n\nMake sure to check out <#${RESOURCE_CHANNEL_ID}> for all the editing resources you need!\n\nYou are **#${joinPosition}** to join us!`)
+    .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
+    .setImage(BANNER_IMAGE_URL)
+    .setTimestamp()
+    .setFooter({ text: 'Editors Club • Professional Editing Community', iconURL: member.guild.iconURL() });
 
   try {
-    // Send channel welcome message
-    const channel = await member.guild.channels.fetch(config.welcomer.channelId);
-    if (channel) {
-      const welcomeTemplate = getWelcomeText(member.guild.id);
-      let welcomeText = replacePlaceholders(welcomeTemplate, member);
-      await channel.send(`<@${member.id}> ${welcomeText}`);
-    }
-
-    // Assign role if configured
-    if (config.welcomer.roleId) {
-      const role = await member.guild.roles.fetch(config.welcomer.roleId);
-      if (role) {
-        await member.roles.add(role);
-      }
-    }
+    await channel.send({
+      content: `Welcome ${member}! 🚀`,
+      embeds: [welcomeEmbed]
+    });
   } catch (error) {
-    console.error('Error in welcomer:', error);
+    console.error('Error sending welcome message:', error);
   }
 }
