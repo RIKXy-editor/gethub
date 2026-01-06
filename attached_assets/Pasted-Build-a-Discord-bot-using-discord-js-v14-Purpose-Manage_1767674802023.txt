@@ -1,0 +1,84 @@
+Build a Discord bot using discord.js v14.
+
+Purpose:
+Manage Adobe subscriptions and send DM reminders before they end.
+
+Use SQLite for storage.
+
+--------------------------------
+DATA TO STORE
+--------------------------------
+For each user save:
+- user_id
+- plan (1 month / 3 month / 6 month / 1 year)
+- start_date (UTC)
+- end_date (UTC)
+- next_reminder_date (UTC)
+- active (true/false)
+
+--------------------------------
+SLASH COMMAND: /subadd
+(Admin only)
+
+Options:
+- user (required)
+- plan (required)
+- start_date (optional, format: YYYY-MM-DD HH:MM UTC)
+
+Rules:
+- If start_date is empty, use current UTC time
+- Calculate end_date based on plan:
+  1 month = 30 days
+  3 month = 90 days
+  6 month = 180 days
+  1 year = 365 days
+- Set next_reminder_date = end_date minus 4 days
+- Save or update user in database
+
+Actions:
+- Send embed confirmation in server
+- Send embed DM to user showing plan and exact end date + time
+
+--------------------------------
+AUTO REMINDER SYSTEM
+--------------------------------
+Run every 1 hour.
+
+For each active subscription:
+- If now >= next_reminder_date AND now < end_date:
+    - Calculate days left
+    - DM user with embed:
+      "Your Adobe subscription ends in X days"
+    - Include exact UTC date & time
+    - Include renew link:
+      https://discord.com/channels/1153309880644554804/1415963231108861952
+    - Set next_reminder_date += 4 days
+
+--------------------------------
+SUBSCRIPTION ENDED
+--------------------------------
+If now >= end_date and active = true:
+- Mark active = false
+- Send DM:
+  "Your Adobe subscription has ended. Please resubscribe."
+
+--------------------------------
+SLASH COMMAND: /sublist
+(Admin only)
+
+Show:
+- User
+- Plan
+- Days left
+- End date (UTC)
+
+--------------------------------
+IMPORTANT
+--------------------------------
+- Use embeds everywhere
+- Use UTC only
+- If DM fails, catch error and continue
+- Do NOT crash the bot
+- Use slash commands only
+
+Deliver full working bot code.
