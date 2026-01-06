@@ -44,4 +44,32 @@ export async function checkReminders(client) {
       console.error(`Could not send DM to ${sub.user_id}:`, error.message);
     }
   }
+
+  // Check for expired subscriptions
+  const expiredSubs = db.prepare(`
+    SELECT * FROM subscriptions 
+    WHERE active = 1 
+    AND end_date <= ?
+  `).all(todayStr);
+
+  for (const sub of expiredSubs) {
+    try {
+      // Mark as inactive first to avoid repeat processing
+      db.prepare('UPDATE subscriptions SET active = 0 WHERE user_id = ?').run(sub.user_id);
+
+      const user = await client.users.fetch(sub.user_id);
+      if (user) {
+        const endEmbed = new EmbedBuilder()
+          .setTitle('Subscription Ended')
+          .setDescription('Your Adobe subscription has officially expired.')
+          .setColor('#ff0000')
+          .setTimestamp();
+
+        await user.send({ embeds: [endEmbed] });
+        console.log(`Sent expiration notice to ${user.tag}`);
+      }
+    } catch (error) {
+      console.error(`Could not send expiration DM to ${sub.user_id}:`, error.message);
+    }
+  }
 }
