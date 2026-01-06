@@ -1,0 +1,102 @@
+
+> I have an existing Discord bot built with **discord.js v14** and multiple slash commands.
+> **DO NOT modify, refactor, remove, or interfere with any existing commands or systems.**
+>
+> I want to add a **Raiden-style welcome system** with **admin configuration, preview, and confirmation**.
+>
+> ---
+>
+> ## PART 1 — Slash Command: `/welcome-setup`
+>
+> Only administrators can use this command.
+>
+> The command must collect:
+>
+> • Welcome channel (channel selector)
+> • Resource channel (channel selector)
+> • Embed title text (string, max 256 chars)
+> • Embed description text (string, supports placeholders)
+> • Banner GIF / Image URL (string URL)
+>
+> Supported placeholders:
+> • `{user}` → user mention
+> • `{username}` → username
+> • `{membercount}` → server member count
+>
+> ---
+>
+> ## PART 2 — TEST WELCOME (PREVIEW)
+>
+> After setup values are provided:
+>
+> • The bot must send a **TEST welcome embed** in the selected welcome channel
+> • This test message must look **exactly like a real welcome**
+> • Thumbnail (top-right) must use **the admin’s avatar** (dynamic GIF/image)
+> • Banner image must use the configured image/GIF
+> • `{membercount}` should use current member count
+>
+> ---
+>
+> ## PART 3 — CONFIRMATION STEP (MANDATORY)
+>
+> After sending the test welcome:
+>
+> • The bot must ask the admin for final confirmation
+> • Use buttons OR message confirmation:
+>
+> * :white_check_mark: Confirm
+> * :x: Cancel
+>
+> ### Behavior:
+>
+> • If **Confirm** → save the configuration and enable welcome system
+> • If **Cancel** → discard everything and do NOT save
+> • No welcome messages should be active until confirmed
+>
+> ---
+>
+> ## PART 4 — AUTOMATIC WELCOME (AFTER CONFIRMATION ONLY)
+>
+> Once confirmed:
+>
+> • Trigger on `guildMemberAdd`
+> • Send welcome embed automatically
+> • Mention the new user
+> • Show join position
+> • Thumbnail = `member.user.displayAvatarURL({ dynamic: true, size: 512 })`
+> • Banner = configured image/GIF
+>
+> ---
+>
+> ## TECHNICAL RULES (STRICT)
+>
+> • discord.js v14 only
+> • Uses `GuildMembers` intent
+> • Welcome messages are **event-based**, not slash-based
+> • Slash command is configuration-only
+> • No database (use JSON or in-memory storage)
+> • Safe to add into an existing project
+> • No auto-role
+> • No extra features
+>
+> ---
+>
+> ## OUTPUT RULES
+>
+> • Output ONLY the required code
+> • Clearly separate:
+>
+> * Slash command file
+> * Event handler file
+> * Config storage logic
+>   • Clearly comment:
+> * Preview logic
+> * Confirmation logic
+> * Final save logic
+>
+> ---
+>
+> If something is missing, make a reasonable technical decision and continue.
+
+---
+no chnages to other command  
