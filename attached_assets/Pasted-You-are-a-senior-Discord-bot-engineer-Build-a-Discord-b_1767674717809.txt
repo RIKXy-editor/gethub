@@ -1,0 +1,135 @@
+You are a senior Discord bot engineer.
+Build a Discord bot using discord.js v14 with a persistent database (SQLite is acceptable).
+
+GOAL:
+Create a subscription reminder system for Adobe subscriptions with automated DM reminders, admin commands, and full logging.
+
+GLOBAL RULES:
+- All dates and times must be handled in UTC
+- Store all subscription data persistently
+- Handle DM failures gracefully and log them
+- Use Discord Embeds for all user-facing messages
+- Slash commands only
+- Admin-only commands must be permission-gated
+
+DATABASE SCHEMA:
+Table: subscriptions
+Fields:
+- user_id (string, primary key)
+- plan_type (enum: 1_month, 3_month, 6_month, 1_year)
+- start_date (ISO timestamp, UTC)
+- end_date (ISO timestamp, UTC)
+- next_reminder_date (ISO timestamp, UTC)
+- active (boolean)
+
+---
+
+SLASH COMMAND: /subadd
+Permissions: Administrator
+
+Options:
+- user (User) [required]
+- plan (Choice: 1 Month, 3 Month, 6 Month, 1 Year) [required]
+- start_date (String, optional, format: YYYY-MM-DD HH:MM UTC)
+
+LOGIC:
+- If start_date is not provided, use current UTC datetime
+- Calculate end_date based on plan:
+  1 Month = +30 days
+  3 Month = +90 days
+  6 Month = +180 days
+  1 Year = +365 days
+- Set next_reminder_date = end_date - 4 days
+- Save subscription to database (overwrite if user already exists)
+- Send confirmation embed in the server
+- Send DM to the user confirming subscription was added
+
+CONFIRMATION EMBED (SERVER):
+Title: Subscription Added
+Fields:
+- User
+- Plan
+- Start Date (UTC)
+- End Date (UTC)
+
+CONFIRMATION EMBED (DM):
+Title: Adobe Subscription Activated
+Description:
+Your Adobe subscription has been activated.
+Fields:
+- Plan
+- Ends On (exact UTC date & time)
+
+---
+
+AUTOMATED REMINDER SYSTEM:
+Run a scheduler every 60 minutes.
+
+For each active subscription:
+- If current UTC time >= next_reminder_date AND end_date > now:
+    - Calculate days_left = ceil((end_date - now) in days)
+    - Send DM reminder embed
+    - Update next_reminder_date += 4 days
+
+REMINDER EMBED (DM):
+Title: Adobe Subscription Expiring
+Description:
+Hey @user,
+Your Adobe subscription will expire soon.
+
+Fields:
+- Days Remaining: X days
+- Expiry Date & Time (UTC)
+- Renew Link: https://discord.com/channels/1153309880644554804/1415963231108861952
+
+Footer:
+Renew to avoid service interruption.
+
+---
+
+SUBSCRIPTION ENDED SYSTEM:
+If current UTC time >= end_date AND active = true:
+- Mark subscription as inactive
+- Send final DM
+
+ENDED EMBED (DM):
+Title: Subscription Ended
+Description:
+Your Adobe subscription has ended.
+Renew now to regain access.
+
+Include renew link.
+
+---
+
+SLASH COMMAND: /sublist
+Permissions: Administrator
+
+Function:
+- Fetch all active subscriptions
+- Calculate days remaining for each user
+- Reply with an embed listing:
+  User | Plan | Days Left | End Date (UTC)
+
+Paginate if more than 10 entries.
+
+---
+
+ERROR HANDLING:
+- If DM fails, log user_id and error to console
+- Bot must never crash due to a DM failure
+
+TECH REQUIREMENTS:
+- discord.js v14
+- node-cron or custom interval scheduler
+- SQLite via better-sqlite3 or equivalent
+- Clean modular structure (commands, events, scheduler)
+
+DO NOT:
+- Use message commands
+- Hardcode dates
+- Ignore timezones
+- Skip database persistence
+
+DELIVERABLE:
+Return full bot code with clear file structure and setup instructions.
