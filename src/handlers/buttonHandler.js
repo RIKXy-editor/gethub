@@ -1,4 +1,4 @@
-import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getJobConfig, getCooldownExpiry, addEntry, hasEntry, getEntries } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
