@@ -10,8 +10,8 @@ export async function execute(member) {
   // ================= CONFIGURATION =================
   const WELCOME_CHANNEL_NAME = 'welcome'; 
   const RESOURCE_CHANNEL_NAME = 'resource';
-  const THUMBNAIL_IMAGE_URL = 'https://media.discordapp.net/attachments/1322234972559016016/1325792437653241856/Untitled_design_6.png'; // User should replace this
-  const BANNER_IMAGE_URL = 'https://media.discordapp.net/attachments/1322234972559016016/1325792437653241856/Untitled_design_6.png'; // User should replace this
+  const THUMBNAIL_IMAGE_URL = 'https://images-ext-1.discordapp.net/external/IXixxPzgrGuQiFTO4n8yFxRDKB57TPVs4WbTLJINJO8/https/i.ibb.co/QFvjjCv8/ezgif-3bb603bd9474c7.gif?width=400&height=225'; 
+  const BANNER_IMAGE_URL = 'https://images-ext-1.discordapp.net/external/IXixxPzgrGuQiFTO4n8yFxRDKB57TPVs4WbTLJINJO8/https/i.ibb.co/QFvjjCv8/ezgif-3bb603bd9474c7.gif?width=400&height=225'; 
   // =================================================
 
   const channel = member.guild.channels.cache.find(ch => ch.name === WELCOME_CHANNEL_NAME);
