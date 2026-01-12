@@ -1,0 +1,119 @@
+I already have a working Discord bot project.
+Do NOT change or remove any existing features, commands, events, files, or code.
+Do NOT refactor unrelated code. Do NOT rename existing commands. Do NOT change command handler structure.
+Only ADD the new review system feature described below.
+
+Goal: Add a Review System
+
+I want a review system using a /feed slash command.
+
+1) /feed command
+
+Create a new slash command:
+
+/feed
+
+Options:
+
+user (optional) = send review request embed to a specific user
+
+role (optional) = send review request embed to a specific role
+
+If neither user nor role is provided → reply with error message.
+
+When /feed is used, bot must send an embed in the same channel:
+
+Embed text:
+
+Title: ✅ Thanks for purchasing Adobe subscription from us!
+
+Description: We’d love to hear your feedback. Click below to share a review ⭐
+
+Color: green
+
+Footer: Your feedback helps us improve.
+
+Under the embed add a green button:
+
+Label: ⭐ Share Review
+
+Button style: Success (green)
+
+customId: review_start
+
+2) When user clicks “⭐ Share Review”
+
+Bot must reply ephemerally and show 5 rating buttons:
+
+⭐ (customId: rate_1)
+
+⭐⭐ (rate_2)
+
+⭐⭐⭐ (rate_3)
+
+⭐⭐⭐⭐ (rate_4)
+
+⭐⭐⭐⭐⭐ (rate_5)
+
+User clicks one rating button.
+
+3) After rating click → open Modal form
+
+Open a Discord Modal with customId: review_modal
+
+Modal Title: Share Your Review ⭐
+
+Fields:
+
+Subscription Plan (required)
+
+placeholder: 1 month / 3 month / 6 month / 1 year
+
+Review text (required)
+
+paragraph input
+
+Screenshot Link (optional)
+
+NOTE: Discord does not allow uploading images in modal, so accept a LINK (imgur / discord CDN)
+
+Extra note (optional)
+
+4) After modal submit → post review in this channel
+
+After submit, bot must post an embed in this review channel:
+
+Channel ID: 1346744648198131752
+
+Review embed must include:
+
+Customer mention + user ID
+
+Subscription Plan
+
+Rating shown as stars
+
+Review text
+
+If screenshot link exists and starts with http → set it as embed image
+
+Then reply ephemerally:
+✅ Thanks! Your review has been submitted.
+
+Important Requirements
+
+Must use Discord.js v14
+
+Must work with existing bot
+
+Must not break anything
+
+Must not change any other features
+
+Only add the new feature files/code required
+
+Keep code clean and minimal
+
+Add proper error handling
+
+Now implement this feature in my Replit project.

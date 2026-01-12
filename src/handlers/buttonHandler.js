@@ -11,6 +11,68 @@ export async function handleJobButton(interaction) {
     return;
   }
 
+  // Handle review start button
+  if (interaction.customId === 'review_start') {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('rate_1').setLabel('⭐').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('rate_2').setLabel('⭐⭐').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('rate_3').setLabel('⭐⭐⭐').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('rate_4').setLabel('⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('rate_5').setLabel('⭐⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.reply({
+      content: 'Please select a rating:',
+      components: [row],
+      ephemeral: true
+    });
+    return;
+  }
+
+  // Handle rating buttons
+  if (interaction.customId.startsWith('rate_')) {
+    const rating = interaction.customId.split('_')[1];
+    const modal = new ModalBuilder()
+      .setCustomId(`review_modal_${rating}`)
+      .setTitle('Share Your Review ⭐');
+
+    const planInput = new TextInputBuilder()
+      .setCustomId('review_plan')
+      .setLabel('Subscription Plan')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('1 month / 3 month / 6 month / 1 year')
+      .setRequired(true);
+
+    const textInput = new TextInputBuilder()
+      .setCustomId('review_text')
+      .setLabel('Review text')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+
+    const screenshotInput = new TextInputBuilder()
+      .setCustomId('review_screenshot')
+      .setLabel('Screenshot Link (optional)')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('Imgur / Discord CDN link')
+      .setRequired(false);
+
+    const extraInput = new TextInputBuilder()
+      .setCustomId('review_extra')
+      .setLabel('Extra note (optional)')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(planInput),
+      new ActionRowBuilder().addComponents(textInput),
+      new ActionRowBuilder().addComponents(screenshotInput),
+      new ActionRowBuilder().addComponents(extraInput)
+    );
+
+    await interaction.showModal(modal);
+    return;
+  }
+
   if (interaction.customId !== 'post_job_button') return;
 
   const config = getJobConfig(GUILD_ID);

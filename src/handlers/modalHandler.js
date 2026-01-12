@@ -5,6 +5,54 @@ import { GUILD_ID } from '../utils/constants.js';
 export async function handleJobModal(interaction) {
   if (interaction.guildId !== GUILD_ID) return;
 
+  if (interaction.customId.startsWith('review_modal_')) {
+    const ratingNum = interaction.customId.split('_')[2];
+    const plan = interaction.fields.getTextInputValue('review_plan');
+    const text = interaction.fields.getTextInputValue('review_text');
+    const screenshot = interaction.fields.getTextInputValue('review_screenshot');
+    const extra = interaction.fields.getTextInputValue('review_extra');
+
+    const stars = '⭐'.repeat(parseInt(ratingNum));
+    const reviewChannelId = '1346744648198131752';
+
+    const embed = new EmbedBuilder()
+      .setColor('Green')
+      .setTitle('New Review Received!')
+      .setDescription(text)
+      .addFields(
+        { name: 'Customer', value: `${interaction.user} (${interaction.user.id})`, inline: true },
+        { name: 'Subscription Plan', value: plan, inline: true },
+        { name: 'Rating', value: stars, inline: true }
+      )
+      .setTimestamp();
+
+    if (extra) {
+      embed.addFields({ name: 'Extra Note', value: extra });
+    }
+
+    if (screenshot && screenshot.startsWith('http')) {
+      embed.setImage(screenshot);
+    }
+
+    try {
+      const channel = await interaction.client.channels.fetch(reviewChannelId);
+      if (channel) {
+        await channel.send({ embeds: [embed] });
+        await interaction.reply({
+          content: '✅ Thanks! Your review has been submitted.',
+          ephemeral: true
+        });
+      }
+    } catch (error) {
+      console.error('Error sending review:', error);
+      await interaction.reply({
+        content: '❌ Failed to submit review to the destination channel.',
+        ephemeral: true
+      });
+    }
+    return;
+  }
+
   if (interaction.customId !== 'job_posting_modal') return;
 
   const want = interaction.fields.getTextInputValue('job_want');
