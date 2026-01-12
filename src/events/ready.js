@@ -29,7 +29,10 @@ function updateStatus(client) {
   // Alternate between base statuses and member count
   const statuses = [...baseStatuses, dynamicStatus];
   const status = statuses[currentStatusIndex];
-  client.user.setActivity(status.name, { type: status.type });
+  client.user.setPresence({
+    activities: [{ name: status.name, type: status.type }],
+    status: 'dnd'
+  });
   currentStatusIndex = (currentStatusIndex + 1) % statuses.length;
 }
 
