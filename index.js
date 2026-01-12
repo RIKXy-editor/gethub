@@ -151,6 +151,9 @@ async function start() {
   await deployCommands();
   startHealthServer();
   await client.login(process.env.DISCORD_TOKEN);
+  
+  // Set the bot status to Do Not Disturb (DND) after login
+  client.user.setPresence({ status: 'dnd' });
 }
 
 start();
