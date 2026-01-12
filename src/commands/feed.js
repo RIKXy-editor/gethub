@@ -24,8 +24,6 @@ export async function execute(interaction) {
     });
   }
 
-  const mention = targetUser ? `<@${targetUser.id}>` : `<@&${targetRole.id}>`;
-
   const embed = new EmbedBuilder()
     .setTitle('✅ Thanks for purchasing Adobe subscription from us!')
     .setDescription('We’d love to hear your feedback. Click below to share a review ⭐')
@@ -39,9 +37,39 @@ export async function execute(interaction) {
 
   const row = new ActionRowBuilder().addComponents(button);
 
-  await interaction.reply({
-    content: mention,
-    embeds: [embed],
-    components: [row]
+  let successCount = 0;
+  let failCount = 0;
+
+  await interaction.deferReply({ ephemeral: true });
+
+  if (targetUser) {
+    try {
+      await targetUser.send({
+        embeds: [embed],
+        components: [row]
+      });
+      successCount++;
+    } catch (err) {
+      failCount++;
+    }
+  } else if (targetRole) {
+    const members = await interaction.guild.members.fetch();
+    const roleMembers = members.filter(member => member.roles.cache.has(targetRole.id) && !member.user.bot);
+    
+    for (const [id, member] of roleMembers) {
+      try {
+        await member.send({
+          embeds: [embed],
+          components: [row]
+        });
+        successCount++;
+      } catch (err) {
+        failCount++;
+      }
+    }
+  }
+
+  await interaction.editReply({
+    content: `✅ Sent review requests!\n- Successfully sent: ${successCount}\n- Failed (DMs closed): ${failCount}`
   });
 }
