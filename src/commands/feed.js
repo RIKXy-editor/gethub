@@ -63,6 +63,8 @@ export async function execute(interaction) {
           components: [row]
         });
         successCount++;
+        // Add a small delay (1 second) between DMs to prevent rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (err) {
         failCount++;
       }
