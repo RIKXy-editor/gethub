@@ -15,6 +15,10 @@ export async function handleJobModal(interaction) {
 
     const embed = new EmbedBuilder()
       .setColor('Green')
+      .setAuthor({ 
+        name: interaction.user.tag, 
+        iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
+      })
       .setTitle('New Review Received!')
       .setDescription(text)
       .addFields(
