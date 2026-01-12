@@ -78,6 +78,11 @@ client.on('interactionCreate', async interaction => {
   // Handle buttons
   if (interaction.isButton()) {
     try {
+      // Check guild ID restriction if applicable
+      if (interaction.guildId && interaction.guildId !== process.env.DISCORD_GUILD_ID) {
+         // Allow buttons in DMs (where guildId is null) or specific guild
+         // For reviews, we want them to work in DMs
+      }
       await handleJobButton(interaction);
     } catch (error) {
       console.error('Error handling button:', error);

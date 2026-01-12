@@ -3,14 +3,6 @@ import { getJobConfig, getCooldownExpiry, addEntry, hasEntry, getEntries } from 
 import { GUILD_ID } from '../utils/constants.js';
 
 export async function handleJobButton(interaction) {
-  if (interaction.guildId !== GUILD_ID) return;
-
-  // Handle giveaway entry button
-  if (interaction.customId.startsWith('giveaway_enter_')) {
-    await handleGiveawayEntry(interaction);
-    return;
-  }
-
   // Handle review start button
   if (interaction.customId === 'review_start') {
     const row = new ActionRowBuilder().addComponents(
@@ -72,6 +64,8 @@ export async function handleJobButton(interaction) {
     await interaction.showModal(modal);
     return;
   }
+
+  if (interaction.guildId !== GUILD_ID) return;
 
   if (interaction.customId !== 'post_job_button') return;
 

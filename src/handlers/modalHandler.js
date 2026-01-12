@@ -3,8 +3,6 @@ import { getJobConfig, addCooldown, setJobConfig, getJobBannerText } from '../ut
 import { GUILD_ID } from '../utils/constants.js';
 
 export async function handleJobModal(interaction) {
-  if (interaction.guildId !== GUILD_ID) return;
-
   if (interaction.customId.startsWith('review_modal_')) {
     const ratingNum = interaction.customId.split('_')[2];
     const plan = interaction.fields.getTextInputValue('review_plan');
@@ -52,6 +50,8 @@ export async function handleJobModal(interaction) {
     }
     return;
   }
+
+  if (interaction.guildId !== GUILD_ID) return;
 
   if (interaction.customId !== 'job_posting_modal') return;
 
