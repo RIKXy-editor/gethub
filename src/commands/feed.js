@@ -4,16 +4,8 @@ export const data = new SlashCommandBuilder()
   .setName('feed')
   .setDescription('Send a review request')
   .addUserOption(option => 
-    option.setName('user1')
-      .setDescription('First user to request a review from')
-      .setRequired(false))
-  .addUserOption(option => 
-    option.setName('user2')
-      .setDescription('Second user to request a review from')
-      .setRequired(false))
-  .addUserOption(option => 
-    option.setName('user3')
-      .setDescription('Third user to request a review from')
+    option.setName('user')
+      .setDescription('The user to request a review from')
       .setRequired(false))
   .addRoleOption(option => 
     option.setName('role')
@@ -22,17 +14,12 @@ export const data = new SlashCommandBuilder()
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
 export async function execute(interaction) {
-  const users = [
-    interaction.options.getUser('user1'),
-    interaction.options.getUser('user2'),
-    interaction.options.getUser('user3')
-  ].filter(u => u !== null);
-  
+  const targetUser = interaction.options.getUser('user');
   const targetRole = interaction.options.getRole('role');
 
-  if (users.length === 0 && !targetRole) {
+  if (!targetUser && !targetRole) {
     return await interaction.reply({
-      content: '❌ You must provide at least one user or a role to send a review request.',
+      content: '❌ You must provide either a user or a role to send a review request.',
       ephemeral: true
     });
   }
@@ -55,31 +42,27 @@ export async function execute(interaction) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  // Handle multiple specific users
-  for (const user of users) {
+  if (targetUser) {
     try {
-      await user.send({
+      await targetUser.send({
         embeds: [embed],
         components: [row]
       });
       successCount++;
-      if (users.length > 1 || targetRole) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
     } catch (err) {
       failCount++;
     }
   }
 
-  // Handle Role
   if (targetRole) {
+    if (targetUser) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
     const members = await interaction.guild.members.fetch();
     const roleMembers = members.filter(member => member.roles.cache.has(targetRole.id) && !member.user.bot);
     
     for (const [id, member] of roleMembers) {
-      // Skip if we already messaged them as an individual user
-      if (users.some(u => u.id === id)) continue;
-
+      if (targetUser && targetUser.id === id) continue;
       try {
         await member.send({
           embeds: [embed],
