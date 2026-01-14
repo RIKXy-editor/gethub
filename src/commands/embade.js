@@ -19,16 +19,6 @@ export const data = new SlashCommandBuilder()
     option.setName('banner')
       .setDescription('Banner image/GIF URL')
       .setRequired(false))
-  .addStringOption(option => 
-    option.setName('type')
-      .setDescription('Type: announcement, info, warning, default')
-      .setRequired(false)
-      .addChoices(
-        { name: 'Announcement', value: 'announcement' },
-        { name: 'Info', value: 'info' },
-        { name: 'Warning', value: 'warning' },
-        { name: 'Default', value: 'default' }
-      ))
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
 export async function execute(interaction) {
@@ -36,7 +26,7 @@ export async function execute(interaction) {
   const header = interaction.options.getString('header');
   const thumb = interaction.options.getString('thumb');
   const banner = interaction.options.getString('banner');
-  const type = interaction.options.getString('type') || 'default';
+  const type = 'default';
 
   await interaction.reply({
     content: `📝 **What is the context/description for the embed?**\nIt can be multi-line.\nType 'cancel' to stop.`,
