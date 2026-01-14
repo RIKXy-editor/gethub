@@ -4,27 +4,44 @@ export const data = new SlashCommandBuilder()
   .setName('embade')
   .setDescription('Build and post a custom embed')
   .addStringOption(option => 
-    option.setName('input')
-      .setDescription('Format: title: TITLE | context: CONTEXT | header: URL | thumb: URL | banner: URL | type: TYPE')
+    option.setName('title')
+      .setDescription('Embed title')
       .setRequired(true))
+  .addStringOption(option => 
+    option.setName('context')
+      .setDescription('Embed description/content')
+      .setRequired(true))
+  .addStringOption(option => 
+    option.setName('header')
+      .setDescription('Header image URL')
+      .setRequired(false))
+  .addStringOption(option => 
+    option.setName('thumb')
+      .setDescription('Thumbnail image URL')
+      .setRequired(false))
+  .addStringOption(option => 
+    option.setName('banner')
+      .setDescription('Banner image/GIF URL')
+      .setRequired(false))
+  .addStringOption(option => 
+    option.setName('type')
+      .setDescription('Type: announcement, info, warning, default')
+      .setRequired(false)
+      .addChoices(
+        { name: 'Announcement', value: 'announcement' },
+        { name: 'Info', value: 'info' },
+        { name: 'Warning', value: 'warning' },
+        { name: 'Default', value: 'default' }
+      ))
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
 export async function execute(interaction) {
-  const input = interaction.options.getString('input');
-  
-  // Parse input
-  const parts = input.split('|').reduce((acc, part) => {
-    const [key, ...value] = part.split(':');
-    if (key && value) acc[key.trim().toLowerCase()] = value.join(':').trim();
-    return acc;
-  }, {});
-
-  const title = parts.title || 'No Title';
-  const context = parts.context || 'No Context';
-  const header = parts.header || null;
-  const thumb = parts.thumb || null;
-  const banner = parts.banner || null;
-  const type = parts.type || 'default';
+  const title = interaction.options.getString('title');
+  const context = interaction.options.getString('context');
+  const header = interaction.options.getString('header');
+  const thumb = interaction.options.getString('thumb');
+  const banner = interaction.options.getString('banner');
+  const type = interaction.options.getString('type') || 'default';
 
   // Color logic
   const colors = {
