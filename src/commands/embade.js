@@ -14,42 +14,13 @@ export async function execute(interaction) {
   const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
   const collectorOptions = { filter, max: 1, time: 60000, errors: ['time'] };
 
-  try {
-    // 1. Collect Title
-    const titleMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (titleMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, titleMsg);
-    const title = titleMsg.content;
-    await titleMsg.delete().catch(() => null);
+  let title = 'No Title';
+  let context = 'No Context';
+  let header = null;
+  let thumb = null;
+  let banner = null;
 
-    // 2. Collect Description/Context
-    await interaction.editReply('📝 **What is the Context/Description?** (Can be multi-line)');
-    const contextMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (contextMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, contextMsg);
-    const context = contextMsg.content;
-    await contextMsg.delete().catch(() => null);
-
-    // 3. Collect Header URL
-    await interaction.editReply('📝 **Enter Header Image URL** (or type \'skip\')');
-    const headerMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (headerMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, headerMsg);
-    const header = headerMsg.content.toLowerCase() === 'skip' ? null : headerMsg.content;
-    await headerMsg.delete().catch(() => null);
-
-    // 4. Collect Thumbnail URL
-    await interaction.editReply('📝 **Enter Thumbnail Image URL** (or type \'skip\')');
-    const thumbMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (thumbMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, thumbMsg);
-    const thumb = thumbMsg.content.toLowerCase() === 'skip' ? null : thumbMsg.content;
-    await thumbMsg.delete().catch(() => null);
-
-    // 5. Collect Banner URL
-    await interaction.editReply('📝 **Enter Banner Image/GIF URL** (or type \'skip\')');
-    const bannerMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (bannerMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, bannerMsg);
-    const banner = bannerMsg.content.toLowerCase() === 'skip' ? null : bannerMsg.content;
-    await bannerMsg.delete().catch(() => null);
-
-    // Build the embed
+  const buildEmbed = () => {
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(context)
@@ -68,6 +39,55 @@ export async function execute(interaction) {
     if (thumb && !embed.data.thumbnail) {
       embed.setThumbnail(thumb);
     }
+    return embed;
+  };
+
+  try {
+    // 1. Collect Title
+    const titleMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (titleMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, titleMsg);
+    title = titleMsg.content;
+    await titleMsg.delete().catch(() => null);
+
+    // 2. Collect Description/Context
+    await interaction.editReply({
+      content: '📝 **What is the Context/Description?** (Can be multi-line)',
+      embeds: [buildEmbed()]
+    });
+    const contextMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (contextMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, contextMsg);
+    context = contextMsg.content;
+    await contextMsg.delete().catch(() => null);
+
+    // 3. Collect Header URL
+    await interaction.editReply({
+      content: '📝 **Enter Header Image URL** (or type \'skip\')',
+      embeds: [buildEmbed()]
+    });
+    const headerMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (headerMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, headerMsg);
+    header = headerMsg.content.toLowerCase() === 'skip' ? null : headerMsg.content;
+    await headerMsg.delete().catch(() => null);
+
+    // 4. Collect Thumbnail URL
+    await interaction.editReply({
+      content: '📝 **Enter Thumbnail Image URL** (or type \'skip\')',
+      embeds: [buildEmbed()]
+    });
+    const thumbMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (thumbMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, thumbMsg);
+    thumb = thumbMsg.content.toLowerCase() === 'skip' ? null : thumbMsg.content;
+    await thumbMsg.delete().catch(() => null);
+
+    // 5. Collect Banner URL
+    await interaction.editReply({
+      content: '📝 **Enter Banner Image/GIF URL** (or type \'skip\')',
+      embeds: [buildEmbed()]
+    });
+    const bannerMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (bannerMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, bannerMsg);
+    banner = bannerMsg.content.toLowerCase() === 'skip' ? null : bannerMsg.content;
+    await bannerMsg.delete().catch(() => null);
 
     const previewRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('embade_confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
@@ -76,13 +96,16 @@ export async function execute(interaction) {
 
     await interaction.editReply({
       content: '✅ **Preview ready.** Click confirm to proceed or edit to rebuild.',
-      embeds: [embed],
+      embeds: [buildEmbed()],
       components: [previewRow]
     });
 
   } catch (error) {
     console.error('Embade prompt error:', error);
-    await interaction.editReply('⏱️ **Timed out or an error occurred.** Please run `/embade` again.').catch(() => null);
+    await interaction.editReply({
+      content: '⏱️ **Timed out or an error occurred.** Please run `/embade` again.',
+      embeds: []
+    }).catch(() => null);
   }
 }
 
