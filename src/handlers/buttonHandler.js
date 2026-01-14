@@ -1,4 +1,4 @@
-import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, EmbedBuilder, ChannelType } from 'discord.js';
 import { getJobConfig, getCooldownExpiry, addEntry, hasEntry, getEntries } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
@@ -62,6 +62,39 @@ export async function handleJobButton(interaction) {
     );
 
     await interaction.showModal(modal);
+    return;
+  }
+
+  // Handle embade buttons
+  if (interaction.customId === 'embade_confirm') {
+    await interaction.reply({
+      content: 'Tag the channel to post this in. Example: #announcements',
+      ephemeral: true
+    });
+    
+    // Create a message collector to wait for the channel mention
+    const filter = m => m.author.id === interaction.user.id && m.mentions.channels.size > 0;
+    const collector = interaction.channel.createMessageCollector({ filter, time: 30000, max: 1 });
+
+    collector.on('collect', async m => {
+      const targetChannel = m.mentions.channels.first();
+      if (!targetChannel || targetChannel.type !== ChannelType.GuildText) {
+        return await interaction.followUp({ content: '❌ Invalid channel. Please tag a text channel.', ephemeral: true });
+      }
+
+      const embed = interaction.message.embeds[0];
+      await targetChannel.send({ embeds: [embed] });
+      await interaction.followUp({ content: `✅ Confirmed. Post this embed in: <#${targetChannel.id}>`, ephemeral: true });
+      m.delete().catch(() => {});
+    });
+    return;
+  }
+
+  if (interaction.customId === 'embade_edit') {
+    await interaction.reply({
+      content: 'Send corrected details in the same `/embade` format.',
+      ephemeral: true
+    });
     return;
   }
 
