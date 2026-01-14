@@ -19,12 +19,13 @@ export async function execute(interaction) {
   let header = null;
   let thumb = null;
   let banner = null;
+  let color = 0x9b59b6;
 
   const buildEmbed = () => {
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(context)
-      .setColor(0x9b59b6)
+      .setColor(color)
       .setFooter({ text: 'Powered by /embade' });
 
     if (header && banner) {
@@ -88,6 +89,21 @@ export async function execute(interaction) {
     if (bannerMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, bannerMsg);
     banner = bannerMsg.content.toLowerCase() === 'skip' ? null : bannerMsg.content;
     await bannerMsg.delete().catch(() => null);
+
+    // 6. Collect Color
+    await interaction.editReply({
+      content: '📝 **Enter Embed Color (Hex Code, e.g., #FF0000)** (or type \'skip\')',
+      embeds: [buildEmbed()]
+    });
+    const colorMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (colorMsg.content.toLowerCase() === 'cancel') return await cancel(interaction, colorMsg);
+    if (colorMsg.content.toLowerCase() !== 'skip') {
+      const hexColor = colorMsg.content.startsWith('#') ? colorMsg.content : `#${colorMsg.content}`;
+      if (/^#[0-9A-F]{6}$/i.test(hexColor)) {
+        color = parseInt(hexColor.replace('#', ''), 16);
+      }
+    }
+    await colorMsg.delete().catch(() => null);
 
     const previewRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('embade_confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
