@@ -39,12 +39,12 @@ export async function execute(interaction) {
   const type = interaction.options.getString('type') || 'default';
 
   await interaction.reply({
-    content: `📝 **What is the context/description for the embed?**\nIt can be multi-line. Type 'cancel' to stop.`,
+    content: `📝 **Please type the context/description for the embed below.**\nAnything you type next in this channel will be captured as the description.\nType 'cancel' to stop.`,
     ephemeral: true
   });
 
   try {
-    const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
+    const filter = m => m.author.id === interaction.user.id;
     const collected = await interaction.channel.awaitMessages({
       filter,
       max: 1,
