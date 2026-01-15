@@ -12,7 +12,7 @@ export async function execute(interaction) {
   });
 
   const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
-  const collectorOptions = { filter, max: 1, time: 60000, errors: ['time'] };
+  const collectorOptions = { filter, max: 1, time: 300000, errors: ['time'] };
 
   let title = 'No Title';
   let context = 'No Context';

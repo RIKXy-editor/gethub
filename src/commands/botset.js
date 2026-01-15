@@ -24,7 +24,7 @@ export async function execute(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
-  const collectorOptions = { filter, max: 1, time: 60000, errors: ['time'] };
+  const collectorOptions = { filter, max: 1, time: 300000, errors: ['time'] };
 
   await interaction.editReply({ 
     content: `📝 **Let's update the bot ${subcommand}!**\n\nPlease type the new ${subcommand === 'description' ? 'description text' : 'image URL'} now. (Type 'cancel' to stop)`
