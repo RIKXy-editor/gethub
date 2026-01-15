@@ -1,3 +1,5 @@
+import pkg from 'pg';
+const { Client } = pkg;
 import { ActivityType, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import { getScheduledMessages, getJobConfig, setJobConfig, getJobBannerText } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
@@ -41,6 +43,24 @@ export const once = true;
 
 export async function execute(client) {
   console.log(`Bot is ready! Logged in as ${client.user.tag}`);
+  
+  // Database initialization
+  const db = new Client({ connectionString: process.env.DATABASE_URL });
+  try {
+    await db.connect();
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS welcome_settings (
+        guild_id TEXT PRIMARY KEY,
+        channel_id TEXT,
+        enabled BOOLEAN DEFAULT FALSE
+      )
+    `);
+    console.log('Database initialized successfully.');
+  } catch (err) {
+    console.error('Database initialization error:', err);
+  } finally {
+    await db.end().catch(() => null);
+  }
   
   updateStatus(client);
   setInterval(() => updateStatus(client), 15000);
