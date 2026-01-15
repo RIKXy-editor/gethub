@@ -55,35 +55,65 @@ export async function execute(interaction) {
   const collectorOptions = { filter, max: 1, time: 60000, errors: ['time'] };
 
   let channelId = null;
+  let welcomeTitle = '👋 Welcome to Editors Club!';
+  let welcomeMessage = 'Welcome {user} to the server!\n\nYou are our **{membercount}** member. We are glad to have you here!';
+  let bannerUrl = 'https://images-ext-1.discordapp.net/external/IXixxPzgrGuQiFTO4n8yFxRDKB57TPVs4WbTLJINJO8/https/i.ibb.co/QFvjjCv8/ezgif-3bb603bd9474c7.gif';
   const WELCOME_COLOR = '#9b59b6';
-  const THUMBNAIL_URL = 'https://images-ext-1.discordapp.net/external/IXixxPzgrGuQiFTO4n8yFxRDKB57TPVs4WbTLJINJO8/https/i.ibb.co/QFvjjCv8/ezgif-3bb603bd9474c7.gif';
+
+  const replacePlaceholders = (text) => {
+    return text
+      .replace(/{user}/g, interaction.user.toString())
+      .replace(/{membercount}/g, '100')
+      .replace(/{server}/g, interaction.guild.name)
+      .replace(/{joindate}/g, interaction.member.joinedAt.toLocaleDateString());
+  };
 
   const buildPreview = () => {
     return new EmbedBuilder()
-      .setTitle('👋 Welcome to Editors Club!')
-      .setDescription(`Welcome ${interaction.user} to the server!\n\nYou are our **100** member. We are glad to have you here!`)
+      .setTitle(replacePlaceholders(welcomeTitle))
+      .setDescription(replacePlaceholders(welcomeMessage))
       .setColor(WELCOME_COLOR)
       .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-      .setImage(THUMBNAIL_URL)
-      .setFooter({ text: `Member #100 • Editors Club` })
+      .setImage(bannerUrl)
+      .setFooter({ text: `Member #100 • ${interaction.guild.name}` })
       .setTimestamp();
   };
 
   try {
+    // 1. Channel
     const msg = (await interaction.channel.awaitMessages(collectorOptions)).first();
     if (msg.content.toLowerCase() === 'cancel') {
       await msg.delete().catch(() => null);
       return await interaction.editReply({ content: '❌ Setup cancelled.' });
     }
-
     const mentionedChannel = msg.mentions.channels.first();
     if (!mentionedChannel || mentionedChannel.type !== ChannelType.GuildText) {
       await msg.delete().catch(() => null);
-      return await interaction.editReply({ content: '❌ Invalid channel. Please run `/welcome setup` again and mention a text channel.' });
+      return await interaction.editReply({ content: '❌ Invalid channel. Please run `/welcome setup` again.' });
     }
-
     channelId = mentionedChannel.id;
     await msg.delete().catch(() => null);
+
+    // 2. Title
+    await interaction.editReply({ content: '📝 **Step 2: Enter Welcome Title** (e.g., Welcome to {server}! or type \'skip\')', embeds: [buildPreview()] });
+    const titleMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (titleMsg.content.toLowerCase() === 'cancel') return await titleMsg.delete().catch(() => null);
+    if (titleMsg.content.toLowerCase() !== 'skip') welcomeTitle = titleMsg.content;
+    await titleMsg.delete().catch(() => null);
+
+    // 3. Message/Description
+    await interaction.editReply({ content: '📝 **Step 3: Enter Welcome Message** (Placeholders: {user}, {server}, {membercount} or type \'skip\')', embeds: [buildPreview()] });
+    const textMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (textMsg.content.toLowerCase() === 'cancel') return await textMsg.delete().catch(() => null);
+    if (textMsg.content.toLowerCase() !== 'skip') welcomeMessage = textMsg.content;
+    await textMsg.delete().catch(() => null);
+
+    // 4. Banner URL
+    await interaction.editReply({ content: '📝 **Step 4: Enter Banner Image URL** (or type \'skip\')', embeds: [buildPreview()] });
+    const bannerMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
+    if (bannerMsg.content.toLowerCase() === 'cancel') return await bannerMsg.delete().catch(() => null);
+    if (bannerMsg.content.toLowerCase() !== 'skip') bannerUrl = bannerMsg.content;
+    await bannerMsg.delete().catch(() => null);
 
     // Show Preview and Confirm
     const row = new ActionRowBuilder().addComponents(
@@ -92,7 +122,7 @@ export async function execute(interaction) {
     );
 
     const response = await interaction.editReply({
-      content: `✅ **Channel set to ${mentionedChannel}.**\nHere is a preview of the welcome message:`,
+      content: `✅ **Setup Complete.** Confirm to save these settings:`,
       embeds: [buildPreview()],
       components: [row]
     });
@@ -105,10 +135,15 @@ export async function execute(interaction) {
         try {
           await db.connect();
           await db.query(`
-            INSERT INTO welcome_settings (guild_id, channel_id, enabled)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (guild_id) DO UPDATE SET channel_id = $2, enabled = TRUE
-          `, [interaction.guildId, channelId, true]);
+            INSERT INTO welcome_settings (guild_id, channel_id, enabled, title, message, banner_url)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (guild_id) DO UPDATE SET 
+              channel_id = $2, 
+              enabled = TRUE,
+              title = $4,
+              message = $5,
+              banner_url = $6
+          `, [interaction.guildId, channelId, true, welcomeTitle, welcomeMessage, bannerUrl]);
           await i.update({ content: '✅ Welcome system setup and enabled successfully!', embeds: [], components: [] });
         } catch (err) {
           console.error(err);

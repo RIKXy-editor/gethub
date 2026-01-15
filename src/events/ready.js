@@ -52,7 +52,10 @@ export async function execute(client) {
       CREATE TABLE IF NOT EXISTS welcome_settings (
         guild_id TEXT PRIMARY KEY,
         channel_id TEXT,
-        enabled BOOLEAN DEFAULT FALSE
+        enabled BOOLEAN DEFAULT FALSE,
+        title TEXT,
+        message TEXT,
+        banner_url TEXT
       )
     `);
     console.log('Database initialized successfully.');

@@ -21,17 +21,27 @@ export async function execute(member) {
     const channel = member.guild.channels.cache.get(res.rows[0].channel_id);
     if (!channel) return;
 
+    const welcomeTitle = res.rows[0].title || '👋 Welcome to Editors Club!';
+    const welcomeMessage = res.rows[0].message || 'Welcome {user} to the server!\n\nYou are our **{membercount}** member. We are glad to have you here!';
+    const bannerUrl = res.rows[0].banner_url || 'https://images-ext-1.discordapp.net/external/IXixxPzgrGuQiFTO4n8yFxRDKB57TPVs4WbTLJINJO8/https/i.ibb.co/QFvjjCv8/ezgif-3bb603bd9474c7.gif';
     const WELCOME_COLOR = '#9b59b6';
-    const THUMBNAIL_URL = 'https://images-ext-1.discordapp.net/external/IXixxPzgrGuQiFTO4n8yFxRDKB57TPVs4WbTLJINJO8/https/i.ibb.co/QFvjjCv8/ezgif-3bb603bd9474c7.gif';
     const memberCount = member.guild.memberCount;
 
+    const replacePlaceholders = (text) => {
+      return text
+        .replace(/{user}/g, member.toString())
+        .replace(/{membercount}/g, memberCount.toString())
+        .replace(/{server}/g, member.guild.name)
+        .replace(/{joindate}/g, member.joinedAt ? member.joinedAt.toLocaleDateString() : 'Unknown');
+    };
+
     const embed = new EmbedBuilder()
-      .setTitle('👋 Welcome to Editors Club!')
-      .setDescription(`Welcome ${member} to the server!\n\nYou are our **${memberCount}** member. We are glad to have you here!`)
+      .setTitle(replacePlaceholders(welcomeTitle))
+      .setDescription(replacePlaceholders(welcomeMessage))
       .setColor(WELCOME_COLOR)
       .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-      .setImage(THUMBNAIL_URL)
-      .setFooter({ text: `Member #${memberCount} • Editors Club` })
+      .setImage(bannerUrl)
+      .setFooter({ text: `Member #${memberCount} • ${member.guild.name}` })
       .setTimestamp();
 
     await channel.send({ content: `Hey ${member}, welcome!`, embeds: [embed] });
