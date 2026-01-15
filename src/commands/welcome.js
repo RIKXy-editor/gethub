@@ -7,8 +7,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('Manage the welcome system')
   .addSubcommand(sub =>
     sub.setName('setup')
-      .setDescription('Setup the welcome channel')
-      .addChannelOption(opt => opt.setName('channel').setDescription('The channel for welcome messages').addChannelTypes(ChannelType.GuildText).setRequired(true))
+      .setDescription('Setup the welcome system interactively')
   )
   .addSubcommand(sub =>
     sub.setName('enable')
