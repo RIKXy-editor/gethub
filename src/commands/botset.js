@@ -19,12 +19,15 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
+  
+  // Defer first to avoid "Unknown Interaction" during collection
+  await interaction.deferReply({ ephemeral: true });
+
   const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
   const collectorOptions = { filter, max: 1, time: 60000, errors: ['time'] };
 
-  await interaction.reply({ 
-    content: `📝 **Let's update the bot ${subcommand}!**\n\nPlease type the new ${subcommand === 'description' ? 'description text' : 'image URL'} now. (Type 'cancel' to stop)`, 
-    ephemeral: true 
+  await interaction.editReply({ 
+    content: `📝 **Let's update the bot ${subcommand}!**\n\nPlease type the new ${subcommand === 'description' ? 'description text' : 'image URL'} now. (Type 'cancel' to stop)`
   });
 
   try {
@@ -47,19 +50,9 @@ export async function execute(interaction) {
       await interaction.client.user.setBanner(input);
       await interaction.editReply({ content: '✅ Bot banner updated successfully!' });
     } else if (subcommand === 'description') {
-      // For standard User "About Me", it is often restricted to the bot owner or via developer portal
-      // We will attempt both methods common in discord.js
-      try {
-        if (typeof interaction.client.user.setAboutMe === 'function') {
-          await interaction.client.user.setAboutMe(input);
-        } else {
-          await interaction.client.application.edit({ description: input });
-        }
-        await interaction.editReply({ content: '✅ Bot description updated successfully!' });
-      } catch (descError) {
-        console.error('Inner description update error:', descError);
-        throw descError;
-      }
+      // Use application.edit as it's the most reliable way to update bot "About Me"
+      await interaction.client.application.edit({ description: input });
+      await interaction.editReply({ content: '✅ Bot description updated successfully!' });
     }
   } catch (error) {
     console.error(`Error updating bot ${subcommand}:`, error);
