@@ -23,6 +23,13 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   
   if (subcommand === 'enable' || subcommand === 'disable') {
+    // For enable/disable, we don't need deferReply if it's instant, 
+    // but the original code might have been getting "Interaction already acknowledged" 
+    // if index.js also tries to reply. Let's use deferReply to be safe and consistent.
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ ephemeral: true });
+    }
+    
     const db = new Client({ connectionString: process.env.DATABASE_URL });
     try {
       await db.connect();
@@ -30,14 +37,14 @@ export async function execute(interaction) {
       if (enabled) {
         const res = await db.query('SELECT channel_id FROM welcome_settings WHERE guild_id = $1', [interaction.guildId]);
         if (!res.rows[0]?.channel_id) {
-          return await interaction.reply({ content: '❌ Please run `/welcome setup` first to set a channel.', ephemeral: true });
+          return await interaction.editReply({ content: '❌ Please run `/welcome setup` first to set a channel.' });
         }
       }
       await db.query('UPDATE welcome_settings SET enabled = $1 WHERE guild_id = $1', [enabled, interaction.guildId]);
-      await interaction.reply({ content: `✅ Welcome system ${subcommand}d!`, ephemeral: true });
+      await interaction.editReply({ content: `✅ Welcome system ${subcommand}d!` });
     } catch (error) {
       console.error('Welcome command error:', error);
-      await interaction.reply({ content: '❌ An error occurred.', ephemeral: true });
+      await interaction.editReply({ content: '❌ An error occurred.' });
     } finally {
       await db.end().catch(() => null);
     }
@@ -45,10 +52,16 @@ export async function execute(interaction) {
   }
 
   // Subcommand 'setup' - Interactive Flow
-  await interaction.reply({
-    content: '📝 **Welcome System Setup**\n\nWhich **Channel** should I send welcome messages in? (Mention the channel, e.g., #welcome or type \'cancel\')',
-    ephemeral: true
-  });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.reply({
+      content: '📝 **Welcome System Setup**\n\nWhich **Channel** should I send welcome messages in? (Mention the channel, e.g., #welcome or type \'cancel\')',
+      ephemeral: true
+    });
+  } else {
+    await interaction.editReply({
+      content: '📝 **Welcome System Setup**\n\nWhich **Channel** should I send welcome messages in? (Mention the channel, e.g., #welcome or type \'cancel\')'
+    });
+  }
 
   const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
   const collectorOptions = { filter, max: 1, time: 300000, errors: ['time'] };
