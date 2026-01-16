@@ -91,7 +91,7 @@ export async function execute(interaction) {
       return await interaction.editReply({ content: '❌ Setup cancelled.', embeds: [], components: [] });
     }
     const mentionedChannel = msg.mentions.channels.first();
-    if (!mentionedChannel || mentionedChannel.type !== ChannelType.GuildText) {
+    if (!mentionedChannel || (mentionedChannel.type !== ChannelType.GuildText && mentionedChannel.type !== ChannelType.GuildAnnouncement)) {
       await msg.delete().catch(() => null);
       return await interaction.editReply({ content: '❌ Invalid channel. Please run `/welcome setup` again.', embeds: [], components: [] });
     }
@@ -143,6 +143,18 @@ export async function execute(interaction) {
         const dbConnect = new Client({ connectionString: process.env.DATABASE_URL });
         try {
           await dbConnect.connect();
+          // Ensure table exists just in case
+          await dbConnect.query(`
+            CREATE TABLE IF NOT EXISTS welcome_settings (
+              guild_id TEXT PRIMARY KEY,
+              channel_id TEXT,
+              enabled BOOLEAN DEFAULT FALSE,
+              title TEXT,
+              message TEXT,
+              banner_url TEXT
+            )
+          `);
+          
           await dbConnect.query(`
             INSERT INTO welcome_settings (guild_id, channel_id, enabled, title, message, banner_url)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -155,8 +167,8 @@ export async function execute(interaction) {
           `, [interaction.guildId, channelId, true, welcomeTitle, welcomeMessage, bannerUrl]);
           await i.update({ content: '✅ Welcome system setup and enabled successfully!', embeds: [], components: [] });
         } catch (err) {
-          console.error('Database Error:', err);
-          await i.update({ content: `❌ Failed to save settings. Error: ${err.message}`, embeds: [], components: [] });
+          console.error('Database Error during welcome save:', err);
+          await i.update({ content: `❌ Database Error: ${err.message}. Please check your DATABASE_URL.`, embeds: [], components: [] });
         } finally {
           await dbConnect.end().catch(() => null);
         }
@@ -167,7 +179,7 @@ export async function execute(interaction) {
     });
 
   } catch (error) {
-    console.error(error);
-    await interaction.editReply({ content: '⏱️ Timed out or error occurred. Please try again.', embeds: [], components: [] });
+    console.error('Welcome setup error:', error);
+    await interaction.editReply({ content: `⏱️ Error: ${error.message}`, embeds: [], components: [] });
   }
 }
