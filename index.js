@@ -123,11 +123,19 @@ client.on('interactionCreate', async interaction => {
   try {
     await command.execute(interaction);
   } catch (error) {
+    if (error.code === 10062 || error.code === 40060) {
+      console.warn(`Interaction error (likely timed out or already handled): ${error.message}`);
+      return;
+    }
     console.error(`Error executing ${interaction.commandName}:`, error);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: '❌ There was an error while executing this command!', ephemeral: true });
-    } else {
-      await interaction.reply({ content: '❌ There was an error while executing this command!', ephemeral: true });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: '❌ There was an error while executing this command!', ephemeral: true });
+      } else {
+        await interaction.reply({ content: '❌ There was an error while executing this command!', ephemeral: true });
+      }
+    } catch (replyError) {
+      console.error('Failed to send error reply:', replyError);
     }
   }
 });

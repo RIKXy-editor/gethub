@@ -21,23 +21,23 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
-  const db = new Client({ connectionString: process.env.DATABASE_URL });
 
   if (subcommand === 'enable' || subcommand === 'disable') {
+    const db = new Client({ connectionString: process.env.DATABASE_URL });
     try {
       await db.connect();
       const enabled = subcommand === 'enable';
       if (enabled) {
         const res = await db.query('SELECT channel_id FROM welcome_settings WHERE guild_id = $1', [interaction.guildId]);
         if (!res.rows[0]?.channel_id) {
-          return await interaction.reply({ content: '❌ Please run `/welcome setup` first to set a channel.', ephemeral: true });
+          return await interaction.reply({ content: '❌ Please run `/welcome setup` first to set a channel.', ephemeral: true }).catch(() => null);
         }
       }
       await db.query('UPDATE welcome_settings SET enabled = $1 WHERE guild_id = $2', [enabled, interaction.guildId]);
-      await interaction.reply({ content: `✅ Welcome system ${subcommand}d!`, ephemeral: true });
+      await interaction.reply({ content: `✅ Welcome system ${subcommand}d!`, ephemeral: true }).catch(() => null);
     } catch (error) {
       console.error('Welcome command error:', error);
-      await interaction.reply({ content: '❌ An error occurred.', ephemeral: true });
+      await interaction.reply({ content: '❌ An error occurred.', ephemeral: true }).catch(() => null);
     } finally {
       await db.end().catch(() => null);
     }
@@ -45,9 +45,15 @@ export async function execute(interaction) {
   }
 
   // Subcommand 'setup' - Interactive Flow
-  await interaction.reply({
+  try {
+    await interaction.deferReply({ ephemeral: true });
+  } catch (err) {
+    console.error('Failed to defer reply:', err);
+    return;
+  }
+
+  await interaction.editReply({
     content: '📝 **Welcome System Setup**\n\nWhich **Channel** should I send welcome messages in? (Mention the channel, e.g., #welcome or type \'cancel\')',
-    ephemeral: true
   });
 
   const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
@@ -82,31 +88,40 @@ export async function execute(interaction) {
     const msg = (await interaction.channel.awaitMessages(collectorOptions)).first();
     if (msg.content.toLowerCase() === 'cancel') {
       await msg.delete().catch(() => null);
-      return await interaction.editReply({ content: '❌ Setup cancelled.' });
+      return await interaction.editReply({ content: '❌ Setup cancelled.', embeds: [], components: [] });
     }
     const mentionedChannel = msg.mentions.channels.first();
     if (!mentionedChannel || mentionedChannel.type !== ChannelType.GuildText) {
       await msg.delete().catch(() => null);
-      return await interaction.editReply({ content: '❌ Invalid channel. Please run `/welcome setup` again.' });
+      return await interaction.editReply({ content: '❌ Invalid channel. Please run `/welcome setup` again.', embeds: [], components: [] });
     }
     channelId = mentionedChannel.id;
     await msg.delete().catch(() => null);
 
     await interaction.editReply({ content: '📝 **Step 2: Enter Welcome Title** (e.g., Welcome to {server}! or type \'skip\')', embeds: [buildPreview()] });
     const titleMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (titleMsg.content.toLowerCase() === 'cancel') return await titleMsg.delete().catch(() => null);
+    if (titleMsg.content.toLowerCase() === 'cancel') {
+        await titleMsg.delete().catch(() => null);
+        return await interaction.editReply({ content: '❌ Setup cancelled.', embeds: [], components: [] });
+    }
     if (titleMsg.content.toLowerCase() !== 'skip') welcomeTitle = titleMsg.content;
     await titleMsg.delete().catch(() => null);
 
     await interaction.editReply({ content: '📝 **Step 3: Enter Welcome Message** (Placeholders: {user}, {server}, {membercount} or type \'skip\')', embeds: [buildPreview()] });
     const textMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (textMsg.content.toLowerCase() === 'cancel') return await textMsg.delete().catch(() => null);
+    if (textMsg.content.toLowerCase() === 'cancel') {
+        await textMsg.delete().catch(() => null);
+        return await interaction.editReply({ content: '❌ Setup cancelled.', embeds: [], components: [] });
+    }
     if (textMsg.content.toLowerCase() !== 'skip') welcomeMessage = textMsg.content;
     await textMsg.delete().catch(() => null);
 
     await interaction.editReply({ content: '📝 **Step 4: Enter Banner Image URL** (or type \'skip\')', embeds: [buildPreview()] });
     const bannerMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
-    if (bannerMsg.content.toLowerCase() === 'cancel') return await bannerMsg.delete().catch(() => null);
+    if (bannerMsg.content.toLowerCase() === 'cancel') {
+        await bannerMsg.delete().catch(() => null);
+        return await interaction.editReply({ content: '❌ Setup cancelled.', embeds: [], components: [] });
+    }
     if (bannerMsg.content.toLowerCase() !== 'skip') bannerUrl = bannerMsg.content;
     await bannerMsg.delete().catch(() => null);
 
@@ -153,6 +168,6 @@ export async function execute(interaction) {
 
   } catch (error) {
     console.error(error);
-    await interaction.editReply({ content: '⏱️ Timed out. Please try again.' });
+    await interaction.editReply({ content: '⏱️ Timed out or error occurred. Please try again.', embeds: [], components: [] });
   }
 }
