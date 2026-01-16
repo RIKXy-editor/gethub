@@ -16,23 +16,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "dashboard"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "discord-bot"
-
-[[workflows.workflow]]
-name = "dashboard"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dashboard"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "discord-bot"
