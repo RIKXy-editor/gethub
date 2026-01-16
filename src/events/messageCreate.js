@@ -4,9 +4,15 @@ import { fileURLToPath } from 'url';
 import { EmbedBuilder } from 'discord.js';
 import pg from 'pg';
 
-const { Client } = pg;
-const db = new Client({ connectionString: process.env.DATABASE_URL });
-await db.connect();
+const { Pool } = pg;
+let pool = null;
+
+if (process.env.DATABASE_URL) {
+  pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL.includes('railway') ? { rejectUnauthorized: false } : false
+  });
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const statsPath = path.join(__dirname, '../../data/user-stats.json');
@@ -56,7 +62,6 @@ export async function execute(message) {
   if (!stats[guildId]) stats[guildId] = {};
   if (!stats[guildId][userId]) stats[guildId][userId] = { messageCount: 0, weekly: {} };
   
-  // Initialize weekly if missing (migration)
   if (!stats[guildId][userId].weekly) stats[guildId][userId].weekly = {};
 
   stats[guildId][userId].messageCount = (stats[guildId][userId].messageCount || 0) + 1;
@@ -64,27 +69,31 @@ export async function execute(message) {
   
   saveStats(stats);
 
-  // Keyword Warning System
-  const guildId_str = message.guildId;
-  const settings = await db.query('SELECT enabled FROM keyword_settings WHERE guild_id = $1', [guildId_str]);
-  
-  if (settings.rows[0]?.enabled) {
-    const keywordsRes = await db.query('SELECT keyword FROM keywords WHERE guild_id = $1', [guildId_str]);
-    const keywords = keywordsRes.rows.map(r => r.keyword);
+  if (!pool) return;
+
+  try {
+    const settings = await pool.query('SELECT enabled FROM keyword_settings WHERE guild_id = $1', [guildId]);
     
-    const content = message.content.toLowerCase();
-    const found = keywords.find(k => content.includes(k.toLowerCase()));
+    if (settings.rows[0]?.enabled) {
+      const keywordsRes = await pool.query('SELECT keyword FROM keywords WHERE guild_id = $1', [guildId]);
+      const keywords = keywordsRes.rows.map(r => r.keyword);
+      
+      const content = message.content.toLowerCase();
+      const found = keywords.find(k => content.includes(k.toLowerCase()));
 
-    if (found) {
-      const warnEmbed = new EmbedBuilder()
-        .setTitle('⚠️ WARNING / NOTICE')
-        .setDescription('This server does NOT allow sharing cracked plugins, pirated software, keygens, or illegal downloads.\nIf anyone is caught doing this, they will face strict action (mute/kick/ban) without warning.')
-        .setColor('#FF0000');
+      if (found) {
+        const warnEmbed = new EmbedBuilder()
+          .setTitle('⚠️ WARNING / NOTICE')
+          .setDescription('This server does NOT allow sharing cracked plugins, pirated software, keygens, or illegal downloads.\nIf anyone is caught doing this, they will face strict action (mute/kick/ban) without warning.')
+          .setColor('#FF0000');
 
-      await message.reply({
-        content: `${message.author}`,
-        embeds: [warnEmbed]
-      });
+        await message.reply({
+          content: `${message.author}`,
+          embeds: [warnEmbed]
+        });
+      }
     }
+  } catch (err) {
+    console.error('Keyword check error:', err.message);
   }
 }
