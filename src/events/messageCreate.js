@@ -25,6 +25,10 @@ function loadStats() {
 
 function saveStats(stats) {
   try {
+    const dataDir = path.dirname(statsPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
     fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2));
   } catch (err) {
     console.error('Error saving user stats:', err);

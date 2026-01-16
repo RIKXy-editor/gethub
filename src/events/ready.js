@@ -45,24 +45,28 @@ export async function execute(client) {
   console.log(`Bot is ready! Logged in as ${client.user.tag}`);
   
   // Database initialization
-  const db = new Client({ connectionString: process.env.DATABASE_URL });
-  try {
-    await db.connect();
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS welcome_settings (
-        guild_id TEXT PRIMARY KEY,
-        channel_id TEXT,
-        enabled BOOLEAN DEFAULT FALSE,
-        title TEXT,
-        message TEXT,
-        banner_url TEXT
-      )
-    `);
-    console.log('Database initialized successfully.');
-  } catch (err) {
-    console.error('Database initialization error:', err);
-  } finally {
-    await db.end().catch(() => null);
+  if (process.env.DATABASE_URL) {
+    const db = new Client({ connectionString: process.env.DATABASE_URL });
+    try {
+      await db.connect();
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS welcome_settings (
+          guild_id TEXT PRIMARY KEY,
+          channel_id TEXT,
+          enabled BOOLEAN DEFAULT FALSE,
+          title TEXT,
+          message TEXT,
+          banner_url TEXT
+        )
+      `);
+      console.log('Database initialized successfully.');
+    } catch (err) {
+      console.error('Database initialization error:', err);
+    } finally {
+      await db.end().catch(() => null);
+    }
+  } else {
+    console.warn('DATABASE_URL not found, skipping database initialization.');
   }
   
   updateStatus(client);

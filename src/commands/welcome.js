@@ -143,7 +143,6 @@ export async function execute(interaction) {
         const dbConnect = new Client({ connectionString: process.env.DATABASE_URL });
         try {
           await dbConnect.connect();
-          // Ensure table exists just in case
           await dbConnect.query(`
             CREATE TABLE IF NOT EXISTS welcome_settings (
               guild_id TEXT PRIMARY KEY,
@@ -168,7 +167,7 @@ export async function execute(interaction) {
           await i.update({ content: '✅ Welcome system setup and enabled successfully!', embeds: [], components: [] });
         } catch (err) {
           console.error('Database Error during welcome save:', err);
-          await i.update({ content: `❌ Database Error: ${err.message}. Please check your DATABASE_URL.`, embeds: [], components: [] });
+          await i.update({ content: '❌ Database Error: ' + err.message + '. Please check your DATABASE_URL.', embeds: [], components: [] });
         } finally {
           await dbConnect.end().catch(() => null);
         }
@@ -180,6 +179,6 @@ export async function execute(interaction) {
 
   } catch (error) {
     console.error('Welcome setup error:', error);
-    await interaction.editReply({ content: `⏱️ Error: ${error.message}`, embeds: [], components: [] });
+    await interaction.editReply({ content: '⏱️ Error: ' + error.message, embeds: [], components: [] });
   }
 }
