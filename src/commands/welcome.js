@@ -4,6 +4,31 @@ import pg from 'pg';
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+async function ensureTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS welcome_config (
+        guild_id VARCHAR(255) PRIMARY KEY,
+        enabled BOOLEAN DEFAULT FALSE,
+        channel_id VARCHAR(255),
+        title TEXT DEFAULT 'Welcome to {server}!',
+        description TEXT DEFAULT 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
+        footer TEXT DEFAULT 'Member #{memberCount}',
+        color VARCHAR(10) DEFAULT '#9b59b6',
+        thumbnail_mode VARCHAR(20) DEFAULT 'user',
+        image_url TEXT,
+        ping_user BOOLEAN DEFAULT TRUE,
+        dm_welcome BOOLEAN DEFAULT FALSE,
+        auto_role_id VARCHAR(255)
+      )
+    `);
+  } catch (err) {
+    console.error('Error creating welcome_config table:', err);
+  }
+}
+
+ensureTable();
+
 const defaultConfig = {
   enabled: false,
   channelId: null,
