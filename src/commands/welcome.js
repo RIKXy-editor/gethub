@@ -21,30 +21,23 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
-  
+  const db = new Client({ connectionString: process.env.DATABASE_URL });
+
   if (subcommand === 'enable' || subcommand === 'disable') {
-    // For enable/disable, we don't need deferReply if it's instant, 
-    // but the original code might have been getting "Interaction already acknowledged" 
-    // if index.js also tries to reply. Let's use deferReply to be safe and consistent.
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply({ ephemeral: true });
-    }
-    
-    const db = new Client({ connectionString: process.env.DATABASE_URL });
     try {
       await db.connect();
       const enabled = subcommand === 'enable';
       if (enabled) {
         const res = await db.query('SELECT channel_id FROM welcome_settings WHERE guild_id = $1', [interaction.guildId]);
         if (!res.rows[0]?.channel_id) {
-          return await interaction.editReply({ content: '❌ Please run `/welcome setup` first to set a channel.' });
+          return await interaction.reply({ content: '❌ Please run `/welcome setup` first to set a channel.', ephemeral: true });
         }
       }
       await db.query('UPDATE welcome_settings SET enabled = $1 WHERE guild_id = $2', [enabled, interaction.guildId]);
-      await interaction.editReply({ content: `✅ Welcome system ${subcommand}d!` });
+      await interaction.reply({ content: `✅ Welcome system ${subcommand}d!`, ephemeral: true });
     } catch (error) {
       console.error('Welcome command error:', error);
-      await interaction.editReply({ content: '❌ An error occurred.' });
+      await interaction.reply({ content: '❌ An error occurred.', ephemeral: true });
     } finally {
       await db.end().catch(() => null);
     }
@@ -52,16 +45,10 @@ export async function execute(interaction) {
   }
 
   // Subcommand 'setup' - Interactive Flow
-  if (!interaction.deferred && !interaction.replied) {
-    await interaction.reply({
-      content: '📝 **Welcome System Setup**\n\nWhich **Channel** should I send welcome messages in? (Mention the channel, e.g., #welcome or type \'cancel\')',
-      ephemeral: true
-    });
-  } else {
-    await interaction.editReply({
-      content: '📝 **Welcome System Setup**\n\nWhich **Channel** should I send welcome messages in? (Mention the channel, e.g., #welcome or type \'cancel\')'
-    });
-  }
+  await interaction.reply({
+    content: '📝 **Welcome System Setup**\n\nWhich **Channel** should I send welcome messages in? (Mention the channel, e.g., #welcome or type \'cancel\')',
+    ephemeral: true
+  });
 
   const filter = m => m.author.id === interaction.user.id && m.channelId === interaction.channelId;
   const collectorOptions = { filter, max: 1, time: 300000, errors: ['time'] };
@@ -77,7 +64,7 @@ export async function execute(interaction) {
       .replace(/{user}/g, interaction.user.toString())
       .replace(/{membercount}/g, '100')
       .replace(/{server}/g, interaction.guild.name)
-      .replace(/{joindate}/g, interaction.member.joinedAt.toLocaleDateString());
+      .replace(/{joindate}/g, interaction.member.joinedAt?.toLocaleDateString() || 'N/A');
   };
 
   const buildPreview = () => {
@@ -92,7 +79,6 @@ export async function execute(interaction) {
   };
 
   try {
-    // 1. Channel
     const msg = (await interaction.channel.awaitMessages(collectorOptions)).first();
     if (msg.content.toLowerCase() === 'cancel') {
       await msg.delete().catch(() => null);
@@ -106,28 +92,24 @@ export async function execute(interaction) {
     channelId = mentionedChannel.id;
     await msg.delete().catch(() => null);
 
-    // 2. Title
     await interaction.editReply({ content: '📝 **Step 2: Enter Welcome Title** (e.g., Welcome to {server}! or type \'skip\')', embeds: [buildPreview()] });
     const titleMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
     if (titleMsg.content.toLowerCase() === 'cancel') return await titleMsg.delete().catch(() => null);
     if (titleMsg.content.toLowerCase() !== 'skip') welcomeTitle = titleMsg.content;
     await titleMsg.delete().catch(() => null);
 
-    // 3. Message/Description
     await interaction.editReply({ content: '📝 **Step 3: Enter Welcome Message** (Placeholders: {user}, {server}, {membercount} or type \'skip\')', embeds: [buildPreview()] });
     const textMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
     if (textMsg.content.toLowerCase() === 'cancel') return await textMsg.delete().catch(() => null);
     if (textMsg.content.toLowerCase() !== 'skip') welcomeMessage = textMsg.content;
     await textMsg.delete().catch(() => null);
 
-    // 4. Banner URL
     await interaction.editReply({ content: '📝 **Step 4: Enter Banner Image URL** (or type \'skip\')', embeds: [buildPreview()] });
     const bannerMsg = (await interaction.channel.awaitMessages(collectorOptions)).first();
     if (bannerMsg.content.toLowerCase() === 'cancel') return await bannerMsg.delete().catch(() => null);
     if (bannerMsg.content.toLowerCase() !== 'skip') bannerUrl = bannerMsg.content;
     await bannerMsg.delete().catch(() => null);
 
-    // Show Preview and Confirm
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('welcome_confirm').setLabel('Confirm Setup').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId('welcome_cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
@@ -143,10 +125,10 @@ export async function execute(interaction) {
 
     collector.on('collect', async i => {
       if (i.customId === 'welcome_confirm') {
-        const db = new Client({ connectionString: process.env.DATABASE_URL });
+        const dbConnect = new Client({ connectionString: process.env.DATABASE_URL });
         try {
-          await db.connect();
-          await db.query(`
+          await dbConnect.connect();
+          await dbConnect.query(`
             INSERT INTO welcome_settings (guild_id, channel_id, enabled, title, message, banner_url)
             VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (guild_id) DO UPDATE SET 
@@ -161,7 +143,7 @@ export async function execute(interaction) {
           console.error('Database Error:', err);
           await i.update({ content: `❌ Failed to save settings. Error: ${err.message}`, embeds: [], components: [] });
         } finally {
-          await db.end().catch(() => null);
+          await dbConnect.end().catch(() => null);
         }
       } else {
         await i.update({ content: '❌ Setup cancelled.', embeds: [], components: [] });
