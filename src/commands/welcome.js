@@ -2,11 +2,19 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilde
 import pg from 'pg';
 
 const { Pool } = pg;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+let pool = null;
+let dbAvailable = false;
 
-async function ensureTable() {
-  try {
-    await pool.query(`
+if (process.env.DATABASE_URL) {
+  pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL.includes('railway') ? { rejectUnauthorized: false } : false
+  });
+  
+  pool.query('SELECT 1').then(() => {
+    dbAvailable = true;
+    console.log('Welcome system: Database connected');
+    pool.query(`
       CREATE TABLE IF NOT EXISTS welcome_config (
         guild_id VARCHAR(255) PRIMARY KEY,
         enabled BOOLEAN DEFAULT FALSE,
@@ -21,13 +29,14 @@ async function ensureTable() {
         dm_welcome BOOLEAN DEFAULT FALSE,
         auto_role_id VARCHAR(255)
       )
-    `);
-  } catch (err) {
-    console.error('Error creating welcome_config table:', err);
-  }
+    `).catch(err => console.error('Welcome table creation error:', err.message));
+  }).catch(err => {
+    console.error('Welcome system: Database not available -', err.message);
+    dbAvailable = false;
+  });
+} else {
+  console.log('Welcome system: No DATABASE_URL configured');
 }
-
-ensureTable();
 
 const defaultConfig = {
   enabled: false,
@@ -44,6 +53,7 @@ const defaultConfig = {
 };
 
 async function getWelcomeConfig(guildId) {
+  if (!pool) return { ...defaultConfig };
   try {
     const res = await pool.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
     if (res.rows[0]) {
@@ -64,12 +74,13 @@ async function getWelcomeConfig(guildId) {
     }
     return { ...defaultConfig };
   } catch (err) {
-    console.error('Error getting welcome config:', err);
+    console.error('Error getting welcome config:', err.message);
     return { ...defaultConfig };
   }
 }
 
 async function setWelcomeConfig(guildId, updates) {
+  if (!pool) return;
   try {
     const current = await getWelcomeConfig(guildId);
     const merged = { ...current, ...updates };
@@ -82,15 +93,16 @@ async function setWelcomeConfig(guildId, updates) {
         color = $7, thumbnail_mode = $8, image_url = $9, ping_user = $10, dm_welcome = $11, auto_role_id = $12
     `, [guildId, merged.enabled, merged.channelId, merged.title, merged.description, merged.footer, merged.color, merged.thumbnailMode, merged.imageUrl, merged.pingUser, merged.dmWelcome, merged.autoRoleId]);
   } catch (err) {
-    console.error('Error setting welcome config:', err);
+    console.error('Error setting welcome config:', err.message);
   }
 }
 
 async function resetWelcomeConfig(guildId) {
+  if (!pool) return;
   try {
     await pool.query('DELETE FROM welcome_config WHERE guild_id = $1', [guildId]);
   } catch (err) {
-    console.error('Error resetting welcome config:', err);
+    console.error('Error resetting welcome config:', err.message);
   }
 }
 

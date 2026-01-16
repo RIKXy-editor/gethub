@@ -2,32 +2,14 @@ import { EmbedBuilder } from 'discord.js';
 import pg from 'pg';
 
 const { Pool } = pg;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+let pool = null;
 
-async function ensureTable() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS welcome_config (
-        guild_id VARCHAR(255) PRIMARY KEY,
-        enabled BOOLEAN DEFAULT FALSE,
-        channel_id VARCHAR(255),
-        title TEXT DEFAULT 'Welcome to {server}!',
-        description TEXT DEFAULT 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
-        footer TEXT DEFAULT 'Member #{memberCount}',
-        color VARCHAR(10) DEFAULT '#9b59b6',
-        thumbnail_mode VARCHAR(20) DEFAULT 'user',
-        image_url TEXT,
-        ping_user BOOLEAN DEFAULT TRUE,
-        dm_welcome BOOLEAN DEFAULT FALSE,
-        auto_role_id VARCHAR(255)
-      )
-    `);
-  } catch (err) {
-    console.error('Error creating welcome_config table:', err);
-  }
+if (process.env.DATABASE_URL) {
+  pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL.includes('railway') ? { rejectUnauthorized: false } : false
+  });
 }
-
-ensureTable();
 
 const defaultConfig = {
   enabled: false,
@@ -44,6 +26,7 @@ const defaultConfig = {
 };
 
 async function getWelcomeConfig(guildId) {
+  if (!pool) return { ...defaultConfig };
   try {
     const res = await pool.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
     if (res.rows[0]) {
@@ -64,7 +47,7 @@ async function getWelcomeConfig(guildId) {
     }
     return { ...defaultConfig };
   } catch (err) {
-    console.error('Error getting welcome config:', err);
+    console.error('Error getting welcome config:', err.message);
     return { ...defaultConfig };
   }
 }
