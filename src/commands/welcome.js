@@ -150,11 +150,11 @@ export async function execute(interaction) {
             INSERT INTO welcome_settings (guild_id, channel_id, enabled, title, message, banner_url)
             VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (guild_id) DO UPDATE SET 
-              channel_id = $2, 
+              channel_id = EXCLUDED.channel_id, 
               enabled = TRUE,
-              title = $4,
-              message = $5,
-              banner_url = $6
+              title = EXCLUDED.title,
+              message = EXCLUDED.message,
+              banner_url = EXCLUDED.banner_url
           `, [interaction.guildId, channelId, true, welcomeTitle, welcomeMessage, bannerUrl]);
           await i.update({ content: '✅ Welcome system setup and enabled successfully!', embeds: [], components: [] });
         } catch (err) {
