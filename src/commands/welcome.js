@@ -40,7 +40,7 @@ export async function execute(interaction) {
           return await interaction.editReply({ content: '❌ Please run `/welcome setup` first to set a channel.' });
         }
       }
-      await db.query('UPDATE welcome_settings SET enabled = $1 WHERE guild_id = $1', [enabled, interaction.guildId]);
+      await db.query('UPDATE welcome_settings SET enabled = $1 WHERE guild_id = $2', [enabled, interaction.guildId]);
       await interaction.editReply({ content: `✅ Welcome system ${subcommand}d!` });
     } catch (error) {
       console.error('Welcome command error:', error);
