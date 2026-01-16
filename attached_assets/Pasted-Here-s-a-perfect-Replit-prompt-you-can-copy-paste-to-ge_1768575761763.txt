@@ -1,0 +1,62 @@
+Here’s a **perfect Replit prompt** you can copy-paste to generate this exact feature (Lockdown ON/OFF with 2–3 channels visible + restore original state).
+
+---
+
+## ✅ Replit Prompt (Copy Paste)
+
+**Prompt:**
+
+> Build a Discord bot using **Discord.js v14** with slash commands.
+> I want an **Admin-only Server Lockdown system**.
+>
+> ### Features:
+>
+> 1. Slash command: `/lockdown enable`
+>
+> * Admin only
+>
+> * Must lock/hide the **entire server** for `@everyone` by setting these permissions in every channel:
+>
+>   * `ViewChannel: false`
+>   * `SendMessages: false`
+>   * `AddReactions: false`
+>   * `Connect: false`
+>   * `Speak: false`
+>
+> * But allow me to select **up to 3 channels** (channel1 required, channel2 optional, channel3 optional) that will remain visible for everyone (`ViewChannel: true`) during lockdown.
+>
+> 2. Slash command: `/lockdown disable`
+>
+> * Admin only
+> * Must restore the server permissions back to the **exact previous state**.
+>
+> ### Important:
+>
+> * The bot must **backup the previous @everyone permission overwrites per channel** before enabling lockdown.
+> * Store backups in a JSON file: `data/lockdown.json` (auto-create folder/file if missing).
+> * While restoring, if a channel had no overwrite before, the bot should remove the overwrite when disabling.
+>
+> ### Output Requirements:
+>
+> * Provide complete production-ready code.
+> * Include:
+>
+>   * `index.js` (bot login, interaction handler)
+>   * `commands/lockdown.js` (the full lockdown system)
+>   * Proper slash command registration
+>   * `.env` usage (`DISCORD_TOKEN`, `CLIENT_ID`, optional `GUILD_ID`)
+> * Include steps to run on Replit.
+>
+> Make sure the command works on:
+>
+> * text channels
+> * voice channels
+> * categories
+> * announcement channels
+> * forums/media if possible
+>
+> Also make the bot reply with progress messages like “Lockdown enabled” and “Server restored”.
+
+---
+
+If you want, I can also write you a **shorter prompt** (faster generation) or a **Python version** prompt (py-cord / nextcord).
