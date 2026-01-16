@@ -1,0 +1,54 @@
+Build me a production-ready Discord bot welcome system using Discord.js v14 (ESM) for Node.js.
+
+Goal:
+I want a professional Welcome System with an admin setup wizard that works using slash commands + buttons, and shows a LIVE PREVIEW embed after every step.
+
+Requirements (must follow exactly):
+1) Commands:
+   - /welcome setup  -> step-by-step wizard setup
+   - /welcome test   -> sends preview welcome message in the configured channel
+   - /welcome toggle -> enable/disable welcome system
+   - /welcome reset  -> reset config to default
+   - Optional: /welcome view -> shows current config + preview
+
+2) Setup Wizard flow (/welcome setup):
+   - Must use interaction.reply() (reply format) and not plain channel messages.
+   - Must be EPHEMERAL.
+   - Must use buttons for steps.
+   - Must show an EMBED PREVIEW on first message.
+   - Every time a setting is changed, the wizard must update the same reply with a fresh preview (editReply).
+   - Use buttons: Set Channel, Set Message, Set Embed Color, Set Image Banner URL, Toggle Ping User, Toggle DM Welcome, Set Auto Role, Finish.
+
+3) Preview embed:
+   - Must show EXACTLY how the welcome message will look.
+   - Must support variables:
+     {user} {username} {server} {memberCount}
+   - Allow title + description + footer + thumbnail.
+   - Thumbnail modes: user avatar / server icon / none.
+   - Optional image/banner URL.
+
+4) Actual welcome event:
+   - On guildMemberAdd, send welcome message in configured channel.
+   - If DM is enabled, DM the same welcome embed to the new member (handle fail safely).
+   - If auto role set, assign the role (handle missing permissions).
+   - If ping enabled, ping user in message content along with embed.
+
+5) Storage:
+   - Must persist settings per guild.
+   - Use JSON file storage in ./data/welcome.json
+   - Must implement helper functions: loadData(filename, defaultValue), saveData(filename, data)
+   - Must auto-create ./data directory if missing.
+
+6) Code Quality:
+   - Fully working code, no pseudo code.
+   - Modular structure:
+     - /commands/welcome.js
+     - /events/guildMemberAdd.js
+     - /utils/storage.js
+   - Clean error handling & permission checks.
+   - Must not crash if channel deleted or missing permissions.
+   - Must be easy to extend.
+
+Output:
+Give me the FULL code for each file, with filenames and exact code blocks.
+Do NOT skip anything.

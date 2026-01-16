@@ -1,53 +1,77 @@
 import { EmbedBuilder } from 'discord.js';
-import pkg from 'pg';
-const { Client } = pkg;
+import { getWelcomeConfig } from '../utils/storage.js';
 
 export const name = 'guildMemberAdd';
 export const once = false;
 
+function replacePlaceholders(text, member) {
+  if (!text) return '';
+  return text
+    .replace(/{user}/g, member.toString())
+    .replace(/{username}/g, member.user.username)
+    .replace(/{server}/g, member.guild.name)
+    .replace(/{memberCount}/g, member.guild.memberCount.toString());
+}
+
+function buildWelcomeEmbed(config, member) {
+  const embed = new EmbedBuilder()
+    .setTitle(replacePlaceholders(config.title, member))
+    .setDescription(replacePlaceholders(config.description, member))
+    .setColor(config.color || '#9b59b6')
+    .setTimestamp();
+
+  if (config.footer) {
+    embed.setFooter({ text: replacePlaceholders(config.footer, member) });
+  }
+
+  if (config.thumbnailMode === 'user') {
+    embed.setThumbnail(member.user.displayAvatarURL({ dynamic: true }));
+  } else if (config.thumbnailMode === 'server') {
+    embed.setThumbnail(member.guild.iconURL({ dynamic: true }));
+  }
+
+  if (config.imageUrl) {
+    embed.setImage(config.imageUrl);
+  }
+
+  return embed;
+}
+
 export async function execute(member) {
   if (member.user.bot) return;
 
-  const db = new Client({ connectionString: process.env.DATABASE_URL });
+  const config = getWelcomeConfig(member.guild.id);
   
+  if (!config.enabled || !config.channelId) return;
+
+  const channel = member.guild.channels.cache.get(config.channelId);
+  if (!channel) return;
+
+  const embed = buildWelcomeEmbed(config, member);
+
   try {
-    await db.connect();
-    const res = await db.query('SELECT channel_id, enabled FROM welcome_settings WHERE guild_id = $1', [member.guild.id]);
-    
-    if (!res.rows[0] || !res.rows[0].enabled || !res.rows[0].channel_id) {
-      return;
-    }
-
-    const channel = member.guild.channels.cache.get(res.rows[0].channel_id);
-    if (!channel) return;
-
-    const welcomeTitle = res.rows[0].title || '👋 Welcome to Editors Club!';
-    const welcomeMessage = res.rows[0].message || 'Welcome {user} to the server!\n\nYou are our **{membercount}** member. We are glad to have you here!';
-    const bannerUrl = res.rows[0].banner_url || 'https://images-ext-1.discordapp.net/external/IXixxPzgrGuQiFTO4n8yFxRDKB57TPVs4WbTLJINJO8/https/i.ibb.co/QFvjjCv8/ezgif-3bb603bd9474c7.gif';
-    const WELCOME_COLOR = '#9b59b6';
-    const memberCount = member.guild.memberCount;
-
-    const replacePlaceholders = (text) => {
-      return text
-        .replace(/{user}/g, member.toString())
-        .replace(/{membercount}/g, memberCount.toString())
-        .replace(/{server}/g, member.guild.name)
-        .replace(/{joindate}/g, member.joinedAt ? member.joinedAt.toLocaleDateString() : 'Unknown');
-    };
-
-    const embed = new EmbedBuilder()
-      .setTitle(replacePlaceholders(welcomeTitle))
-      .setDescription(replacePlaceholders(welcomeMessage))
-      .setColor(WELCOME_COLOR)
-      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-      .setImage(bannerUrl)
-      .setFooter({ text: `Member #${memberCount} • ${member.guild.name}` })
-      .setTimestamp();
-
-    await channel.send({ content: `Hey ${member}, welcome!`, embeds: [embed] });
+    const content = config.pingUser ? `${member}` : null;
+    await channel.send({ content, embeds: [embed] });
   } catch (error) {
-    console.error('Error in welcome event:', error);
-  } finally {
-    await db.end().catch(() => null);
+    console.error('Error sending welcome message:', error);
+  }
+
+  if (config.dmWelcome) {
+    try {
+      await member.send({ embeds: [embed] });
+    } catch (error) {
+      console.error('Could not DM user:', error.message);
+    }
+  }
+
+  if (config.autoRoleId) {
+    try {
+      const role = member.guild.roles.cache.get(config.autoRoleId);
+      if (role) {
+        await member.roles.add(role);
+      }
+    } catch (error) {
+      console.error('Could not assign auto role:', error.message);
+    }
   }
 }

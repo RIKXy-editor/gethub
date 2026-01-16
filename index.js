@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
+import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,7 +94,10 @@ client.on('interactionCreate', async interaction => {
   // Handle modals
   if (interaction.isModalSubmit()) {
     try {
-      await handleJobModal(interaction);
+      const welcomeHandled = await handleWelcomeModal(interaction);
+      if (!welcomeHandled) {
+        await handleJobModal(interaction);
+      }
     } catch (error) {
       console.error('Error handling modal:', error);
     }

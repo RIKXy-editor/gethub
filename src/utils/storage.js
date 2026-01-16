@@ -261,3 +261,32 @@ export function removeUserFromAllEntries(guildId, userId) {
   }
   saveData('giveaway-entries', entries);
 }
+
+export function getWelcomeConfig(guildId) {
+  const configs = loadData('welcome', {});
+  return configs[guildId] || {
+    enabled: false,
+    channelId: null,
+    title: 'Welcome to {server}!',
+    description: 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
+    footer: 'Member #{memberCount}',
+    color: '#9b59b6',
+    thumbnailMode: 'user',
+    imageUrl: null,
+    pingUser: true,
+    dmWelcome: false,
+    autoRoleId: null
+  };
+}
+
+export function setWelcomeConfig(guildId, config) {
+  const configs = loadData('welcome', {});
+  configs[guildId] = { ...getWelcomeConfig(guildId), ...config };
+  saveData('welcome', configs);
+}
+
+export function resetWelcomeConfig(guildId) {
+  const configs = loadData('welcome', {});
+  delete configs[guildId];
+  saveData('welcome', configs);
+}
