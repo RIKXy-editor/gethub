@@ -12,9 +12,10 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(sub =>
     sub.setName('enable')
       .setDescription('Lock/hide the entire server')
-      .addChannelOption(opt => opt.setName('channel1').setDescription('First visible channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true))
-      .addChannelOption(opt => opt.setName('channel2').setDescription('Second visible channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
-      .addChannelOption(opt => opt.setName('channel3').setDescription('Third visible channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+      .addChannelOption(opt => opt.setName('channel1').setDescription('First visible text channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true))
+      .addChannelOption(opt => opt.setName('channel2').setDescription('Second visible text channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+      .addChannelOption(opt => opt.setName('channel3').setDescription('Third visible text channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+      .addChannelOption(opt => opt.setName('vc1').setDescription('Visible voice channel').addChannelTypes(ChannelType.GuildVoice))
   )
   .addSubcommand(sub =>
     sub.setName('disable')
@@ -32,7 +33,8 @@ export async function execute(interaction) {
     const visibleChannels = [
       interaction.options.getChannel('channel1')?.id,
       interaction.options.getChannel('channel2')?.id,
-      interaction.options.getChannel('channel3')?.id
+      interaction.options.getChannel('channel3')?.id,
+      interaction.options.getChannel('vc1')?.id
     ].filter(Boolean);
 
     const backup = {};
