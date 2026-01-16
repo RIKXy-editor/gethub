@@ -1,6 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { EmbedBuilder } from 'discord.js';
+import pg from 'pg';
+
+const { Client } = pg;
+const db = new Client({ connectionString: process.env.DATABASE_URL });
+await db.connect();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const statsPath = path.join(__dirname, '../../data/user-stats.json');
@@ -57,4 +63,28 @@ export async function execute(message) {
   stats[guildId][userId].weekly[weekKey] = (stats[guildId][userId].weekly[weekKey] || 0) + 1;
   
   saveStats(stats);
+
+  // Keyword Warning System
+  const guildId_str = message.guildId;
+  const settings = await db.query('SELECT enabled FROM keyword_settings WHERE guild_id = $1', [guildId_str]);
+  
+  if (settings.rows[0]?.enabled) {
+    const keywordsRes = await db.query('SELECT keyword FROM keywords WHERE guild_id = $1', [guildId_str]);
+    const keywords = keywordsRes.rows.map(r => r.keyword);
+    
+    const content = message.content.toLowerCase();
+    const found = keywords.find(k => content.includes(k.toLowerCase()));
+
+    if (found) {
+      const warnEmbed = new EmbedBuilder()
+        .setTitle('⚠️ WARNING / NOTICE')
+        .setDescription('This server does NOT allow sharing cracked plugins, pirated software, keygens, or illegal downloads.\nIf anyone is caught doing this, they will face strict action (mute/kick/ban) without warning.')
+        .setColor('#FF0000');
+
+      await message.reply({
+        content: `${message.author}`,
+        embeds: [warnEmbed]
+      });
+    }
+  }
 }
