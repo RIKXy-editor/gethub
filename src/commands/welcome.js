@@ -158,8 +158,8 @@ export async function execute(interaction) {
           `, [interaction.guildId, channelId, true, welcomeTitle, welcomeMessage, bannerUrl]);
           await i.update({ content: '✅ Welcome system setup and enabled successfully!', embeds: [], components: [] });
         } catch (err) {
-          console.error(err);
-          await i.update({ content: '❌ Failed to save settings.', embeds: [], components: [] });
+          console.error('Database Error:', err);
+          await i.update({ content: `❌ Failed to save settings. Error: ${err.message}`, embeds: [], components: [] });
         } finally {
           await db.end().catch(() => null);
         }
