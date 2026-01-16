@@ -1,8 +1,48 @@
 import { EmbedBuilder } from 'discord.js';
-import { getWelcomeConfig } from '../utils/storage.js';
+import pg from 'pg';
 
-export const name = 'guildMemberAdd';
-export const once = false;
+const { Pool } = pg;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const defaultConfig = {
+  enabled: false,
+  channelId: null,
+  title: 'Welcome to {server}!',
+  description: 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
+  footer: 'Member #{memberCount}',
+  color: '#9b59b6',
+  thumbnailMode: 'user',
+  imageUrl: null,
+  pingUser: true,
+  dmWelcome: false,
+  autoRoleId: null
+};
+
+async function getWelcomeConfig(guildId) {
+  try {
+    const res = await pool.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
+    if (res.rows[0]) {
+      const row = res.rows[0];
+      return {
+        enabled: row.enabled,
+        channelId: row.channel_id,
+        title: row.title,
+        description: row.description,
+        footer: row.footer,
+        color: row.color,
+        thumbnailMode: row.thumbnail_mode,
+        imageUrl: row.image_url,
+        pingUser: row.ping_user,
+        dmWelcome: row.dm_welcome,
+        autoRoleId: row.auto_role_id
+      };
+    }
+    return { ...defaultConfig };
+  } catch (err) {
+    console.error('Error getting welcome config:', err);
+    return { ...defaultConfig };
+  }
+}
 
 function replacePlaceholders(text, member) {
   if (!text) return '';
@@ -37,10 +77,13 @@ function buildWelcomeEmbed(config, member) {
   return embed;
 }
 
+export const name = 'guildMemberAdd';
+export const once = false;
+
 export async function execute(member) {
   if (member.user.bot) return;
 
-  const config = getWelcomeConfig(member.guild.id);
+  const config = await getWelcomeConfig(member.guild.id);
   
   if (!config.enabled || !config.channelId) return;
 

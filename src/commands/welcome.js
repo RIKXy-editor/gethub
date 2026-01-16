@@ -1,5 +1,73 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { getWelcomeConfig, setWelcomeConfig, resetWelcomeConfig } from '../utils/storage.js';
+import pg from 'pg';
+
+const { Pool } = pg;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const defaultConfig = {
+  enabled: false,
+  channelId: null,
+  title: 'Welcome to {server}!',
+  description: 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
+  footer: 'Member #{memberCount}',
+  color: '#9b59b6',
+  thumbnailMode: 'user',
+  imageUrl: null,
+  pingUser: true,
+  dmWelcome: false,
+  autoRoleId: null
+};
+
+async function getWelcomeConfig(guildId) {
+  try {
+    const res = await pool.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
+    if (res.rows[0]) {
+      const row = res.rows[0];
+      return {
+        enabled: row.enabled,
+        channelId: row.channel_id,
+        title: row.title,
+        description: row.description,
+        footer: row.footer,
+        color: row.color,
+        thumbnailMode: row.thumbnail_mode,
+        imageUrl: row.image_url,
+        pingUser: row.ping_user,
+        dmWelcome: row.dm_welcome,
+        autoRoleId: row.auto_role_id
+      };
+    }
+    return { ...defaultConfig };
+  } catch (err) {
+    console.error('Error getting welcome config:', err);
+    return { ...defaultConfig };
+  }
+}
+
+async function setWelcomeConfig(guildId, updates) {
+  try {
+    const current = await getWelcomeConfig(guildId);
+    const merged = { ...current, ...updates };
+    
+    await pool.query(`
+      INSERT INTO welcome_config (guild_id, enabled, channel_id, title, description, footer, color, thumbnail_mode, image_url, ping_user, dm_welcome, auto_role_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (guild_id) DO UPDATE SET
+        enabled = $2, channel_id = $3, title = $4, description = $5, footer = $6,
+        color = $7, thumbnail_mode = $8, image_url = $9, ping_user = $10, dm_welcome = $11, auto_role_id = $12
+    `, [guildId, merged.enabled, merged.channelId, merged.title, merged.description, merged.footer, merged.color, merged.thumbnailMode, merged.imageUrl, merged.pingUser, merged.dmWelcome, merged.autoRoleId]);
+  } catch (err) {
+    console.error('Error setting welcome config:', err);
+  }
+}
+
+async function resetWelcomeConfig(guildId) {
+  try {
+    await pool.query('DELETE FROM welcome_config WHERE guild_id = $1', [guildId]);
+  } catch (err) {
+    console.error('Error resetting welcome config:', err);
+  }
+}
 
 export const data = new SlashCommandBuilder()
   .setName('welcome')
@@ -66,7 +134,7 @@ function buildWizardButtons(config) {
   return [row1, row2, row3];
 }
 
-function buildConfigSummary(config, guild) {
+function buildConfigSummary(config) {
   const channel = config.channelId ? `<#${config.channelId}>` : 'Not set';
   const role = config.autoRoleId ? `<@&${config.autoRoleId}>` : 'None';
   return `**Current Settings:**
@@ -82,12 +150,12 @@ function buildConfigSummary(config, guild) {
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   const guildId = interaction.guild.id;
-  let config = getWelcomeConfig(guildId);
+  let config = await getWelcomeConfig(guildId);
 
   if (subcommand === 'setup') {
     const previewEmbed = buildPreviewEmbed(config, interaction.member);
     const buttons = buildWizardButtons(config);
-    const summary = buildConfigSummary(config, interaction.guild);
+    const summary = buildConfigSummary(config);
 
     await interaction.reply({
       content: `🎉 **Welcome System Setup Wizard**\n\n${summary}\n\n**Preview:**`,
@@ -102,7 +170,7 @@ export async function execute(interaction) {
     });
 
     collector.on('collect', async (i) => {
-      config = getWelcomeConfig(guildId);
+      config = await getWelcomeConfig(guildId);
 
       if (i.customId === 'welcome_channel') {
         await i.reply({ content: '📢 Please mention the channel for welcome messages (e.g., #welcome):', ephemeral: true });
@@ -110,8 +178,8 @@ export async function execute(interaction) {
         msgCollector.on('collect', async (msg) => {
           const channel = msg.mentions.channels.first() || interaction.guild.channels.cache.get(msg.content);
           if (channel && (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement)) {
-            setWelcomeConfig(guildId, { channelId: channel.id });
-            config = getWelcomeConfig(guildId);
+            await setWelcomeConfig(guildId, { channelId: channel.id });
+            config = await getWelcomeConfig(guildId);
             await msg.delete().catch(() => null);
             await updateWizard(interaction, config);
           }
@@ -140,8 +208,8 @@ export async function execute(interaction) {
         msgCollector.on('collect', async (msg) => {
           const color = msg.content.trim();
           if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
-            setWelcomeConfig(guildId, { color });
-            config = getWelcomeConfig(guildId);
+            await setWelcomeConfig(guildId, { color });
+            config = await getWelcomeConfig(guildId);
             await msg.delete().catch(() => null);
             await updateWizard(interaction, config);
           }
@@ -153,23 +221,23 @@ export async function execute(interaction) {
         const msgCollector = i.channel.createMessageCollector({ filter: m => m.author.id === interaction.user.id, max: 1, time: 60000 });
         msgCollector.on('collect', async (msg) => {
           const url = msg.content.trim().toLowerCase() === 'none' ? null : msg.content.trim();
-          setWelcomeConfig(guildId, { imageUrl: url });
-          config = getWelcomeConfig(guildId);
+          await setWelcomeConfig(guildId, { imageUrl: url });
+          config = await getWelcomeConfig(guildId);
           await msg.delete().catch(() => null);
           await updateWizard(interaction, config);
         });
       }
 
       if (i.customId === 'welcome_ping') {
-        setWelcomeConfig(guildId, { pingUser: !config.pingUser });
-        config = getWelcomeConfig(guildId);
+        await setWelcomeConfig(guildId, { pingUser: !config.pingUser });
+        config = await getWelcomeConfig(guildId);
         await i.deferUpdate();
         await updateWizard(interaction, config);
       }
 
       if (i.customId === 'welcome_dm') {
-        setWelcomeConfig(guildId, { dmWelcome: !config.dmWelcome });
-        config = getWelcomeConfig(guildId);
+        await setWelcomeConfig(guildId, { dmWelcome: !config.dmWelcome });
+        config = await getWelcomeConfig(guildId);
         await i.deferUpdate();
         await updateWizard(interaction, config);
       }
@@ -179,8 +247,8 @@ export async function execute(interaction) {
         const msgCollector = i.channel.createMessageCollector({ filter: m => m.author.id === interaction.user.id, max: 1, time: 60000 });
         msgCollector.on('collect', async (msg) => {
           const role = msg.mentions.roles.first();
-          setWelcomeConfig(guildId, { autoRoleId: role?.id || null });
-          config = getWelcomeConfig(guildId);
+          await setWelcomeConfig(guildId, { autoRoleId: role?.id || null });
+          config = await getWelcomeConfig(guildId);
           await msg.delete().catch(() => null);
           await updateWizard(interaction, config);
         });
@@ -190,14 +258,14 @@ export async function execute(interaction) {
         const modes = ['user', 'server', 'none'];
         const currentIndex = modes.indexOf(config.thumbnailMode);
         const nextMode = modes[(currentIndex + 1) % modes.length];
-        setWelcomeConfig(guildId, { thumbnailMode: nextMode });
-        config = getWelcomeConfig(guildId);
+        await setWelcomeConfig(guildId, { thumbnailMode: nextMode });
+        config = await getWelcomeConfig(guildId);
         await i.deferUpdate();
         await updateWizard(interaction, config);
       }
 
       if (i.customId === 'welcome_finish') {
-        setWelcomeConfig(guildId, { enabled: true });
+        await setWelcomeConfig(guildId, { enabled: true });
         collector.stop();
         await i.update({
           content: '✅ **Welcome system saved and enabled!**\n\nUse `/welcome test` to preview, `/welcome toggle` to enable/disable.',
@@ -210,7 +278,7 @@ export async function execute(interaction) {
     async function updateWizard(originalInteraction, cfg) {
       const previewEmbed = buildPreviewEmbed(cfg, originalInteraction.member);
       const buttons = buildWizardButtons(cfg);
-      const summary = buildConfigSummary(cfg, originalInteraction.guild);
+      const summary = buildConfigSummary(cfg);
       await originalInteraction.editReply({
         content: `🎉 **Welcome System Setup Wizard**\n\n${summary}\n\n**Preview:**`,
         embeds: [previewEmbed],
@@ -235,17 +303,17 @@ export async function execute(interaction) {
 
   if (subcommand === 'toggle') {
     const newState = !config.enabled;
-    setWelcomeConfig(guildId, { enabled: newState });
+    await setWelcomeConfig(guildId, { enabled: newState });
     await interaction.reply({ content: `✅ Welcome system is now **${newState ? 'ENABLED' : 'DISABLED'}**.`, ephemeral: true });
   }
 
   if (subcommand === 'reset') {
-    resetWelcomeConfig(guildId);
+    await resetWelcomeConfig(guildId);
     await interaction.reply({ content: '✅ Welcome config reset to default.', ephemeral: true });
   }
 
   if (subcommand === 'view') {
-    const summary = buildConfigSummary(config, interaction.guild);
+    const summary = buildConfigSummary(config);
     const embed = buildPreviewEmbed(config, interaction.member);
     await interaction.reply({ content: `📋 **Current Welcome Configuration**\n\n${summary}`, embeds: [embed], ephemeral: true });
   }
@@ -259,7 +327,7 @@ export async function handleModal(interaction) {
   const description = interaction.fields.getTextInputValue('description');
   const footer = interaction.fields.getTextInputValue('footer');
 
-  setWelcomeConfig(guildId, { title, description, footer: footer || null });
+  await setWelcomeConfig(guildId, { title, description, footer: footer || null });
   
   await interaction.deferUpdate();
   return true;
