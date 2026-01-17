@@ -198,8 +198,12 @@ async function startServer() {
   
   app.use(cors({
     origin: true,
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token']
   }));
+  
+  app.options('*', cors());
   
   app.use(express.json());
   
