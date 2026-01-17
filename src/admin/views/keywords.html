@@ -146,6 +146,10 @@
       const input = document.getElementById('newKeyword');
       const keyword = input.value.trim();
       if (!keyword) return;
+      if (keyword.length < 2) {
+        alert('Keyword must be at least 2 characters');
+        return;
+      }
       const res = await fetch(`/admin/api/keywords/${currentGuildId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,6 +158,9 @@
       if (res.ok) {
         input.value = '';
         loadKeywords();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to add keyword');
       }
     }
 

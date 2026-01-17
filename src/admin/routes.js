@@ -234,6 +234,29 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
+  router.get('/api/discord/guilds/:guildId/roles', requireAuth, async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const guild = discordClient.guilds.cache.get(guildId);
+      if (!guild) {
+        return res.status(404).json({ error: 'Guild not found' });
+      }
+      const roles = guild.roles.cache
+        .filter(r => r.id !== guild.id && !r.managed)
+        .map(r => ({
+          id: r.id,
+          name: r.name,
+          color: r.hexColor,
+          position: r.position
+        }))
+        .sort((a, b) => b.position - a.position);
+      res.json(roles);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      res.status(500).json({ error: 'Failed to fetch roles' });
+    }
+  });
+
   router.post('/api/discord/send-embed', requireAuth, express.json(), async (req, res) => {
     try {
       const { channelId, embed } = req.body;
@@ -408,8 +431,16 @@ export function createAdminRoutes(discordClient) {
     const db = getDbPool();
     if (!db) return res.status(500).json({ error: 'Database not available' });
     try {
+      const keyword = req.body.keyword?.toLowerCase().trim();
+      if (!keyword || keyword.length < 2) {
+        return res.status(400).json({ error: 'Keyword must be at least 2 characters' });
+      }
+      const existing = await db.query('SELECT id FROM keywords WHERE guild_id = $1 AND keyword = $2', [req.params.guildId, keyword]);
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Keyword already exists' });
+      }
       await db.query('INSERT INTO keyword_settings (guild_id) VALUES ($1) ON CONFLICT DO NOTHING', [req.params.guildId]);
-      await db.query('INSERT INTO keywords (guild_id, keyword) VALUES ($1, $2)', [req.params.guildId, req.body.keyword.toLowerCase()]);
+      await db.query('INSERT INTO keywords (guild_id, keyword) VALUES ($1, $2)', [req.params.guildId, keyword]);
       res.json({ success: true });
     } catch (err) {
       console.error('Error adding keyword:', err);
@@ -447,9 +478,55 @@ export function createAdminRoutes(discordClient) {
       if (!giveaway) {
         return res.status(404).json({ error: 'Giveaway not found' });
       }
+      if (giveaway.ended) {
+        return res.status(400).json({ error: 'Giveaway already ended' });
+      }
+      const { selectWinners } = await import('../utils/giveawayManager.js');
+      const { getEntries } = await import('../utils/storage.js');
+      const guild = discordClient.guilds.cache.get(guildId);
+      if (!guild) {
+        giveaways[guildId][messageId].ended = true;
+        saveData('giveaways', giveaways);
+        return res.json({ success: true, message: 'Giveaway ended (guild not accessible)', winners: [] });
+      }
+      const channel = await guild.channels.fetch(giveaway.channelId).catch(() => null);
+      const message = channel ? await channel.messages.fetch(messageId).catch(() => null) : null;
+      let entries = getEntries(guildId, messageId);
+      const validEntries = [];
+      for (const entry of entries) {
+        try {
+          const member = await guild.members.fetch(entry.userId);
+          if (giveaway.requiredRoleId && !member.roles.cache.has(giveaway.requiredRoleId)) continue;
+          validEntries.push(entry);
+        } catch { continue; }
+      }
+      const winnerIds = selectWinners(validEntries, giveaway.winnerCount || 1, giveaway.multiplierRoles || {});
+      if (message && message.embeds[0]) {
+        const { EmbedBuilder } = await import('discord.js');
+        const newEmbed = EmbedBuilder.from(message.embeds[0]);
+        const winnerText = winnerIds.length > 0 ? winnerIds.map(id => `<@${id}>`).join(', ') : 'No valid entries';
+        const detailsField = newEmbed.data.fields?.find(f => f.name === '🎯 Giveaway Details');
+        if (detailsField) {
+          const lines = detailsField.value.split('\n');
+          lines[1] = `**Winner(s):** ${winnerText}`;
+          detailsField.value = lines.join('\n');
+        }
+        newEmbed.setFooter({ text: '✅ Giveaway has ended.' });
+        await message.edit({ embeds: [newEmbed] });
+      }
+      for (const winnerId of winnerIds) {
+        try {
+          const { EmbedBuilder } = await import('discord.js');
+          const winner = await discordClient.users.fetch(winnerId);
+          await winner.send({
+            embeds: [new EmbedBuilder().setColor(0x00FF00).setTitle('🎉 You Won!').setDescription(`Congratulations! You've won: **${giveaway.prize}**`).setFooter({ text: 'Thank you for participating!' })]
+          });
+        } catch { }
+      }
       giveaways[guildId][messageId].ended = true;
+      giveaways[guildId][messageId].winners = winnerIds;
       saveData('giveaways', giveaways);
-      res.json({ success: true, message: 'Giveaway marked as ended' });
+      res.json({ success: true, message: 'Giveaway ended', winners: winnerIds });
     } catch (err) {
       console.error('Error ending giveaway:', err);
       res.status(500).json({ error: 'Failed to end giveaway' });

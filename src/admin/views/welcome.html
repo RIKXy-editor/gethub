@@ -181,8 +181,19 @@
     }
 
     async function loadRoles() {
+      if (!currentGuildId) return;
+      const res = await fetch(`/admin/api/discord/guilds/${currentGuildId}/roles`);
+      const roles = await res.json();
       const select = document.getElementById('autoRoleId');
       select.innerHTML = '<option value="">None</option>';
+      roles.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.name;
+        opt.style.color = r.color;
+        select.appendChild(opt);
+      });
+      if (config.autoRoleId) select.value = config.autoRoleId;
     }
 
     async function loadConfig() {
