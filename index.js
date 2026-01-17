@@ -193,7 +193,8 @@ client.on('interactionCreate', async interaction => {
 
 async function startServer() {
   const app = express();
-  const port = process.env.API_PORT || 3001;
+  const dev = process.env.NODE_ENV !== 'production';
+  const port = dev ? (process.env.API_PORT || 3001) : (process.env.PORT || 5000);
   
   app.use(cors({
     origin: true,
@@ -204,18 +205,42 @@ async function startServer() {
     secret: process.env.SESSION_SECRET || 'ticket-admin-secret-key-change-me',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000, sameSite: 'lax' }
+    cookie: { 
+      secure: process.env.NODE_ENV === 'production', 
+      maxAge: 24 * 60 * 60 * 1000, 
+      sameSite: 'lax' 
+    }
   }));
   
   app.use('/admin', createAdminRoutes(client));
   
-  app.get('/', (req, res) => {
-    res.json({ status: 'Bot API running' });
-  });
-  
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`Admin dashboard running on port ${port}`);
-  });
+  if (dev) {
+    app.get('/', (req, res) => {
+      res.json({ status: 'Bot API running', dashboard: 'Use the dashboard workflow on port 5000' });
+    });
+    
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Bot API running on port ${port}`);
+    });
+  } else {
+    const next = (await import('next')).default;
+    const nextApp = next({ 
+      dev: false, 
+      dir: path.join(__dirname, 'dashboard')
+    });
+    const handle = nextApp.getRequestHandler();
+    
+    await nextApp.prepare();
+    console.log('Next.js app prepared');
+    
+    app.all('*', (req, res) => {
+      return handle(req, res);
+    });
+    
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server running on port ${port} (production mode)`);
+    });
+  }
 }
 
 async function start() {
