@@ -149,7 +149,7 @@ Click the button below to share your work!</div>
 
     async function loadChannels() {
       if (!currentGuildId) return;
-      const res = await fetch(`/admin/api/discord/channels/${currentGuildId}`);
+      const res = await fetch(`/admin/api/discord/guilds/${currentGuildId}/channels`);
       const channels = await res.json();
       const textChannels = channels.filter(c => c.type === 0);
       const select = document.getElementById('channelId');
