@@ -19,6 +19,8 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #dc2626;
+  --glow-red: 0 0 20px rgba(220, 38, 38, 0.4), 0 0 40px rgba(220, 38, 38, 0.2);
+  --glow-red-strong: 0 0 15px rgba(220, 38, 38, 0.6), 0 0 30px rgba(220, 38, 38, 0.3);
 }
 
 body {
@@ -41,9 +43,10 @@ body {
   width: 250px;
   height: 100vh;
   background: var(--bg-secondary);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--accent);
   padding: 20px 0;
   z-index: 100;
+  box-shadow: var(--glow-red);
 }
 
 .sidebar-header {
@@ -53,11 +56,12 @@ body {
 }
 
 .sidebar-header h1 {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   color: var(--accent);
   display: flex;
   align-items: center;
   gap: 10px;
+  text-shadow: 0 0 10px rgba(220, 38, 38, 0.5);
 }
 
 .sidebar-nav {
@@ -122,12 +126,13 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
-  transition: transform 0.2s, border-color 0.2s;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
   border-color: var(--accent);
+  box-shadow: var(--glow-red);
 }
 
 .stat-card .icon {
@@ -152,6 +157,11 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: var(--glow-red);
 }
 
 .card-header {
@@ -236,10 +246,12 @@ body {
 .btn-primary {
   background: var(--accent);
   color: white;
+  transition: all 0.2s;
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
+  box-shadow: var(--glow-red-strong);
 }
 
 .btn-secondary {
@@ -315,12 +327,13 @@ textarea.form-control {
 
 .login-box {
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent);
   border-radius: 16px;
   padding: 40px;
   width: 100%;
   max-width: 400px;
   text-align: center;
+  box-shadow: var(--glow-red-strong);
 }
 
 .login-box h1 {
