@@ -1,4 +1,45 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
+
+async function promptForInput(interaction, prompt, options = {}) {
+  const { timeout = 60000, validator = null, deletePrompt = true } = options;
+  
+  const promptMsg = await interaction.reply({ 
+    content: `${prompt}\n\n*Type your response below (or type \`cancel\` to cancel). You have 60 seconds.*`,
+    ephemeral: false,
+    fetchReply: true
+  });
+
+  const filter = m => m.author.id === interaction.user.id;
+  
+  try {
+    const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: timeout, errors: ['time'] });
+    const response = collected.first();
+    
+    if (deletePrompt) {
+      await promptMsg.delete().catch(() => {});
+      await response.delete().catch(() => {});
+    }
+    
+    if (response.content.toLowerCase() === 'cancel') {
+      return { cancelled: true, value: null };
+    }
+    
+    if (validator) {
+      const validationResult = await validator(response);
+      if (!validationResult.valid) {
+        await interaction.channel.send({ content: validationResult.error }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+        return { cancelled: false, value: null, error: validationResult.error };
+      }
+      return { cancelled: false, value: validationResult.value };
+    }
+    
+    return { cancelled: false, value: response.content.trim() };
+  } catch (err) {
+    await promptMsg.delete().catch(() => {});
+    await interaction.channel.send({ content: '⏱️ Time ran out. Please click the button again to try.' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    return { cancelled: true, value: null, timeout: true };
+  }
+}
 import { loadData, saveData } from '../utils/storage.js';
 import { generateTranscript } from '../utils/transcript.js';
 
@@ -335,39 +376,121 @@ export async function handleTicketInteraction(interaction) {
   }
 
   if (customId === 'ticket:add_user') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:add_user_modal')
-      .setTitle('Add User to Ticket')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('user_id').setLabel('User ID').setStyle(TextInputStyle.Short).setRequired(true)
-        )
-      );
-    await interaction.showModal(modal);
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+
+    const result = await promptForInput(interaction, '➕ **Add User to Ticket**\nMention the user or paste their user ID to add them to this ticket.\n\nExample: @username or paste user ID', {
+      validator: async (msg) => {
+        let userId = msg.content.trim();
+        const mention = msg.mentions.users.first();
+        if (mention) userId = mention.id;
+        else userId = userId.replace(/[<@!>]/g, '');
+        
+        try {
+          const member = await interaction.guild.members.fetch(userId);
+          return { valid: true, value: member };
+        } catch {
+          return { valid: false, error: '❌ User not found. Please check and try again.' };
+        }
+      }
+    });
+    
+    if (result.value) {
+      await interaction.channel.permissionOverwrites.edit(result.value.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+      await interaction.channel.send({ content: `✅ Added ${result.value} to this ticket.` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+      await logTicketAction(interaction.guild, config, `User Added: ${result.value.user.tag}`, ticket, interaction.user);
+    }
   }
 
   if (customId === 'ticket:remove_user') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:remove_user_modal')
-      .setTitle('Remove User from Ticket')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('user_id').setLabel('User ID').setStyle(TextInputStyle.Short).setRequired(true)
-        )
-      );
-    await interaction.showModal(modal);
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+
+    const result = await promptForInput(interaction, '➖ **Remove User from Ticket**\nMention the user or paste their user ID to remove them from this ticket.\n\nExample: @username or paste user ID', {
+      validator: async (msg) => {
+        let userId = msg.content.trim();
+        const mention = msg.mentions.users.first();
+        if (mention) userId = mention.id;
+        else userId = userId.replace(/[<@!>]/g, '');
+        
+        return { valid: true, value: userId };
+      }
+    });
+    
+    if (result.value) {
+      try {
+        await interaction.channel.permissionOverwrites.delete(result.value);
+        await interaction.channel.send({ content: '✅ User removed from this ticket.' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+        await logTicketAction(interaction.guild, config, `User Removed: ${result.value}`, ticket, interaction.user);
+      } catch {
+        await interaction.channel.send({ content: '❌ Failed to remove user.' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+      }
+    }
   }
 
   if (customId === 'ticket:close') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:close_modal')
-      .setTitle('Close Ticket')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('reason').setLabel('Reason for closing').setStyle(TextInputStyle.Paragraph).setRequired(false).setPlaceholder('Optional: Enter reason for closing...')
-        )
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+
+    const result = await promptForInput(interaction, '🔒 **Close Ticket**\nType a reason for closing this ticket, or type `skip` to close without a reason.', {
+      validator: async (msg) => {
+        const reason = msg.content.trim();
+        if (reason.toLowerCase() === 'skip') {
+          return { valid: true, value: 'No reason provided' };
+        }
+        return { valid: true, value: reason };
+      }
+    });
+    
+    if (!result.cancelled && result.value) {
+      ticket.status = 'closed';
+      ticket.closedAt = Date.now();
+      ticket.closeReason = result.value;
+      saveTicket(guildId, interaction.channel.id, ticket);
+
+      await interaction.channel.permissionOverwrites.edit(ticket.openerId, { ViewChannel: true, SendMessages: false });
+
+      const closedEmbed = new EmbedBuilder()
+        .setTitle('🔒 Ticket Closed')
+        .setDescription(`This ticket has been closed by ${interaction.user}`)
+        .addFields({ name: 'Reason', value: result.value })
+        .setColor('#ff0000')
+        .setTimestamp();
+
+      const reopenRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket:reopen').setLabel('Reopen').setStyle(ButtonStyle.Success).setEmoji('🔓'),
+        new ButtonBuilder().setCustomId('ticket:transcript').setLabel('Transcript').setStyle(ButtonStyle.Secondary).setEmoji('📜')
       );
-    await interaction.showModal(modal);
+
+      await interaction.channel.send({ embeds: [closedEmbed], components: [reopenRow] });
+      await logTicketAction(interaction.guild, config, `Closed - ${result.value}`, ticket, interaction.user);
+
+      if (config.transcriptDm) {
+        try {
+          const transcript = await generateTranscript(interaction.channel, ticket);
+          const opener = await interaction.client.users.fetch(ticket.openerId);
+          await opener.send({ content: `📜 Here's the transcript from your ticket in **${interaction.guild.name}**:`, files: [transcript] }).catch(() => null);
+        } catch {}
+      }
+
+      try {
+        const opener = await interaction.client.users.fetch(ticket.openerId);
+        const ratingEmbed = new EmbedBuilder()
+          .setTitle('⭐ Rate Your Support')
+          .setDescription('How was your support experience? Please rate us!')
+          .setColor('#FFD700');
+
+        const ratingRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`ticket:rate:1:${interaction.channel.id}`).setLabel('1').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
+          new ButtonBuilder().setCustomId(`ticket:rate:2:${interaction.channel.id}`).setLabel('2').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
+          new ButtonBuilder().setCustomId(`ticket:rate:3:${interaction.channel.id}`).setLabel('3').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
+          new ButtonBuilder().setCustomId(`ticket:rate:4:${interaction.channel.id}`).setLabel('4').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
+          new ButtonBuilder().setCustomId(`ticket:rate:5:${interaction.channel.id}`).setLabel('5').setStyle(ButtonStyle.Secondary).setEmoji('⭐')
+        );
+
+        await opener.send({ embeds: [ratingEmbed], components: [ratingRow] }).catch(() => null);
+      } catch {}
+    }
   }
 
   if (customId === 'ticket:transcript') {
@@ -406,27 +529,51 @@ export async function handleTicketInteraction(interaction) {
   }
 
   if (customId === 'ticket:setup_category') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:setup_category_modal')
-      .setTitle('Set Ticket Category')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('category_id').setLabel('Discord Category ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Right-click category > Copy ID')
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, '📁 **Set Ticket Category**\nMention the category or paste the category ID where ticket channels should be created.\n\nExample: Type the category ID (right-click category > Copy ID)', {
+      validator: async (msg) => {
+        const input = msg.content.trim().replace(/[<#>]/g, '');
+        try {
+          const category = await interaction.guild.channels.fetch(input);
+          if (category && category.type === 4) {
+            return { valid: true, value: category };
+          }
+          return { valid: false, error: '❌ That\'s not a valid category. Make sure it\'s a category channel, not a text channel.' };
+        } catch {
+          return { valid: false, error: '❌ Category not found. Please check the ID and try again.' };
+        }
+      }
+    });
+    
+    if (result.value) {
+      setTicketConfig(guildId, { categoryId: result.value.id });
+      await interaction.channel.send({ content: `✅ Ticket category set to **${result.value.name}**` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:setup_logs') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:setup_logs_modal')
-      .setTitle('Set Logs Channel')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('channel_id').setLabel('Logs Channel ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Right-click channel > Copy ID')
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, '📋 **Set Logs Channel**\nMention the channel or paste the channel ID where ticket logs should be sent.\n\nExample: #ticket-logs or paste the channel ID', {
+      validator: async (msg) => {
+        let channelId = msg.content.trim();
+        const mention = msg.mentions.channels.first();
+        if (mention) channelId = mention.id;
+        else channelId = channelId.replace(/[<#>]/g, '');
+        
+        try {
+          const channel = await interaction.guild.channels.fetch(channelId);
+          if (channel && channel.isTextBased()) {
+            return { valid: true, value: channel };
+          }
+          return { valid: false, error: '❌ That\'s not a valid text channel.' };
+        } catch {
+          return { valid: false, error: '❌ Channel not found. Please check and try again.' };
+        }
+      }
+    });
+    
+    if (result.value) {
+      setTicketConfig(guildId, { logsChannelId: result.value.id });
+      await interaction.channel.send({ content: `✅ Logs channel set to ${result.value}` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:setup_toggle_dm') {
@@ -436,42 +583,80 @@ export async function handleTicketInteraction(interaction) {
   }
 
   if (customId === 'ticket:setup_limits') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:setup_limits_modal')
-      .setTitle('Set Ticket Limits')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('max_tickets').setLabel('Max tickets per user').setStyle(TextInputStyle.Short).setRequired(true).setValue(String(config.maxTicketsPerUser))
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('cooldown').setLabel('Cooldown in seconds').setStyle(TextInputStyle.Short).setRequired(true).setValue(String(config.cooldownSeconds))
-        )
-      );
-    await interaction.showModal(modal);
+    const maxResult = await promptForInput(interaction, `🎟️ **Set Max Tickets Per User**\nHow many tickets can a user have open at once?\n\nCurrent: ${config.maxTicketsPerUser} (Enter a number 1-10)`, {
+      validator: async (msg) => {
+        const num = parseInt(msg.content.trim());
+        if (isNaN(num) || num < 1 || num > 10) {
+          return { valid: false, error: '❌ Please enter a number between 1 and 10.' };
+        }
+        return { valid: true, value: num };
+      }
+    });
+    
+    if (maxResult.cancelled) return;
+    
+    if (maxResult.value) {
+      const cooldownResult = await promptForInput(interaction, `⏱️ **Set Cooldown**\nHow many seconds must a user wait between creating tickets?\n\nCurrent: ${config.cooldownSeconds}s (Enter 0-3600)`, {
+        validator: async (msg) => {
+          const num = parseInt(msg.content.trim());
+          if (isNaN(num) || num < 0 || num > 3600) {
+            return { valid: false, error: '❌ Please enter a number between 0 and 3600.' };
+          }
+          return { valid: true, value: num };
+        }
+      });
+      
+      if (cooldownResult.value !== null && cooldownResult.value !== undefined) {
+        setTicketConfig(guildId, { maxTicketsPerUser: maxResult.value, cooldownSeconds: cooldownResult.value });
+        await interaction.channel.send({ content: `✅ Limits updated: Max ${maxResult.value} ticket(s) per user, ${cooldownResult.value}s cooldown.` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+      }
+    }
   }
 
   if (customId === 'ticket:setup_role') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:setup_role_modal')
-      .setTitle('Set Support Role')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('role_id').setLabel('Support Role ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Right-click role > Copy ID')
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, '👥 **Set Support Role**\nMention the role or paste the role ID that should handle tickets.\n\nExample: @Support or paste the role ID', {
+      validator: async (msg) => {
+        let roleId = msg.content.trim();
+        const mention = msg.mentions.roles.first();
+        if (mention) roleId = mention.id;
+        else roleId = roleId.replace(/[<@&>]/g, '');
+        
+        try {
+          const role = await interaction.guild.roles.fetch(roleId);
+          if (role) {
+            return { valid: true, value: role };
+          }
+          return { valid: false, error: '❌ Role not found.' };
+        } catch {
+          return { valid: false, error: '❌ Invalid role. Please check and try again.' };
+        }
+      }
+    });
+    
+    if (result.value) {
+      setTicketConfig(guildId, { supportRoleId: result.value.id });
+      await interaction.channel.send({ content: `✅ Support role set to ${result.value}` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:setup_button') {
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:setup_button_modal')
-      .setTitle('Edit Button Label')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('label').setLabel('Button Label (max 80 chars)').setStyle(TextInputStyle.Short).setRequired(true).setValue(config.buttonLabel || '📩 Open Ticket').setMaxLength(80)
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, `🔘 **Edit Button Label**\nWhat should the ticket button say?\n\nCurrent: ${config.buttonLabel || '📩 Open Ticket'}\n(Max 80 characters, you can use emojis)`, {
+      validator: async (msg) => {
+        const label = msg.content.trim();
+        if (label.length > 80) {
+          return { valid: false, error: '❌ Button label must be 80 characters or less.' };
+        }
+        if (label.length === 0) {
+          return { valid: false, error: '❌ Button label cannot be empty.' };
+        }
+        return { valid: true, value: label };
+      }
+    });
+    
+    if (result.value) {
+      setTicketConfig(guildId, { buttonLabel: result.value });
+      await interaction.channel.send({ content: `✅ Button label updated to: **${result.value}**` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:setup_embed') {
@@ -545,291 +730,135 @@ export async function handleTicketInteraction(interaction) {
 
   if (customId === 'ticket:panel_title') {
     const panelEmbed = config.panelEmbed || {};
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:panel_title_modal')
-      .setTitle('Edit Panel Title')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('title').setLabel('Panel Title').setStyle(TextInputStyle.Short).setRequired(true).setValue(panelEmbed.title || '🎫 Support Tickets').setMaxLength(256)
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, `📝 **Edit Panel Title**\nType the new title for your ticket panel.\n\nCurrent: ${panelEmbed.title || '🎫 Support Tickets'}\n(Max 256 characters)`, {
+      validator: async (msg) => {
+        const title = msg.content.trim();
+        if (title.length > 256) {
+          return { valid: false, error: '❌ Title must be 256 characters or less.' };
+        }
+        if (title.length === 0) {
+          return { valid: false, error: '❌ Title cannot be empty.' };
+        }
+        return { valid: true, value: title };
+      }
+    });
+    
+    if (result.value) {
+      panelEmbed.title = result.value;
+      setTicketConfig(guildId, { panelEmbed });
+      await interaction.channel.send({ content: `✅ Panel title updated to: **${result.value}**` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:panel_desc') {
     const panelEmbed = config.panelEmbed || {};
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:panel_desc_modal')
-      .setTitle('Edit Panel Description')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('description').setLabel('Panel Description').setStyle(TextInputStyle.Paragraph).setRequired(true).setValue(panelEmbed.description || 'Need help? Select a category below...').setMaxLength(4000)
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, `📝 **Edit Panel Description**\nType the new description for your ticket panel.\n\nCurrent:\n${panelEmbed.description || 'Need help? Click the button below...'}\n\n(Max 4000 characters)`, {
+      validator: async (msg) => {
+        const desc = msg.content.trim();
+        if (desc.length > 4000) {
+          return { valid: false, error: '❌ Description must be 4000 characters or less.' };
+        }
+        if (desc.length === 0) {
+          return { valid: false, error: '❌ Description cannot be empty.' };
+        }
+        return { valid: true, value: desc };
+      }
+    });
+    
+    if (result.value) {
+      panelEmbed.description = result.value;
+      setTicketConfig(guildId, { panelEmbed });
+      await interaction.channel.send({ content: '✅ Panel description updated!' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:panel_color') {
     const panelEmbed = config.panelEmbed || {};
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:panel_color_modal')
-      .setTitle('Edit Panel Color')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('color').setLabel('Hex Color (e.g. #5865F2)').setStyle(TextInputStyle.Short).setRequired(true).setValue(panelEmbed.color || '#5865F2').setMaxLength(7)
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, `🎨 **Edit Panel Color**\nType a hex color code for the panel.\n\nCurrent: ${panelEmbed.color || '#5865F2'}\nExample: #FF5733 or #5865F2`, {
+      validator: async (msg) => {
+        let color = msg.content.trim();
+        if (!color.startsWith('#')) color = '#' + color;
+        if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+          return { valid: false, error: '❌ Invalid hex color. Use format like #5865F2' };
+        }
+        return { valid: true, value: color };
+      }
+    });
+    
+    if (result.value) {
+      panelEmbed.color = result.value;
+      setTicketConfig(guildId, { panelEmbed });
+      await interaction.channel.send({ content: `✅ Panel color updated to: **${result.value}**` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:panel_footer') {
     const panelEmbed = config.panelEmbed || {};
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:panel_footer_modal')
-      .setTitle('Edit Panel Footer')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('footer').setLabel('Footer Text (leave empty to remove)').setStyle(TextInputStyle.Short).setRequired(false).setValue(panelEmbed.footer || '').setMaxLength(2048)
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, `📝 **Edit Panel Footer**\nType the footer text, or type \`none\` to remove it.\n\nCurrent: ${panelEmbed.footer || '(no footer)'}\n(Max 2048 characters)`, {
+      validator: async (msg) => {
+        const footer = msg.content.trim();
+        if (footer.toLowerCase() === 'none') {
+          return { valid: true, value: null };
+        }
+        if (footer.length > 2048) {
+          return { valid: false, error: '❌ Footer must be 2048 characters or less.' };
+        }
+        return { valid: true, value: footer };
+      }
+    });
+    
+    if (!result.cancelled) {
+      panelEmbed.footer = result.value;
+      setTicketConfig(guildId, { panelEmbed });
+      await interaction.channel.send({ content: result.value ? '✅ Panel footer updated!' : '✅ Panel footer removed.' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:panel_thumb') {
     const panelEmbed = config.panelEmbed || {};
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:panel_thumb_modal')
-      .setTitle('Set Panel Thumbnail')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('thumbnail').setLabel('Thumbnail URL (leave empty to remove)').setStyle(TextInputStyle.Short).setRequired(false).setValue(panelEmbed.thumbnail || '')
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, `🖼️ **Set Panel Thumbnail**\nPaste the URL of a small image for the thumbnail, or type \`none\` to remove it.\n\nCurrent: ${panelEmbed.thumbnail || '(no thumbnail)'}`, {
+      validator: async (msg) => {
+        const url = msg.content.trim();
+        if (url.toLowerCase() === 'none') {
+          return { valid: true, value: null };
+        }
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          return { valid: false, error: '❌ Invalid URL. Must start with http:// or https://' };
+        }
+        return { valid: true, value: url };
+      }
+    });
+    
+    if (!result.cancelled) {
+      panelEmbed.thumbnail = result.value;
+      setTicketConfig(guildId, { panelEmbed });
+      await interaction.channel.send({ content: result.value ? '✅ Panel thumbnail set!' : '✅ Panel thumbnail removed.' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:panel_image') {
     const panelEmbed = config.panelEmbed || {};
-    const modal = new ModalBuilder()
-      .setCustomId('ticket:panel_image_modal')
-      .setTitle('Set Panel Image')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('image').setLabel('Image URL (leave empty to remove)').setStyle(TextInputStyle.Short).setRequired(false).setValue(panelEmbed.image || '')
-        )
-      );
-    await interaction.showModal(modal);
+    const result = await promptForInput(interaction, `🖼️ **Set Panel Image**\nPaste the URL of a large image for the panel, or type \`none\` to remove it.\n\nCurrent: ${panelEmbed.image || '(no image)'}`, {
+      validator: async (msg) => {
+        const url = msg.content.trim();
+        if (url.toLowerCase() === 'none') {
+          return { valid: true, value: null };
+        }
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          return { valid: false, error: '❌ Invalid URL. Must start with http:// or https://' };
+        }
+        return { valid: true, value: url };
+      }
+    });
+    
+    if (!result.cancelled) {
+      panelEmbed.image = result.value;
+      setTicketConfig(guildId, { panelEmbed });
+      await interaction.channel.send({ content: result.value ? '✅ Panel image set!' : '✅ Panel image removed.' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 }
 
-export async function handleTicketModal(interaction) {
-  const customId = interaction.customId;
-  const guildId = interaction.guild.id;
-  const config = getTicketConfig(guildId);
-  const ticket = getTicket(guildId, interaction.channel.id);
-
-  if (customId === 'ticket:add_user_modal') {
-    const userId = interaction.fields.getTextInputValue('user_id').trim();
-    try {
-      const user = await interaction.guild.members.fetch(userId);
-      await interaction.channel.permissionOverwrites.edit(user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
-      await interaction.reply({ content: `✅ Added ${user} to this ticket.` });
-      await logTicketAction(interaction.guild, config, `User Added: ${user.user.tag}`, ticket, interaction.user);
-    } catch {
-      await interaction.reply({ content: '❌ User not found.', ephemeral: true });
-    }
-  }
-
-  if (customId === 'ticket:remove_user_modal') {
-    const userId = interaction.fields.getTextInputValue('user_id').trim();
-    try {
-      await interaction.channel.permissionOverwrites.delete(userId);
-      await interaction.reply({ content: `✅ Removed user from this ticket.` });
-      await logTicketAction(interaction.guild, config, `User Removed: ${userId}`, ticket, interaction.user);
-    } catch {
-      await interaction.reply({ content: '❌ Failed to remove user.', ephemeral: true });
-    }
-  }
-
-  if (customId === 'ticket:close_modal') {
-    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
-
-    const reason = interaction.fields.getTextInputValue('reason') || 'No reason provided';
-    
-    ticket.status = 'closed';
-    ticket.closedAt = Date.now();
-    ticket.closeReason = reason;
-    saveTicket(guildId, interaction.channel.id, ticket);
-
-    await interaction.channel.permissionOverwrites.edit(ticket.openerId, { ViewChannel: true, SendMessages: false });
-
-    const closedEmbed = new EmbedBuilder()
-      .setTitle('🔒 Ticket Closed')
-      .setDescription(`This ticket has been closed by ${interaction.user}`)
-      .addFields({ name: 'Reason', value: reason })
-      .setColor('#ff0000')
-      .setTimestamp();
-
-    const reopenRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ticket:reopen').setLabel('Reopen').setStyle(ButtonStyle.Success).setEmoji('🔓'),
-      new ButtonBuilder().setCustomId('ticket:transcript').setLabel('Transcript').setStyle(ButtonStyle.Secondary).setEmoji('📜')
-    );
-
-    await interaction.reply({ embeds: [closedEmbed], components: [reopenRow] });
-    await logTicketAction(interaction.guild, config, `Closed - ${reason}`, ticket, interaction.user);
-
-    if (config.transcriptDm) {
-      try {
-        const transcript = await generateTranscript(interaction.channel, ticket);
-        const opener = await interaction.client.users.fetch(ticket.openerId);
-        await opener.send({ content: `📜 Here's the transcript from your ticket in **${interaction.guild.name}**:`, files: [transcript] }).catch(() => null);
-      } catch {}
-    }
-
-    try {
-      const opener = await interaction.client.users.fetch(ticket.openerId);
-      const ratingEmbed = new EmbedBuilder()
-        .setTitle('⭐ Rate Your Support')
-        .setDescription('How was your support experience? Please rate us!')
-        .setColor('#FFD700');
-
-      const ratingRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`ticket:rate:1:${interaction.channel.id}`).setLabel('1').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`ticket:rate:2:${interaction.channel.id}`).setLabel('2').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`ticket:rate:3:${interaction.channel.id}`).setLabel('3').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`ticket:rate:4:${interaction.channel.id}`).setLabel('4').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`ticket:rate:5:${interaction.channel.id}`).setLabel('5').setStyle(ButtonStyle.Secondary).setEmoji('⭐')
-      );
-
-      await opener.send({ embeds: [ratingEmbed], components: [ratingRow] }).catch(() => null);
-    } catch {}
-  }
-
-  if (customId === 'ticket:setup_category_modal') {
-    const categoryId = interaction.fields.getTextInputValue('category_id').trim();
-    try {
-      const category = await interaction.guild.channels.fetch(categoryId);
-      if (category && category.type === 4) {
-        setTicketConfig(guildId, { categoryId: categoryId });
-        await interaction.reply({ content: `✅ Ticket category set to **${category.name}**`, ephemeral: true });
-      } else {
-        await interaction.reply({ content: '❌ Invalid category ID. Make sure it\'s a category channel.', ephemeral: true });
-      }
-    } catch {
-      await interaction.reply({ content: '❌ Category not found.', ephemeral: true });
-    }
-  }
-
-  if (customId === 'ticket:setup_logs_modal') {
-    const channelId = interaction.fields.getTextInputValue('channel_id').trim();
-    try {
-      const channel = await interaction.guild.channels.fetch(channelId);
-      if (channel && channel.isTextBased()) {
-        setTicketConfig(guildId, { logsChannelId: channelId });
-        await interaction.reply({ content: `✅ Logs channel set to ${channel}`, ephemeral: true });
-      } else {
-        await interaction.reply({ content: '❌ Invalid channel ID. Make sure it\'s a text channel.', ephemeral: true });
-      }
-    } catch {
-      await interaction.reply({ content: '❌ Channel not found.', ephemeral: true });
-    }
-  }
-
-  if (customId === 'ticket:setup_limits_modal') {
-    let maxTickets = parseInt(interaction.fields.getTextInputValue('max_tickets').trim());
-    let cooldown = parseInt(interaction.fields.getTextInputValue('cooldown').trim());
-    
-    if (isNaN(maxTickets) || maxTickets < 1) maxTickets = 1;
-    if (maxTickets > 10) maxTickets = 10;
-    if (isNaN(cooldown) || cooldown < 0) cooldown = 0;
-    if (cooldown > 3600) cooldown = 3600;
-    
-    setTicketConfig(guildId, { maxTicketsPerUser: maxTickets, cooldownSeconds: cooldown });
-    await interaction.reply({ content: `✅ Limits updated: Max ${maxTickets} ticket(s) per user, ${cooldown}s cooldown.`, ephemeral: true });
-  }
-
-  if (customId === 'ticket:setup_role_modal') {
-    const roleId = interaction.fields.getTextInputValue('role_id').trim();
-    try {
-      const role = await interaction.guild.roles.fetch(roleId);
-      if (role) {
-        setTicketConfig(guildId, { supportRoleId: roleId });
-        await interaction.reply({ content: `✅ Support role set to ${role}`, ephemeral: true });
-      } else {
-        await interaction.reply({ content: '❌ Role not found.', ephemeral: true });
-      }
-    } catch {
-      await interaction.reply({ content: '❌ Invalid role ID.', ephemeral: true });
-    }
-  }
-
-  if (customId === 'ticket:setup_button_modal') {
-    const label = interaction.fields.getTextInputValue('label').trim();
-    if (label.length > 80) {
-      return await interaction.reply({ content: '❌ Button label must be 80 characters or less.', ephemeral: true });
-    }
-    setTicketConfig(guildId, { buttonLabel: label });
-    await interaction.reply({ content: `✅ Button label updated to: **${label}**\n\nUse \`/ticket panel\` to post a new panel or click "Update Live Panel" to apply.`, ephemeral: true });
-  }
-
-  if (customId === 'ticket:panel_title_modal') {
-    const title = interaction.fields.getTextInputValue('title').trim();
-    const panelEmbed = config.panelEmbed || {};
-    panelEmbed.title = title;
-    setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: `✅ Panel title updated to: **${title}**\n\nClick "Update Live Panel" to apply changes.`, ephemeral: true });
-  }
-
-  if (customId === 'ticket:panel_desc_modal') {
-    const description = interaction.fields.getTextInputValue('description').trim();
-    const panelEmbed = config.panelEmbed || {};
-    panelEmbed.description = description;
-    setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: `✅ Panel description updated!\n\nClick "Update Live Panel" to apply changes.`, ephemeral: true });
-  }
-
-  if (customId === 'ticket:panel_color_modal') {
-    let color = interaction.fields.getTextInputValue('color').trim();
-    if (!color.startsWith('#')) color = '#' + color;
-    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
-      return await interaction.reply({ content: '❌ Invalid hex color. Use format like #5865F2', ephemeral: true });
-    }
-    const panelEmbed = config.panelEmbed || {};
-    panelEmbed.color = color;
-    setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: `✅ Panel color updated to: **${color}**\n\nClick "Update Live Panel" to apply changes.`, ephemeral: true });
-  }
-
-  if (customId === 'ticket:panel_footer_modal') {
-    const footer = interaction.fields.getTextInputValue('footer').trim();
-    const panelEmbed = config.panelEmbed || {};
-    panelEmbed.footer = footer || null;
-    setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: footer ? `✅ Panel footer updated!` : `✅ Panel footer removed.`, ephemeral: true });
-  }
-
-  if (customId === 'ticket:panel_thumb_modal') {
-    const thumbnail = interaction.fields.getTextInputValue('thumbnail').trim();
-    if (thumbnail && !thumbnail.startsWith('http')) {
-      return await interaction.reply({ content: '❌ Invalid URL. Must start with http:// or https://', ephemeral: true });
-    }
-    const panelEmbed = config.panelEmbed || {};
-    panelEmbed.thumbnail = thumbnail || null;
-    setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: thumbnail ? `✅ Panel thumbnail set!` : `✅ Panel thumbnail removed.`, ephemeral: true });
-  }
-
-  if (customId === 'ticket:panel_image_modal') {
-    const image = interaction.fields.getTextInputValue('image').trim();
-    if (image && !image.startsWith('http')) {
-      return await interaction.reply({ content: '❌ Invalid URL. Must start with http:// or https://', ephemeral: true });
-    }
-    const panelEmbed = config.panelEmbed || {};
-    panelEmbed.image = image || null;
-    setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: image ? `✅ Panel image set!` : `✅ Panel image removed.`, ephemeral: true });
-  }
-}
 
 export async function handleRating(interaction) {
   if (!interaction.customId.startsWith('ticket:rate:')) return false;
