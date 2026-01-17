@@ -107,17 +107,17 @@ export interface StaffMember {
 
 export const apiClient = {
   async login(password: string): Promise<{ success: boolean }> {
-    const res = await api.post("/admin/login", { password });
+    const res = await api.post("/login", { password });
     return res.data;
   },
 
   async logout(): Promise<void> {
-    await api.post("/admin/logout");
+    await api.post("/logout");
   },
 
   async checkAuth(): Promise<{ authenticated: boolean }> {
     try {
-      const res = await api.get("/admin/check-auth");
+      const res = await api.get("/check-auth");
       return res.data;
     } catch {
       return { authenticated: false };
@@ -125,76 +125,76 @@ export const apiClient = {
   },
 
   async getGuilds(): Promise<Guild[]> {
-    const res = await api.get("/admin/api/discord/guilds");
+    const res = await api.get("/api/discord/guilds");
     return res.data;
   },
 
   async getConfig(guildId: string): Promise<TicketConfig> {
-    const res = await api.get(`/admin/api/config/${guildId}`);
+    const res = await api.get(`/api/config/${guildId}`);
     return res.data;
   },
 
   async updateConfig(guildId: string, config: Partial<TicketConfig>): Promise<void> {
-    await api.put(`/admin/api/config/${guildId}`, config);
+    await api.put(`/api/config/${guildId}`, config);
   },
 
   async getPlans(guildId: string): Promise<SubscriptionPlan[]> {
-    const res = await api.get(`/admin/api/plans/${guildId}`);
+    const res = await api.get(`/api/plans/${guildId}`);
     return res.data;
   },
 
   async updatePlans(guildId: string, plans: SubscriptionPlan[]): Promise<void> {
-    await api.put(`/admin/api/plans/${guildId}`, { plans });
+    await api.put(`/api/plans/${guildId}`, { plans });
   },
 
   async getPayments(guildId: string): Promise<Record<string, PaymentMethod>> {
-    const res = await api.get(`/admin/api/payments/${guildId}`);
+    const res = await api.get(`/api/payments/${guildId}`);
     return res.data;
   },
 
   async updatePayments(guildId: string, methods: Record<string, PaymentMethod>): Promise<void> {
-    await api.put(`/admin/api/payments/${guildId}`, { methods });
+    await api.put(`/api/payments/${guildId}`, { methods });
   },
 
   async publishPanel(guildId: string, channelId: string): Promise<void> {
-    await api.post(`/admin/api/panels/${guildId}/post`, { channelId });
+    await api.post(`/api/panels/${guildId}/post`, { channelId });
   },
 
   async getStats(guildId: string): Promise<TicketStats> {
-    const res = await api.get(`/admin/api/stats/${guildId}`);
+    const res = await api.get(`/api/stats/${guildId}`);
     return res.data;
   },
 
   async getLogs(guildId: string, filters?: { action?: string; limit?: number }): Promise<AuditLog[]> {
-    const res = await api.get(`/admin/api/logs/${guildId}`, { params: filters });
+    const res = await api.get(`/api/logs/${guildId}`, { params: filters });
     return res.data;
   },
 
   async getCategories(guildId: string): Promise<Category[]> {
-    const res = await api.get(`/admin/api/categories/${guildId}`);
+    const res = await api.get(`/api/categories/${guildId}`);
     return res.data;
   },
 
   async updateCategories(guildId: string, categories: Category[]): Promise<void> {
-    await api.put(`/admin/api/categories/${guildId}`, { categories });
+    await api.put(`/api/categories/${guildId}`, { categories });
   },
 
   async getStaff(guildId: string): Promise<StaffMember[]> {
-    const res = await api.get(`/admin/api/staff/${guildId}`);
+    const res = await api.get(`/api/staff/${guildId}`);
     return res.data;
   },
 
   async updateStaff(guildId: string, staffId: string, data: Partial<StaffMember>): Promise<void> {
-    await api.put(`/admin/api/staff/${guildId}/${staffId}`, data);
+    await api.put(`/api/staff/${guildId}/${staffId}`, data);
   },
 
   async getChannels(guildId: string): Promise<{ id: string; name: string; type: number }[]> {
-    const res = await api.get(`/admin/api/discord/guilds/${guildId}/channels`);
+    const res = await api.get(`/api/discord/guilds/${guildId}/channels`);
     return res.data;
   },
 
   async getRoles(guildId: string): Promise<{ id: string; name: string; color: number }[]> {
-    const res = await api.get(`/admin/api/discord/guilds/${guildId}/roles`);
+    const res = await api.get(`/api/discord/guilds/${guildId}/roles`);
     return res.data;
   },
 };
