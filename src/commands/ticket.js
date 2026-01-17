@@ -374,6 +374,12 @@ export async function handleTicketInteraction(interaction) {
       return await interaction.reply({ content: '❌ You cannot unclaim a ticket you did not claim.', ephemeral: true });
     }
 
+    const stats = getTicketStats(guildId);
+    if (stats.staffStats[interaction.user.id] && stats.staffStats[interaction.user.id].claimed > 0) {
+      stats.staffStats[interaction.user.id].claimed--;
+      saveTicketStats(guildId, stats);
+    }
+
     ticket.claimedBy = null;
     saveTicket(guildId, interaction.channel.id, ticket);
 
@@ -451,6 +457,51 @@ export async function handleTicketInteraction(interaction) {
     await interaction.reply({ content: '✅ Ticket has been reopened.' });
     await logTicketAction(interaction.guild, config, 'Reopened', ticket, interaction.user);
   }
+
+  if (customId === 'ticket:setup_category') {
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:setup_category_modal')
+      .setTitle('Set Ticket Category')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('category_id').setLabel('Discord Category ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Right-click category > Copy ID')
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:setup_logs') {
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:setup_logs_modal')
+      .setTitle('Set Logs Channel')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('channel_id').setLabel('Logs Channel ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Right-click channel > Copy ID')
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:setup_toggle_dm') {
+    const newValue = !config.transcriptDm;
+    setTicketConfig(guildId, { transcriptDm: newValue });
+    await interaction.reply({ content: `✅ Transcript DM is now ${newValue ? 'enabled' : 'disabled'}.`, ephemeral: true });
+  }
+
+  if (customId === 'ticket:setup_limits') {
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:setup_limits_modal')
+      .setTitle('Set Ticket Limits')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('max_tickets').setLabel('Max tickets per user per category').setStyle(TextInputStyle.Short).setRequired(true).setValue(String(config.maxTicketsPerUser))
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('cooldown').setLabel('Cooldown in seconds').setStyle(TextInputStyle.Short).setRequired(true).setValue(String(config.cooldownSeconds))
+        )
+      );
+    await interaction.showModal(modal);
+  }
 }
 
 export async function handleTicketModal(interaction) {
@@ -509,6 +560,14 @@ export async function handleTicketModal(interaction) {
     await interaction.reply({ embeds: [closedEmbed], components: [reopenRow] });
     await logTicketAction(interaction.guild, config, `Closed - ${reason}`, ticket, interaction.user);
 
+    if (config.transcriptDm) {
+      try {
+        const transcript = await generateTranscript(interaction.channel, ticket);
+        const opener = await interaction.client.users.fetch(ticket.openerId);
+        await opener.send({ content: `📜 Here's the transcript from your ticket in **${interaction.guild.name}**:`, files: [transcript] }).catch(() => null);
+      } catch {}
+    }
+
     try {
       const opener = await interaction.client.users.fetch(ticket.openerId);
       const ratingEmbed = new EmbedBuilder()
@@ -526,6 +585,49 @@ export async function handleTicketModal(interaction) {
 
       await opener.send({ embeds: [ratingEmbed], components: [ratingRow] }).catch(() => null);
     } catch {}
+  }
+
+  if (customId === 'ticket:setup_category_modal') {
+    const categoryId = interaction.fields.getTextInputValue('category_id').trim();
+    try {
+      const category = await interaction.guild.channels.fetch(categoryId);
+      if (category && category.type === 4) {
+        setTicketConfig(guildId, { categoryId: categoryId });
+        await interaction.reply({ content: `✅ Ticket category set to **${category.name}**`, ephemeral: true });
+      } else {
+        await interaction.reply({ content: '❌ Invalid category ID. Make sure it\'s a category channel.', ephemeral: true });
+      }
+    } catch {
+      await interaction.reply({ content: '❌ Category not found.', ephemeral: true });
+    }
+  }
+
+  if (customId === 'ticket:setup_logs_modal') {
+    const channelId = interaction.fields.getTextInputValue('channel_id').trim();
+    try {
+      const channel = await interaction.guild.channels.fetch(channelId);
+      if (channel && channel.isTextBased()) {
+        setTicketConfig(guildId, { logsChannelId: channelId });
+        await interaction.reply({ content: `✅ Logs channel set to ${channel}`, ephemeral: true });
+      } else {
+        await interaction.reply({ content: '❌ Invalid channel ID. Make sure it\'s a text channel.', ephemeral: true });
+      }
+    } catch {
+      await interaction.reply({ content: '❌ Channel not found.', ephemeral: true });
+    }
+  }
+
+  if (customId === 'ticket:setup_limits_modal') {
+    let maxTickets = parseInt(interaction.fields.getTextInputValue('max_tickets').trim());
+    let cooldown = parseInt(interaction.fields.getTextInputValue('cooldown').trim());
+    
+    if (isNaN(maxTickets) || maxTickets < 1) maxTickets = 1;
+    if (maxTickets > 10) maxTickets = 10;
+    if (isNaN(cooldown) || cooldown < 0) cooldown = 0;
+    if (cooldown > 3600) cooldown = 3600;
+    
+    setTicketConfig(guildId, { maxTicketsPerUser: maxTickets, cooldownSeconds: cooldown });
+    await interaction.reply({ content: `✅ Limits updated: Max ${maxTickets} ticket(s) per user, ${cooldown}s cooldown.`, ephemeral: true });
   }
 }
 
