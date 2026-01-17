@@ -1,0 +1,347 @@
+Build me a production-ready Discord Bot + Backend Admin Panel System using Discord.js v14 (ESM) on Node.js.
+
+GOAL:
+I want a Premium “Admin Control Dashboard” (backend website) that controls EVERY feature and command of my bot (EXCEPT ticket tool because I already have ticket system separately).
+
+ABSOLUTE RULES (NON-NEGOTIABLE):
+1) ALL commands + settings are ADMIN ONLY.
+   - Only users with Administrator OR ManageGuild permission can use commands.
+   - Dashboard login must enforce admin permission.
+   - Backend API must enforce admin permission.
+2) 100% working end-to-end (no fake UI, no placeholders).
+3) Every setting must be stored in backend config and editable from dashboard.
+4) Everything must have audit logging.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ COMMANDS TO IMPLEMENT (ALL ADMIN ONLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/active       Show the most active members this week
+/announce     Send an announcement to a channel
+/avatar       Display a user's avatar and banner
+/botset       Change the bot profile picture, banner, or description
+/clear        Delete a specific number of messages from a channel
+/copy         Create an exact copy of the current channel
+/dm           Send a DM to all members with a specific role
+/embade       Build and post a custom embed
+/feed         Send a review request
+/gcreate      Create a new giveaway
+/gend         End a giveaway and select winners
+/glist        List all active giveaways
+/greroll      Reroll winners for a finished giveaway
+/jobconfig    Configure job posting system
+/keyword      Manage keyword warning system
+/lockdown     Admin-only Server Lockdown system
+/messages     Show total message count for a user
+/remind       Send a reminder DM about an open ticket (only reminder feature)
+/schedule     Schedule messages at specific times
+/serverstats  Display statistics for the server
+/setjobbanner Set custom job banner text
+/sticky       Create/update sticky message system
+/unsticky     Remove sticky message
+/userinfo     Display info about user
+/welcome      Welcome system management
+
+DO NOT BUILD /ticket MODULE OR UI.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ NEW REQUIRED PREMIUM SECURITY FEATURES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1) Anti-Raid System (/antiraid)
+- Detect raid joins, spam waves, mention spam, link spam
+- Join rate threshold X joins per Y seconds
+- Account age threshold (block < N days)
+- Auto-actions:
+  - timeout
+  - kick
+  - lockdown
+- Whitelists: roles + channels
+- Raid logs channel
+- Emergency “Raid Mode” button (instant lockdown + slowmode + disable invites)
+
+2) Anti-Nuke Protection (/security)
+Detect destructive actions:
+- channel delete
+- role delete
+- webhook spam
+- permission escalation
+Auto response:
+- revoke perms
+- lockdown
+- optional auto-ban offender
+Security events dashboard + logs.
+
+3) Ban Appeals System (/appeals) — DM BASED & AUTOMATIC
+CRITICAL REQUIREMENT:
+No matter how a user is banned, bot auto DMs them appeal option.
+
+Flow:
+- On guildBanAdd:
+  - generate banCaseId
+  - fetch ban reason via audit logs if possible
+  - store ban record (guildId,userId,caseId,reason,modId,timestamp)
+  - DM banned user with:
+    Embed: "You were banned from {server}"
+    Reason + Case ID
+    Button: "Submit Appeal" (Primary)
+- On click:
+  - open Modal in DM:
+    1) Appeal Title (required)
+    2) What happened? (required)
+    3) Why should we unban you? (required)
+    4) Do you agree to follow rules now? (required)
+    5) Proof link (optional)
+- After submit:
+  - post a premium embed into staff-only channel #ban-appeals
+  - include action buttons:
+    ✅ Approve (Unban)
+    ❌ Deny
+    💬 Ask for more info
+    🧾 History
+- Staff actions:
+  - approve => unban + DM user result + audit log
+  - deny => DM denied + audit log
+  - ask more info => DM user, forward replies back to staff thread
+
+Appeals must include:
+- cooldown (1 appeal per X days)
+- duplicate detection
+- appeal inbox in dashboard
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ ADMIN DASHBOARD WEBSITE (BACKEND UI) — PREMIUM TOP LEVEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Build a modern SaaS dashboard that fully controls bot settings.
+
+Tech stack (mandatory):
+- Next.js App Router + TypeScript
+- TailwindCSS + shadcn/ui
+- React Query
+- React Hook Form + Zod
+- Recharts (charts)
+- Discord OAuth2 login
+- Dark mode
+- Mobile responsive
+- Premium look: sidebar + icons + cards + clean spacing
+Theme: dark + blue accent (#00b3ff)
+
+Dashboard pages:
+1) Home Overview
+- cards: members, messages, giveways active, schedules, sticky active, raid alerts
+- charts: message activity, member growth, moderation actions
+- recent activity feed
+
+2) Module Center
+- a module card for every command/module
+- enable/disable toggle
+- role/channel restrictions
+- cooldown settings
+- logs channel selector
+- test action button
+
+3) Global Embed Builder
+- full embed builder with preview
+- save templates
+- reuse templates in /announce /sticky /welcome /feed /schedule
+
+4) Command Pages (Must exist for each command)
+Each command page must include:
+- settings UI
+- preview UI (when embed/message)
+- test run button
+- logs view
+
+5) Permissions Center
+- GUI: which roles can use which modules (extra layer)
+- Always keep admin-only requirement ON.
+
+6) Audit Logs Page
+- logs every admin change + action
+- filter/search
+- export CSV
+
+7) Security Center Page
+- anti-raid toggles, thresholds, whitelists
+- anti-nuke toggles
+- security events list
+- emergency buttons
+
+8) Ban Appeals Inbox
+- list pending/approved/denied
+- search by userId
+- view appeal details
+- approve/deny from website
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ MODULE-SPECIFIC PREMIUM FEATURES (REQUIRED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/announce:
+- embed/text mode
+- templates library
+- mention controls
+- schedule announcement
+- live preview
+
+/embade:
+- advanced embed builder
+- template library
+- import/export templates admin-only
+
+/welcome:
+- variables: {user} {username} {server} {memberCount}
+- welcome channel selector
+- DM toggle
+- autorole
+- live preview + test welcome button
+
+/sticky + /unsticky:
+- per-channel sticky config
+- embed builder + preview
+- anti-loop cooldown
+- sticky active list page
+
+/schedule:
+- scheduler UI
+- recurring schedules
+- execution logs
+- pause/resume schedules
+
+/giveaways:
+- giveaway center:
+  - create, list, end, reroll
+  - giveaway stats + logs
+
+/dm:
+IMPORTANT: must be safe.
+- mass dm role campaigns
+- test DM to admin first
+- queue sending + progress view
+- pause/resume/cancel campaign
+- rate limit settings
+- opt-out system recommended
+- confirm modal + audit logs
+
+/clear:
+- purge messages (limit config)
+- dry-run preview count
+- confirm modal always
+- audit logs
+
+/lockdown:
+- full lockdown + partial lockdown (keep selected channels visible)
+- restore previous permissions
+- emergency lockdown button
+- logs
+
+/keyword:
+- keyword manager
+- regex toggle
+- actions: warn/delete/timeout/lockdown trigger
+- whitelists
+- thresholds escalation
+- logs dashboard
+
+/botset:
+- change avatar/banner/description
+- preview + apply
+- rate limiting
+- logs
+
+/userinfo + /avatar:
+- customize embed style options
+- toggle which fields are displayed
+
+/jobconfig + /setjobbanner:
+- job posting channel
+- banner editor
+- templates + preview
+- optional approval queue
+
+/stats (/active /messages /serverstats):
+- charts + tables
+- filters
+- export CSV
+- optional auto weekly leaderboard post
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ BACKEND API + STORAGE (MANDATORY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Backend:
+- Add Express/Fastify API layer if missing
+- Must validate all requests
+- Must check admin permissions by guild
+- Must include audit logging
+
+Required API endpoints:
+GET    /api/auth/login
+GET    /api/auth/callback
+POST   /api/auth/logout
+GET    /api/guilds
+GET    /api/guilds/:guildId/config
+PATCH  /api/guilds/:guildId/config
+GET    /api/guilds/:guildId/modules
+GET    /api/guilds/:guildId/audit-logs
+GET    /api/guilds/:guildId/security-events
+POST   /api/guilds/:guildId/test-action
+
+DM Campaign endpoints:
+POST   /api/guilds/:guildId/dm-campaign/start
+POST   /api/guilds/:guildId/dm-campaign/pause
+POST   /api/guilds/:guildId/dm-campaign/resume
+POST   /api/guilds/:guildId/dm-campaign/cancel
+
+Appeals:
+GET    /api/guilds/:guildId/appeals
+PATCH  /api/guilds/:guildId/appeals/:appealId
+
+Storage (JSON under ./data/):
+data/botConfig.json
+data/modules.json
+data/auditLogs.json
+data/security.json
+data/appeals.json
+data/bans.json
+data/giveaways.json
+data/sticky.json
+data/schedules.json
+data/dmCampaigns.json
+
+Implement utils/storage.js:
+- ensureDir()
+- loadData()
+- saveData()
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ PROJECT STRUCTURE (MANDATORY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Bot:
+- /index.js
+- /events/ready.js
+- /events/interactionCreate.js
+- /events/guildBanAdd.js
+- /events/messageCreate.js (sticky / keyword / spam detection if needed)
+- /commands/*.js
+- /utils/storage.js
+- /utils/embedBuilder.js (optional)
+- /utils/security.js (optional)
+
+Dashboard:
+- /app (Next.js pages)
+- /components
+- /lib/apiClient.ts
+- /lib/auth.ts
+- /middleware.ts
+- env.example
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ OUTPUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Give FULL working code for every file with filenames.
+NO pseudocode.
+Must run successfully on Replit.
+Provide setup steps:
+- Discord OAuth2 setup
+- environment variables
+- bot token
+- callback URLs
+FAIL if any command/module above is missing, not working, or not admin-protected.
