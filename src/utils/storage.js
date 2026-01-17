@@ -290,3 +290,44 @@ export function resetWelcomeConfig(guildId) {
   delete configs[guildId];
   saveData('welcome', configs);
 }
+
+// Sticky Clients storage functions
+export function getStickyClientsConfig(guildId) {
+  const configs = loadData('sticky-clients', {});
+  return configs[guildId] || {
+    enabled: false,
+    channelId: null,
+    stickyMessageId: null,
+    cooldownUntil: 0,
+    embedTitle: 'Looking for Clients?',
+    embedDescription: '**Rules:**\n- No spam\n- No fake portfolio\n- No agencies\n\nClick the button below to share your work!',
+    embedColor: '#9b59b6',
+    buttonLabel: 'Share your work'
+  };
+}
+
+export function setStickyClientsConfig(guildId, config) {
+  const configs = loadData('sticky-clients', {});
+  configs[guildId] = { ...getStickyClientsConfig(guildId), ...config };
+  saveData('sticky-clients', configs);
+}
+
+export function updateStickyClientsMessageId(guildId, messageId) {
+  const configs = loadData('sticky-clients', {});
+  if (configs[guildId]) {
+    configs[guildId].stickyMessageId = messageId;
+    saveData('sticky-clients', configs);
+  }
+}
+
+export function setStickyClientsCooldown(guildId, until) {
+  const configs = loadData('sticky-clients', {});
+  if (configs[guildId]) {
+    configs[guildId].cooldownUntil = until;
+    saveData('sticky-clients', configs);
+  }
+}
+
+export function getAllStickyClientsConfigs() {
+  return loadData('sticky-clients', {});
+}

@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import pg from 'pg';
+import { getStickyClientsConfig, setStickyClientsConfig, getAllStickyClientsConfigs } from '../utils/storage.js';
 
 const { Pool } = pg;
 let pool = null;
@@ -51,11 +52,68 @@ function saveStats(stats) {
   }
 }
 
+const stickyClientsCooldowns = new Map();
+
+export async function repostStickyClients(client, guildId) {
+  try {
+    const config = getStickyClientsConfig(guildId);
+    if (!config.enabled || !config.channelId) return;
+
+    // Check cooldown (5 seconds minimum between reposts)
+    const now = Date.now();
+    const lastRepost = stickyClientsCooldowns.get(guildId) || 0;
+    if (now - lastRepost < 5000) return;
+    stickyClientsCooldowns.set(guildId, now);
+
+    const channel = await client.channels.fetch(config.channelId);
+    if (!channel) {
+      setStickyClientsConfig(guildId, { enabled: false });
+      return;
+    }
+
+    // Delete old sticky message
+    if (config.stickyMessageId) {
+      try {
+        const oldMsg = await channel.messages.fetch(config.stickyMessageId);
+        await oldMsg.delete();
+      } catch {}
+    }
+
+    // Create new sticky embed
+    const embed = new EmbedBuilder()
+      .setTitle(config.embedTitle || 'Looking for Clients?')
+      .setDescription(config.embedDescription || '**Rules:**\n- No spam\n- No fake portfolio\n- No agencies')
+      .setColor(config.embedColor ? parseInt(config.embedColor.replace('#', ''), 16) : 0x9b59b6)
+      .setFooter({ text: 'Share your portfolio to find clients!' });
+
+    const button = new ButtonBuilder()
+      .setCustomId('stickyclients_share')
+      .setLabel(config.buttonLabel || 'Share your work')
+      .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(button);
+
+    const msg = await channel.send({ embeds: [embed], components: [row] });
+    setStickyClientsConfig(guildId, { stickyMessageId: msg.id });
+  } catch (error) {
+    console.error('Error reposting sticky clients:', error);
+  }
+}
+
 export const name = 'messageCreate';
 export const once = false;
 
 export async function execute(message) {
   if (message.author.bot || !message.guildId) return;
+
+  // Check for sticky clients repost
+  const stickyConfig = getStickyClientsConfig(message.guildId);
+  if (stickyConfig.enabled && stickyConfig.channelId === message.channelId) {
+    // Only repost if this message is not the sticky itself
+    if (message.id !== stickyConfig.stickyMessageId) {
+      setTimeout(() => repostStickyClients(message.client, message.guildId), 3000);
+    }
+  }
 
   const stats = loadStats();
   const guildId = message.guildId;

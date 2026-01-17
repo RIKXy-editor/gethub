@@ -120,6 +120,10 @@ export function createAdminRoutes(discordClient) {
     res.sendFile(path.join(__dirname, 'views', 'bot-settings.html'));
   });
 
+  router.get('/sticky-clients', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'sticky-clients.html'));
+  });
+
   router.get('/api/tickets', requireAuth, (req, res) => {
     const tickets = loadData('tickets', {});
     const allTickets = [];
@@ -824,6 +828,108 @@ export function createAdminRoutes(discordClient) {
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to save settings' });
+    }
+  });
+
+  // Sticky Clients API endpoints
+  router.get('/api/sticky-clients/:guildId', requireAuth, (req, res) => {
+    const configs = loadData('sticky-clients', {});
+    res.json(configs[req.params.guildId] || {
+      enabled: false,
+      channelId: null,
+      stickyMessageId: null,
+      cooldownUntil: 0,
+      embedTitle: 'Looking for Clients?',
+      embedDescription: '**Rules:**\n- No spam\n- No fake portfolio\n- No agencies\n\nClick the button below to share your work!',
+      embedColor: '#9b59b6',
+      buttonLabel: 'Share your work'
+    });
+  });
+
+  router.put('/api/sticky-clients/:guildId', requireAuth, express.json(), (req, res) => {
+    const { guildId } = req.params;
+    const configs = loadData('sticky-clients', {});
+    configs[guildId] = { ...configs[guildId], ...req.body };
+    saveData('sticky-clients', configs);
+    res.json({ success: true });
+  });
+
+  router.post('/api/sticky-clients/:guildId/post', requireAuth, express.json(), async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const configs = loadData('sticky-clients', {});
+      const config = configs[guildId] || {};
+      
+      if (!config.channelId) {
+        return res.status(400).json({ error: 'No channel configured' });
+      }
+
+      const channel = await discordClient.channels.fetch(config.channelId);
+      if (!channel) {
+        return res.status(404).json({ error: 'Channel not found' });
+      }
+
+      // Delete old sticky message if exists
+      if (config.stickyMessageId) {
+        try {
+          const oldMsg = await channel.messages.fetch(config.stickyMessageId);
+          await oldMsg.delete();
+        } catch {}
+      }
+
+      // Create the sticky embed
+      const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+      
+      const embed = new EmbedBuilder()
+        .setTitle(config.embedTitle || 'Looking for Clients?')
+        .setDescription(config.embedDescription || '**Rules:**\n- No spam\n- No fake portfolio\n- No agencies')
+        .setColor(config.embedColor ? parseInt(config.embedColor.replace('#', ''), 16) : 0x9b59b6)
+        .setFooter({ text: 'Share your portfolio to find clients!' });
+
+      const button = new ButtonBuilder()
+        .setCustomId('stickyclients_share')
+        .setLabel(config.buttonLabel || 'Share your work')
+        .setStyle(ButtonStyle.Primary);
+
+      const row = new ActionRowBuilder().addComponents(button);
+
+      const msg = await channel.send({ embeds: [embed], components: [row] });
+
+      // Update config with new message ID and enable
+      configs[guildId] = {
+        ...config,
+        stickyMessageId: msg.id,
+        enabled: true
+      };
+      saveData('sticky-clients', configs);
+
+      res.json({ success: true, messageId: msg.id });
+    } catch (err) {
+      console.error('Error posting sticky clients:', err);
+      res.status(500).json({ error: 'Failed to post sticky message' });
+    }
+  });
+
+  router.post('/api/sticky-clients/:guildId/disable', requireAuth, async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const configs = loadData('sticky-clients', {});
+      const config = configs[guildId];
+
+      if (config?.stickyMessageId && config?.channelId) {
+        try {
+          const channel = await discordClient.channels.fetch(config.channelId);
+          const msg = await channel.messages.fetch(config.stickyMessageId);
+          await msg.delete();
+        } catch {}
+      }
+
+      configs[guildId] = { ...config, enabled: false, stickyMessageId: null };
+      saveData('sticky-clients', configs);
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to disable sticky' });
     }
   });
 

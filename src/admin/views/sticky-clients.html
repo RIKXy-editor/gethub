@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sticky Clients - Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .form-section { padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; max-width: 700px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); }
+    .toggle-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 6px; margin-bottom: 16px; }
+    .toggle-row input[type="checkbox"] { width: 20px; height: 20px; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .status-badge.active { background: #27ae60; color: white; }
+    .status-badge.inactive { background: #e74c3c; color: white; }
+    .preview-section { background: var(--bg-secondary); border-radius: 8px; padding: 16px; margin-top: 20px; }
+    .preview-embed { background: #2f3136; border-left: 4px solid #9b59b6; border-radius: 4px; padding: 12px; color: white; }
+    .preview-title { font-weight: 600; margin-bottom: 8px; }
+    .preview-desc { font-size: 14px; white-space: pre-wrap; margin-bottom: 12px; }
+    .preview-button { display: inline-block; padding: 8px 16px; background: #5865f2; border-radius: 4px; font-size: 14px; color: white; }
+    .btn-group { display: flex; gap: 10px; margin-top: 16px; }
+    .btn-group .btn { flex: 1; }
+    .info-box { background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+    .info-box h4 { color: var(--accent-color); margin: 0 0 8px 0; }
+    .info-box p { margin: 0; font-size: 14px; color: var(--text-secondary); }
+    .info-box ul { margin: 8px 0 0 0; padding-left: 20px; font-size: 13px; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header"><h1>Ticket Admin</h1></div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/embed-builder"><span class="icon">🎨</span> Embed Builder</a></li>
+      <li><a href="/admin/welcome"><span class="icon">👋</span> Welcome</a></li>
+      <li><a href="/admin/keywords"><span class="icon">🔑</span> Keywords</a></li>
+      <li><a href="/admin/giveaways"><span class="icon">🎁</span> Giveaways</a></li>
+      <li><a href="/admin/announcements"><span class="icon">📢</span> Announcements</a></li>
+      <li><a href="/admin/scheduled"><span class="icon">⏰</span> Scheduled</a></li>
+      <li><a href="/admin/sticky"><span class="icon">📌</span> Sticky</a></li>
+      <li><a href="/admin/sticky-clients" class="active"><span class="icon">👥</span> Client Finder</a></li>
+      <li><a href="/admin/dm-sender"><span class="icon">✉️</span> DM Sender</a></li>
+      <li><a href="/admin/job-config"><span class="icon">💼</span> Job Config</a></li>
+      <li><a href="/admin/bot-settings"><span class="icon">🤖</span> Bot Settings</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Client Finder (Sticky)</h2>
+      <p>Set up a sticky portfolio sharing system for your #looking-for-clients channel</p>
+    </div>
+
+    <div class="info-box">
+      <h4>How it works</h4>
+      <p>This creates a sticky embed with a "Share your work" button that always stays at the bottom of the channel.</p>
+      <ul>
+        <li>Users click the button to submit their portfolio via a form</li>
+        <li>Their submission is posted as a nice embed in the channel</li>
+        <li>The sticky message automatically reposts itself to stay at the bottom</li>
+      </ul>
+    </div>
+
+    <div class="form-section" style="padding:16px;max-width:none;">
+      <label style="margin-right:10px;">Select Server:</label>
+      <select id="guildSelect" style="width:auto;display:inline-block;padding:8px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></select>
+      <span id="statusBadge" class="status-badge inactive" style="margin-left:16px;">Inactive</span>
+    </div>
+
+    <div class="form-section">
+      <div class="form-group">
+        <label>Target Channel</label>
+        <select id="channelId">
+          <option value="">Select a channel...</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Embed Title</label>
+        <input type="text" id="embedTitle" value="Looking for Clients?" oninput="updatePreview()">
+      </div>
+      
+      <div class="form-group">
+        <label>Embed Description (rules & info)</label>
+        <textarea id="embedDescription" style="min-height:100px;" oninput="updatePreview()">**Rules:**
+- No spam
+- No fake portfolio
+- No agencies
+
+Click the button below to share your work!</textarea>
+      </div>
+      
+      <div class="form-group">
+        <label>Embed Color</label>
+        <input type="color" id="embedColor" value="#9b59b6" style="height:40px;cursor:pointer;" oninput="updatePreview()">
+      </div>
+      
+      <div class="form-group">
+        <label>Button Label</label>
+        <input type="text" id="buttonLabel" value="Share your work" oninput="updatePreview()">
+      </div>
+
+      <div class="preview-section">
+        <h4 style="margin:0 0 12px 0;color:var(--text-secondary);">Preview</h4>
+        <div class="preview-embed" id="previewEmbed">
+          <div class="preview-title" id="previewTitle">Looking for Clients?</div>
+          <div class="preview-desc" id="previewDesc">**Rules:**
+- No spam
+- No fake portfolio
+- No agencies
+
+Click the button below to share your work!</div>
+          <div class="preview-button" id="previewButton">Share your work</div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveAndPost()">Save & Post Sticky</button>
+        <button class="btn btn-secondary" onclick="refreshSticky()">Refresh Sticky</button>
+        <button class="btn" style="background:#e74c3c;" onclick="disableSticky()">Disable</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/admin/js/unsaved.js"></script>
+  <script>
+    let currentGuildId = null;
+    let config = {};
+
+    async function loadGuilds() {
+      const res = await fetch('/admin/api/discord/guilds');
+      const guilds = await res.json();
+      const select = document.getElementById('guildSelect');
+      if (guilds.length === 0) {
+        select.innerHTML = '<option value="">No servers</option>';
+        return;
+      }
+      select.innerHTML = guilds.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+      currentGuildId = guilds[0].id;
+      loadChannels();
+      loadConfig();
+    }
+
+    async function loadChannels() {
+      if (!currentGuildId) return;
+      const res = await fetch(`/admin/api/discord/channels/${currentGuildId}`);
+      const channels = await res.json();
+      const textChannels = channels.filter(c => c.type === 0);
+      const select = document.getElementById('channelId');
+      select.innerHTML = '<option value="">Select a channel...</option>' + textChannels.map(c => `<option value="${c.id}">#${c.name}</option>`).join('');
+      if (config.channelId) select.value = config.channelId;
+    }
+
+    async function loadConfig() {
+      if (!currentGuildId) return;
+      const res = await fetch(`/admin/api/sticky-clients/${currentGuildId}`);
+      config = await res.json();
+      document.getElementById('channelId').value = config.channelId || '';
+      document.getElementById('embedTitle').value = config.embedTitle || 'Looking for Clients?';
+      document.getElementById('embedDescription').value = config.embedDescription || '**Rules:**\n- No spam\n- No fake portfolio\n- No agencies\n\nClick the button below to share your work!';
+      document.getElementById('embedColor').value = config.embedColor || '#9b59b6';
+      document.getElementById('buttonLabel').value = config.buttonLabel || 'Share your work';
+      updateStatus();
+      updatePreview();
+      setTimeout(() => UnsavedChanges.refresh && UnsavedChanges.refresh(), 100);
+    }
+
+    function updateStatus() {
+      const badge = document.getElementById('statusBadge');
+      if (config.enabled && config.stickyMessageId) {
+        badge.textContent = 'Active';
+        badge.className = 'status-badge active';
+      } else {
+        badge.textContent = 'Inactive';
+        badge.className = 'status-badge inactive';
+      }
+    }
+
+    function updatePreview() {
+      const title = document.getElementById('embedTitle').value;
+      const desc = document.getElementById('embedDescription').value;
+      const color = document.getElementById('embedColor').value;
+      const buttonLabel = document.getElementById('buttonLabel').value;
+      document.getElementById('previewTitle').textContent = title;
+      document.getElementById('previewDesc').textContent = desc;
+      document.getElementById('previewEmbed').style.borderLeftColor = color;
+      document.getElementById('previewButton').textContent = buttonLabel;
+    }
+
+    async function saveConfig() {
+      const data = {
+        channelId: document.getElementById('channelId').value,
+        embedTitle: document.getElementById('embedTitle').value,
+        embedDescription: document.getElementById('embedDescription').value,
+        embedColor: document.getElementById('embedColor').value,
+        buttonLabel: document.getElementById('buttonLabel').value
+      };
+      const res = await fetch(`/admin/api/sticky-clients/${currentGuildId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return res.ok;
+    }
+
+    async function saveAndPost() {
+      if (!document.getElementById('channelId').value) {
+        alert('Please select a channel first');
+        return;
+      }
+      await saveConfig();
+      const res = await fetch(`/admin/api/sticky-clients/${currentGuildId}/post`, { method: 'POST' });
+      const result = await res.json();
+      if (res.ok) {
+        alert('Sticky message posted successfully!');
+        config.enabled = true;
+        config.stickyMessageId = result.messageId;
+        updateStatus();
+        UnsavedChanges.markSaved();
+      } else {
+        alert('Error: ' + (result.error || 'Failed to post sticky'));
+      }
+    }
+
+    async function refreshSticky() {
+      if (!config.enabled) {
+        alert('Sticky is not active. Use "Save & Post" first.');
+        return;
+      }
+      await saveConfig();
+      const res = await fetch(`/admin/api/sticky-clients/${currentGuildId}/post`, { method: 'POST' });
+      if (res.ok) {
+        alert('Sticky message refreshed!');
+        UnsavedChanges.markSaved();
+      } else {
+        alert('Failed to refresh sticky');
+      }
+    }
+
+    async function disableSticky() {
+      if (!confirm('This will remove the sticky message. Continue?')) return;
+      const res = await fetch(`/admin/api/sticky-clients/${currentGuildId}/disable`, { method: 'POST' });
+      if (res.ok) {
+        config.enabled = false;
+        config.stickyMessageId = null;
+        updateStatus();
+        alert('Sticky disabled');
+      } else {
+        alert('Failed to disable sticky');
+      }
+    }
+
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      currentGuildId = e.target.value;
+      loadChannels();
+      loadConfig();
+    });
+
+    UnsavedChanges.init(saveConfig);
+    loadGuilds();
+  </script>
+</body>
+</html>

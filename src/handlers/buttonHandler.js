@@ -1,8 +1,61 @@
 import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, EmbedBuilder, ChannelType } from 'discord.js';
-import { getJobConfig, getCooldownExpiry, addEntry, hasEntry, getEntries } from '../utils/storage.js';
+import { getJobConfig, getCooldownExpiry, addEntry, hasEntry, getEntries, getStickyClientsConfig } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 
 export async function handleJobButton(interaction) {
+  // Handle sticky clients share button
+  if (interaction.customId === 'stickyclients_share') {
+    const modal = new ModalBuilder()
+      .setCustomId(`stickyclients_modal_${interaction.guildId}`)
+      .setTitle('Share your work');
+
+    const nameInput = new TextInputBuilder()
+      .setCustomId('sc_name')
+      .setLabel('Name')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('Rik')
+      .setRequired(true);
+
+    const roleInput = new TextInputBuilder()
+      .setCustomId('sc_role')
+      .setLabel('Role')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('video editor')
+      .setRequired(true);
+
+    const experienceInput = new TextInputBuilder()
+      .setCustomId('sc_experience')
+      .setLabel('Experience')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('6 month+, 1yr+, 2yr+, 5yr+')
+      .setRequired(true);
+
+    const portfolioInput = new TextInputBuilder()
+      .setCustomId('sc_portfolio')
+      .setLabel('Portfolio Link')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('https://...')
+      .setRequired(true);
+
+    const aboutInput = new TextInputBuilder()
+      .setCustomId('sc_about')
+      .setLabel('About Yourself & Social Media (optional)')
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder('Write something short about yourself, add social media links (insta, yt, behance), and optionally add a profile pic URL')
+      .setRequired(false);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(nameInput),
+      new ActionRowBuilder().addComponents(roleInput),
+      new ActionRowBuilder().addComponents(experienceInput),
+      new ActionRowBuilder().addComponents(portfolioInput),
+      new ActionRowBuilder().addComponents(aboutInput)
+    );
+
+    await interaction.showModal(modal);
+    return;
+  }
+
   // Handle review start button
   if (interaction.customId === 'review_start') {
     const row = new ActionRowBuilder().addComponents(

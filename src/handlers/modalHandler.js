@@ -1,8 +1,86 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getJobConfig, addCooldown, setJobConfig, getJobBannerText } from '../utils/storage.js';
+import { getJobConfig, addCooldown, setJobConfig, getJobBannerText, getStickyClientsConfig, setStickyClientsConfig } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
+import { repostStickyClients } from '../events/messageCreate.js';
 
 export async function handleJobModal(interaction) {
+  // Handle sticky clients form submission
+  if (interaction.customId.startsWith('stickyclients_modal_')) {
+    try {
+      const guildId = interaction.customId.split('_')[2];
+      const config = getStickyClientsConfig(guildId);
+
+      const name = interaction.fields.getTextInputValue('sc_name');
+      const role = interaction.fields.getTextInputValue('sc_role');
+      const experience = interaction.fields.getTextInputValue('sc_experience');
+      const portfolio = interaction.fields.getTextInputValue('sc_portfolio');
+      const about = interaction.fields.getTextInputValue('sc_about') || '';
+
+      // Parse about field for social media and profile pic
+      let socialMedia = '';
+      let profilePic = '';
+      let aboutText = about;
+      
+      const urlMatch = about.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i);
+      if (urlMatch) {
+        profilePic = urlMatch[0];
+        aboutText = about.replace(profilePic, '').trim();
+      }
+
+      // Create submission embed
+      const embed = new EmbedBuilder()
+        .setTitle('New Creator Submission')
+        .setColor(config.embedColor ? parseInt(config.embedColor.replace('#', ''), 16) : 0x9b59b6)
+        .addFields(
+          { name: 'Name', value: name, inline: true },
+          { name: 'Role', value: role, inline: true },
+          { name: 'Experience', value: experience, inline: true }
+        )
+        .setFooter({ text: 'Posted via Client Form' })
+        .setTimestamp();
+
+      // Add portfolio as clickable link
+      embed.addFields({ name: 'Portfolio', value: `[Click Here](${portfolio})`, inline: false });
+
+      // Add about/social if provided
+      if (aboutText) {
+        embed.addFields({ name: 'About', value: aboutText, inline: false });
+      }
+
+      // Add thumbnail if profile pic URL found
+      if (profilePic) {
+        embed.setThumbnail(profilePic);
+      } else {
+        embed.setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }));
+      }
+
+      // Post to channel
+      const channel = await interaction.client.channels.fetch(config.channelId);
+      if (!channel) {
+        await interaction.reply({ content: 'Error: Channel not found.', ephemeral: true });
+        return;
+      }
+
+      await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed] });
+
+      await interaction.reply({
+        content: 'Your portfolio has been shared!',
+        ephemeral: true
+      });
+
+      // Repost sticky to keep it at bottom
+      setTimeout(() => repostStickyClients(interaction.client, guildId), 2000);
+
+    } catch (error) {
+      console.error('Error handling sticky clients modal:', error);
+      await interaction.reply({
+        content: 'Failed to submit your portfolio. Please try again.',
+        ephemeral: true
+      }).catch(() => {});
+    }
+    return;
+  }
+
   if (interaction.customId.startsWith('review_modal_')) {
     const ratingNum = interaction.customId.split('_')[2];
     const plan = interaction.fields.getTextInputValue('review_plan');

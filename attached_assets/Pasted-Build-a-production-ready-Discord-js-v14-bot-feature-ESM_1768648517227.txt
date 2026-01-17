@@ -1,0 +1,93 @@
+Build a production-ready Discord.js v14 bot feature (ESM Node.js) for my server.
+
+Goal:
+I have a channel named: #looking-for-clients
+I want a STICKY MESSAGE system in this channel that always stays pinned at the bottom (auto reposts itself if new messages appear).
+
+Sticky message rules embed content:
+- No spam
+- No fake portfolio
+- No agencies
+
+Sticky message requirements:
+1) Must be an EMBED message (good looking).
+2) Must contain one BUTTON (Primary / Blue):
+   Label: "Share your work"
+3) The sticky embed must re-post itself automatically (sticky behavior)
+   - If someone sends a message and the sticky is no longer the last message, delete old sticky and re-send new sticky
+   - Prevent spam / loops (cooldown)
+   - Must remember the sticky message ID per guild/channel so it can update properly after restart
+4) The sticky message should only operate in #looking-for-clients
+
+When user clicks the button:
+Open a Discord Modal form with title: "Share your work"
+Modal fields (exact):
+1) Name (required)
+   placeholder: Rik
+2) Role (required)
+   placeholder: video editor
+3) Experience (required)
+   placeholder: 6 month+, 1yr+, 2yr+, 5yr+
+4) Social Media (optional)
+   placeholder: insta, yt, behance
+5) Portfolio Link (required)
+   placeholder: https://...
+6) About Yourself (optional)
+   placeholder: write something short
+7) Profile Pic Image URL (optional)
+   placeholder: https://image-link...
+
+After submit:
+- Generate a great looking EMBED message in the SAME channel (#looking-for-clients)
+- The embed should include:
+  - Title: "New Creator Submission"
+  - Name, Role, Experience
+  - Social Media (if provided)
+  - Portfolio Link as clickable link
+  - About Yourself (if provided)
+  - Thumbnail or image using profile pic url if provided
+  - Footer: "Posted via Client Form"
+  - Timestamp
+- Also tag the user in the message content: <@userId>
+
+IMPORTANT:
+- The sticky embed must stay sticky even after people submit forms.
+- Sticky embed must NOT disappear.
+- Sticky embed must always be the last message in the channel.
+- When the submission embed is posted, re-post sticky embed after it so sticky stays at bottom.
+
+Admin Commands:
+1) /stickyclients setup
+   - takes channel option (default #looking-for-clients)
+   - posts the sticky embed and enables sticky mode
+2) /stickyclients disable
+   - disables sticky mode and deletes sticky embed
+3) /stickyclients refresh
+   - manually repost sticky
+
+Storage:
+- Use JSON persistence in ./data/
+- Example file: data/stickyClients.json
+- Store per guild:
+  - channelId
+  - stickyMessageId
+  - enabled: true/false
+  - cooldown timestamps
+
+Project Structure (required):
+- /commands/stickyclients.js
+- /events/interactionCreate.js  (handle button + modal submit)
+- /events/messageCreate.js      (sticky behavior)
+- /utils/storage.js             (ensureDir/loadData/saveData)
+- Must be Discord.js v14 ESM.
+
+Quality rules:
+- Fully working code, no pseudocode.
+- Avoid infinite loops when reposting sticky message.
+- Handle missing permissions safely.
+- If channel not found or deleted, auto disable.
+- Must be clean and readable.
+
+Output:
+Give me FULL code for all files with filenames and exact code blocks.
+Do not skip anything.
