@@ -4,12 +4,15 @@ import pg from 'pg';
 const { Pool } = pg;
 let pool = null;
 
-if (process.env.DATABASE_URL) {
-  const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
-  pool = new Pool({ 
-    connectionString: process.env.DATABASE_URL,
-    ssl: isInternalRailway ? false : { rejectUnauthorized: false }
-  });
+function getPool() {
+  if (!pool && process.env.DATABASE_URL) {
+    const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
+    pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      ssl: isInternalRailway ? false : { rejectUnauthorized: false }
+    });
+  }
+  return pool;
 }
 
 const defaultConfig = {
@@ -27,9 +30,10 @@ const defaultConfig = {
 };
 
 async function getWelcomeConfig(guildId) {
-  if (!pool) return { ...defaultConfig };
+  const db = getPool();
+  if (!db) return { ...defaultConfig };
   try {
-    const res = await pool.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
+    const res = await db.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
     if (res.rows[0]) {
       const row = res.rows[0];
       return {

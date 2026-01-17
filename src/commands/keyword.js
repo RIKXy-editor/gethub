@@ -3,28 +3,35 @@ import pg from 'pg';
 
 const { Pool } = pg;
 let pool = null;
+let dbInitialized = false;
 
-if (process.env.DATABASE_URL) {
-  const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
-  pool = new Pool({ 
-    connectionString: process.env.DATABASE_URL,
-    ssl: isInternalRailway ? false : { rejectUnauthorized: false }
-  });
-  
-  pool.query(`
-    CREATE TABLE IF NOT EXISTS keyword_settings (
-      guild_id VARCHAR(255) PRIMARY KEY,
-      enabled BOOLEAN DEFAULT FALSE
-    )
-  `).catch(err => console.error('Keyword settings table error:', err.message));
-  
-  pool.query(`
-    CREATE TABLE IF NOT EXISTS keywords (
-      id SERIAL PRIMARY KEY,
-      guild_id VARCHAR(255),
-      keyword TEXT NOT NULL
-    )
-  `).catch(err => console.error('Keywords table error:', err.message));
+function getPool() {
+  if (!pool && process.env.DATABASE_URL) {
+    const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
+    pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      ssl: isInternalRailway ? false : { rejectUnauthorized: false }
+    });
+    
+    if (!dbInitialized) {
+      dbInitialized = true;
+      pool.query(`
+        CREATE TABLE IF NOT EXISTS keyword_settings (
+          guild_id VARCHAR(255) PRIMARY KEY,
+          enabled BOOLEAN DEFAULT FALSE
+        )
+      `).catch(err => console.error('Keyword settings table error:', err.message));
+      
+      pool.query(`
+        CREATE TABLE IF NOT EXISTS keywords (
+          id SERIAL PRIMARY KEY,
+          guild_id VARCHAR(255),
+          keyword TEXT NOT NULL
+        )
+      `).catch(err => console.error('Keywords table error:', err.message));
+    }
+  }
+  return pool;
 }
 
 export const data = new SlashCommandBuilder()
@@ -55,7 +62,8 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  if (!pool) {
+  const db = getPool();
+  if (!db) {
     return await interaction.reply({ content: '❌ Database not available. Please check DATABASE_URL configuration.', ephemeral: true });
   }
 
@@ -63,17 +71,17 @@ export async function execute(interaction) {
   const guildId = interaction.guild.id;
 
   try {
-    await pool.query('INSERT INTO keyword_settings (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING', [guildId]);
+    await db.query('INSERT INTO keyword_settings (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING', [guildId]);
 
     if (subcommand === 'add') {
       const keyword = interaction.options.getString('keyword').toLowerCase();
-      await pool.query('INSERT INTO keywords (guild_id, keyword) VALUES ($1, $2)', [guildId, keyword]);
+      await db.query('INSERT INTO keywords (guild_id, keyword) VALUES ($1, $2)', [guildId, keyword]);
       await interaction.reply({ content: `✅ Keyword added: \`${keyword}\``, ephemeral: true });
     }
 
     if (subcommand === 'remove') {
       const keyword = interaction.options.getString('keyword').toLowerCase();
-      const result = await pool.query('DELETE FROM keywords WHERE guild_id = $1 AND keyword = $2', [guildId, keyword]);
+      const result = await db.query('DELETE FROM keywords WHERE guild_id = $1 AND keyword = $2', [guildId, keyword]);
       if (result.rowCount === 0) {
         await interaction.reply({ content: `❌ Keyword \`${keyword}\` not found.`, ephemeral: true });
       } else {
@@ -82,7 +90,7 @@ export async function execute(interaction) {
     }
 
     if (subcommand === 'list') {
-      const res = await pool.query('SELECT keyword FROM keywords WHERE guild_id = $1', [guildId]);
+      const res = await db.query('SELECT keyword FROM keywords WHERE guild_id = $1', [guildId]);
       if (res.rows.length === 0) {
         await interaction.reply({ content: '📌 No keywords saved yet.', ephemeral: true });
       } else {
@@ -94,7 +102,7 @@ export async function execute(interaction) {
     if (subcommand === 'toggle') {
       const state = interaction.options.getString('state');
       const isEnabled = state === 'on';
-      await pool.query('UPDATE keyword_settings SET enabled = $1 WHERE guild_id = $2', [isEnabled, guildId]);
+      await db.query('UPDATE keyword_settings SET enabled = $1 WHERE guild_id = $2', [isEnabled, guildId]);
       await interaction.reply({ content: `✅ Keyword warning system is now: **${state.toUpperCase()}**`, ephemeral: true });
     }
   } catch (err) {

@@ -3,40 +3,42 @@ import pg from 'pg';
 
 const { Pool } = pg;
 let pool = null;
-let dbAvailable = false;
+let dbInitialized = false;
 
-if (process.env.DATABASE_URL) {
-  const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
-  pool = new Pool({ 
-    connectionString: process.env.DATABASE_URL,
-    ssl: isInternalRailway ? false : { rejectUnauthorized: false }
-  });
-  
-  pool.query('SELECT 1').then(() => {
-    dbAvailable = true;
-    console.log('Welcome system: Database connected');
-    pool.query(`
-      CREATE TABLE IF NOT EXISTS welcome_config (
-        guild_id VARCHAR(255) PRIMARY KEY,
-        enabled BOOLEAN DEFAULT FALSE,
-        channel_id VARCHAR(255),
-        title TEXT DEFAULT 'Welcome to {server}!',
-        description TEXT DEFAULT 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
-        footer TEXT DEFAULT 'Member #{memberCount}',
-        color VARCHAR(10) DEFAULT '#9b59b6',
-        thumbnail_mode VARCHAR(20) DEFAULT 'user',
-        image_url TEXT,
-        ping_user BOOLEAN DEFAULT TRUE,
-        dm_welcome BOOLEAN DEFAULT FALSE,
-        auto_role_id VARCHAR(255)
-      )
-    `).catch(err => console.error('Welcome table creation error:', err.message));
-  }).catch(err => {
-    console.error('Welcome system: Database not available -', err.message);
-    dbAvailable = false;
-  });
-} else {
-  console.log('Welcome system: No DATABASE_URL configured');
+function getPool() {
+  if (!pool && process.env.DATABASE_URL) {
+    const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
+    pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      ssl: isInternalRailway ? false : { rejectUnauthorized: false }
+    });
+    
+    if (!dbInitialized) {
+      dbInitialized = true;
+      pool.query('SELECT 1').then(() => {
+        console.log('Welcome system: Database connected');
+        pool.query(`
+          CREATE TABLE IF NOT EXISTS welcome_config (
+            guild_id VARCHAR(255) PRIMARY KEY,
+            enabled BOOLEAN DEFAULT FALSE,
+            channel_id VARCHAR(255),
+            title TEXT DEFAULT 'Welcome to {server}!',
+            description TEXT DEFAULT 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
+            footer TEXT DEFAULT 'Member #{memberCount}',
+            color VARCHAR(10) DEFAULT '#9b59b6',
+            thumbnail_mode VARCHAR(20) DEFAULT 'user',
+            image_url TEXT,
+            ping_user BOOLEAN DEFAULT TRUE,
+            dm_welcome BOOLEAN DEFAULT FALSE,
+            auto_role_id VARCHAR(255)
+          )
+        `).catch(err => console.error('Welcome table creation error:', err.message));
+      }).catch(err => {
+        console.error('Welcome system: Database not available -', err.message);
+      });
+    }
+  }
+  return pool;
 }
 
 const defaultConfig = {
@@ -54,9 +56,10 @@ const defaultConfig = {
 };
 
 async function getWelcomeConfig(guildId) {
-  if (!pool) return { ...defaultConfig };
+  const db = getPool();
+  if (!db) return { ...defaultConfig };
   try {
-    const res = await pool.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
+    const res = await db.query('SELECT * FROM welcome_config WHERE guild_id = $1', [guildId]);
     if (res.rows[0]) {
       const row = res.rows[0];
       return {
@@ -81,7 +84,8 @@ async function getWelcomeConfig(guildId) {
 }
 
 async function setWelcomeConfig(guildId, updates) {
-  if (!pool) {
+  const db = getPool();
+  if (!db) {
     console.error('Welcome: Cannot save - pool is null');
     return;
   }
@@ -90,7 +94,7 @@ async function setWelcomeConfig(guildId, updates) {
     const current = await getWelcomeConfig(guildId);
     const merged = { ...current, ...updates };
     
-    await pool.query(`
+    await db.query(`
       INSERT INTO welcome_config (guild_id, enabled, channel_id, title, description, footer, color, thumbnail_mode, image_url, ping_user, dm_welcome, auto_role_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       ON CONFLICT (guild_id) DO UPDATE SET
@@ -104,9 +108,10 @@ async function setWelcomeConfig(guildId, updates) {
 }
 
 async function resetWelcomeConfig(guildId) {
-  if (!pool) return;
+  const db = getPool();
+  if (!db) return;
   try {
-    await pool.query('DELETE FROM welcome_config WHERE guild_id = $1', [guildId]);
+    await db.query('DELETE FROM welcome_config WHERE guild_id = $1', [guildId]);
   } catch (err) {
     console.error('Error resetting welcome config:', err.message);
   }
@@ -200,14 +205,15 @@ export async function execute(interaction) {
     const buttons = buildWizardButtons(config);
     const summary = buildConfigSummary(config);
 
-    await interaction.reply({
+    const reply = await interaction.reply({
       content: `🎉 **Welcome System Setup Wizard**\n\n${summary}\n\n**Preview:**`,
       embeds: [previewEmbed],
       components: buttons,
-      ephemeral: true
+      ephemeral: true,
+      fetchReply: true
     });
 
-    const collector = interaction.channel.createMessageComponentCollector({
+    const collector = reply.createMessageComponentCollector({
       filter: i => i.user.id === interaction.user.id && i.customId.startsWith('welcome_'),
       time: 300000
     });

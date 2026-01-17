@@ -7,12 +7,15 @@ import pg from 'pg';
 const { Pool } = pg;
 let pool = null;
 
-if (process.env.DATABASE_URL) {
-  const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
-  pool = new Pool({ 
-    connectionString: process.env.DATABASE_URL,
-    ssl: isInternalRailway ? false : { rejectUnauthorized: false }
-  });
+function getPool() {
+  if (!pool && process.env.DATABASE_URL) {
+    const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
+    pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      ssl: isInternalRailway ? false : { rejectUnauthorized: false }
+    });
+  }
+  return pool;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -70,13 +73,14 @@ export async function execute(message) {
   
   saveStats(stats);
 
-  if (!pool) return;
+  const db = getPool();
+  if (!db) return;
 
   try {
-    const settings = await pool.query('SELECT enabled FROM keyword_settings WHERE guild_id = $1', [guildId]);
+    const settings = await db.query('SELECT enabled FROM keyword_settings WHERE guild_id = $1', [guildId]);
     
     if (settings.rows[0]?.enabled) {
-      const keywordsRes = await pool.query('SELECT keyword FROM keywords WHERE guild_id = $1', [guildId]);
+      const keywordsRes = await db.query('SELECT keyword FROM keywords WHERE guild_id = $1', [guildId]);
       const keywords = keywordsRes.rows.map(r => r.keyword);
       
       const content = message.content.toLowerCase();
