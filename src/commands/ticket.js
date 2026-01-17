@@ -10,7 +10,17 @@ function getTicketConfig(guildId) {
     transcriptDm: true,
     maxTicketsPerUser: 1,
     cooldownSeconds: 60,
-    categories: []
+    categories: [],
+    panelEmbed: {
+      title: '🎫 Support Tickets',
+      description: 'Need help? Select a category below to create a support ticket.\n\nOur team will assist you as soon as possible.',
+      color: '#5865F2',
+      footer: 'Select a category from the dropdown to open a ticket',
+      thumbnail: null,
+      image: null
+    },
+    panelMessageId: null,
+    panelChannelId: null
   };
 }
 
@@ -94,7 +104,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(sub => sub.setName('removetype').setDescription('Remove a ticket type')
     .addStringOption(opt => opt.setName('name').setDescription('Category name to remove').setRequired(true)))
   .addSubcommand(sub => sub.setName('listtypes').setDescription('List all ticket types'))
-  .addSubcommand(sub => sub.setName('stats').setDescription('View staff ticket statistics'));
+  .addSubcommand(sub => sub.setName('stats').setDescription('View staff ticket statistics'))
+  .addSubcommand(sub => sub.setName('paneledit').setDescription('Edit the ticket panel embed'))
+  .addSubcommand(sub => sub.setName('panelupdate').setDescription('Update the existing panel with new settings'));
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -108,11 +120,15 @@ export async function execute(interaction) {
       return await interaction.reply({ content: '❌ No ticket categories configured. Use `/ticket addtype` first.', ephemeral: true });
     }
 
+    const panelEmbed = config.panelEmbed || {};
     const embed = new EmbedBuilder()
-      .setTitle('🎫 Support Tickets')
-      .setDescription('Need help? Select a category below to create a support ticket.\n\nOur team will assist you as soon as possible.')
-      .setColor('#5865F2')
-      .setFooter({ text: 'Select a category from the dropdown to open a ticket' });
+      .setTitle(panelEmbed.title || '🎫 Support Tickets')
+      .setDescription(panelEmbed.description || 'Need help? Select a category below to create a support ticket.')
+      .setColor(panelEmbed.color || '#5865F2');
+    
+    if (panelEmbed.footer) embed.setFooter({ text: panelEmbed.footer });
+    if (panelEmbed.thumbnail) embed.setThumbnail(panelEmbed.thumbnail);
+    if (panelEmbed.image) embed.setImage(panelEmbed.image);
 
     const selectOptions = config.categories.map(cat => ({
       label: cat.name,
@@ -128,7 +144,8 @@ export async function execute(interaction) {
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    await channel.send({ embeds: [embed], components: [row] });
+    const panelMsg = await channel.send({ embeds: [embed], components: [row] });
+    setTicketConfig(guildId, { panelMessageId: panelMsg.id, panelChannelId: channel.id });
     await interaction.reply({ content: `✅ Ticket panel posted in ${channel}`, ephemeral: true });
   }
 
@@ -234,6 +251,78 @@ export async function execute(interaction) {
       .setColor('#5865F2');
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+
+  if (subcommand === 'paneledit') {
+    const panelEmbed = config.panelEmbed || {};
+    
+    const previewEmbed = new EmbedBuilder()
+      .setTitle(panelEmbed.title || '🎫 Support Tickets')
+      .setDescription(panelEmbed.description || 'Need help? Select a category below...')
+      .setColor(panelEmbed.color || '#5865F2');
+    
+    if (panelEmbed.footer) previewEmbed.setFooter({ text: panelEmbed.footer });
+    if (panelEmbed.thumbnail) previewEmbed.setThumbnail(panelEmbed.thumbnail);
+    if (panelEmbed.image) previewEmbed.setImage(panelEmbed.image);
+
+    const buttons1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:panel_title').setLabel('Edit Title').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:panel_desc').setLabel('Edit Description').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:panel_color').setLabel('Edit Color').setStyle(ButtonStyle.Primary)
+    );
+    
+    const buttons2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:panel_footer').setLabel('Edit Footer').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:panel_thumb').setLabel('Set Thumbnail').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:panel_image').setLabel('Set Image').setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.reply({ 
+      content: '**Panel Embed Preview:**\nUse the buttons below to customize your ticket panel.',
+      embeds: [previewEmbed], 
+      components: [buttons1, buttons2], 
+      ephemeral: true 
+    });
+  }
+
+  if (subcommand === 'panelupdate') {
+    if (!config.panelMessageId || !config.panelChannelId) {
+      return await interaction.reply({ content: '❌ No panel found. Use `/ticket panel` to post one first.', ephemeral: true });
+    }
+
+    try {
+      const channel = await interaction.guild.channels.fetch(config.panelChannelId);
+      const message = await channel.messages.fetch(config.panelMessageId);
+      
+      const panelEmbed = config.panelEmbed || {};
+      const embed = new EmbedBuilder()
+        .setTitle(panelEmbed.title || '🎫 Support Tickets')
+        .setDescription(panelEmbed.description || 'Need help? Select a category below...')
+        .setColor(panelEmbed.color || '#5865F2');
+      
+      if (panelEmbed.footer) embed.setFooter({ text: panelEmbed.footer });
+      if (panelEmbed.thumbnail) embed.setThumbnail(panelEmbed.thumbnail);
+      if (panelEmbed.image) embed.setImage(panelEmbed.image);
+
+      const selectOptions = config.categories.map(cat => ({
+        label: cat.name,
+        value: cat.name.toLowerCase().replace(/\s+/g, '-'),
+        emoji: cat.emoji || '📩',
+        description: `Open a ${cat.name} ticket`
+      }));
+
+      const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('ticket:select_category')
+        .setPlaceholder('Select ticket category...')
+        .addOptions(selectOptions);
+
+      const row = new ActionRowBuilder().addComponents(selectMenu);
+
+      await message.edit({ embeds: [embed], components: [row] });
+      await interaction.reply({ content: '✅ Panel updated successfully!', ephemeral: true });
+    } catch (err) {
+      await interaction.reply({ content: '❌ Failed to update panel. The message may have been deleted. Use `/ticket panel` to post a new one.', ephemeral: true });
+    }
   }
 }
 
@@ -502,6 +591,84 @@ export async function handleTicketInteraction(interaction) {
       );
     await interaction.showModal(modal);
   }
+
+  if (customId === 'ticket:panel_title') {
+    const panelEmbed = config.panelEmbed || {};
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:panel_title_modal')
+      .setTitle('Edit Panel Title')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('title').setLabel('Panel Title').setStyle(TextInputStyle.Short).setRequired(true).setValue(panelEmbed.title || '🎫 Support Tickets').setMaxLength(256)
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:panel_desc') {
+    const panelEmbed = config.panelEmbed || {};
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:panel_desc_modal')
+      .setTitle('Edit Panel Description')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('description').setLabel('Panel Description').setStyle(TextInputStyle.Paragraph).setRequired(true).setValue(panelEmbed.description || 'Need help? Select a category below...').setMaxLength(4000)
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:panel_color') {
+    const panelEmbed = config.panelEmbed || {};
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:panel_color_modal')
+      .setTitle('Edit Panel Color')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('color').setLabel('Hex Color (e.g. #5865F2)').setStyle(TextInputStyle.Short).setRequired(true).setValue(panelEmbed.color || '#5865F2').setMaxLength(7)
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:panel_footer') {
+    const panelEmbed = config.panelEmbed || {};
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:panel_footer_modal')
+      .setTitle('Edit Panel Footer')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('footer').setLabel('Footer Text (leave empty to remove)').setStyle(TextInputStyle.Short).setRequired(false).setValue(panelEmbed.footer || '').setMaxLength(2048)
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:panel_thumb') {
+    const panelEmbed = config.panelEmbed || {};
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:panel_thumb_modal')
+      .setTitle('Set Panel Thumbnail')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('thumbnail').setLabel('Thumbnail URL (leave empty to remove)').setStyle(TextInputStyle.Short).setRequired(false).setValue(panelEmbed.thumbnail || '')
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:panel_image') {
+    const panelEmbed = config.panelEmbed || {};
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:panel_image_modal')
+      .setTitle('Set Panel Image')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('image').setLabel('Image URL (leave empty to remove)').setStyle(TextInputStyle.Short).setRequired(false).setValue(panelEmbed.image || '')
+        )
+      );
+    await interaction.showModal(modal);
+  }
 }
 
 export async function handleTicketModal(interaction) {
@@ -628,6 +795,64 @@ export async function handleTicketModal(interaction) {
     
     setTicketConfig(guildId, { maxTicketsPerUser: maxTickets, cooldownSeconds: cooldown });
     await interaction.reply({ content: `✅ Limits updated: Max ${maxTickets} ticket(s) per user, ${cooldown}s cooldown.`, ephemeral: true });
+  }
+
+  if (customId === 'ticket:panel_title_modal') {
+    const title = interaction.fields.getTextInputValue('title').trim();
+    const panelEmbed = config.panelEmbed || {};
+    panelEmbed.title = title;
+    setTicketConfig(guildId, { panelEmbed });
+    await interaction.reply({ content: `✅ Panel title updated to: **${title}**\n\nUse \`/ticket panelupdate\` to apply changes to the live panel.`, ephemeral: true });
+  }
+
+  if (customId === 'ticket:panel_desc_modal') {
+    const description = interaction.fields.getTextInputValue('description').trim();
+    const panelEmbed = config.panelEmbed || {};
+    panelEmbed.description = description;
+    setTicketConfig(guildId, { panelEmbed });
+    await interaction.reply({ content: `✅ Panel description updated!\n\nUse \`/ticket panelupdate\` to apply changes to the live panel.`, ephemeral: true });
+  }
+
+  if (customId === 'ticket:panel_color_modal') {
+    let color = interaction.fields.getTextInputValue('color').trim();
+    if (!color.startsWith('#')) color = '#' + color;
+    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+      return await interaction.reply({ content: '❌ Invalid hex color. Use format like #5865F2', ephemeral: true });
+    }
+    const panelEmbed = config.panelEmbed || {};
+    panelEmbed.color = color;
+    setTicketConfig(guildId, { panelEmbed });
+    await interaction.reply({ content: `✅ Panel color updated to: **${color}**\n\nUse \`/ticket panelupdate\` to apply changes to the live panel.`, ephemeral: true });
+  }
+
+  if (customId === 'ticket:panel_footer_modal') {
+    const footer = interaction.fields.getTextInputValue('footer').trim();
+    const panelEmbed = config.panelEmbed || {};
+    panelEmbed.footer = footer || null;
+    setTicketConfig(guildId, { panelEmbed });
+    await interaction.reply({ content: footer ? `✅ Panel footer updated!\n\nUse \`/ticket panelupdate\` to apply changes.` : `✅ Panel footer removed.\n\nUse \`/ticket panelupdate\` to apply changes.`, ephemeral: true });
+  }
+
+  if (customId === 'ticket:panel_thumb_modal') {
+    const thumbnail = interaction.fields.getTextInputValue('thumbnail').trim();
+    if (thumbnail && !thumbnail.startsWith('http')) {
+      return await interaction.reply({ content: '❌ Invalid URL. Must start with http:// or https://', ephemeral: true });
+    }
+    const panelEmbed = config.panelEmbed || {};
+    panelEmbed.thumbnail = thumbnail || null;
+    setTicketConfig(guildId, { panelEmbed });
+    await interaction.reply({ content: thumbnail ? `✅ Panel thumbnail set!\n\nUse \`/ticket panelupdate\` to apply changes.` : `✅ Panel thumbnail removed.\n\nUse \`/ticket panelupdate\` to apply changes.`, ephemeral: true });
+  }
+
+  if (customId === 'ticket:panel_image_modal') {
+    const image = interaction.fields.getTextInputValue('image').trim();
+    if (image && !image.startsWith('http')) {
+      return await interaction.reply({ content: '❌ Invalid URL. Must start with http:// or https://', ephemeral: true });
+    }
+    const panelEmbed = config.panelEmbed || {};
+    panelEmbed.image = image || null;
+    setTicketConfig(guildId, { panelEmbed });
+    await interaction.reply({ content: image ? `✅ Panel image set!\n\nUse \`/ticket panelupdate\` to apply changes.` : `✅ Panel image removed.\n\nUse \`/ticket panelupdate\` to apply changes.`, ephemeral: true });
   }
 }
 
