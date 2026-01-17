@@ -213,7 +213,9 @@ export async function execute(interaction) {
     });
 
     collector.on('collect', async (i) => {
-      config = await getWelcomeConfig(guildId);
+      try {
+        config = await getWelcomeConfig(guildId);
+        console.log(`Welcome: Button pressed: ${i.customId}`);
 
       if (i.customId === 'welcome_channel') {
         await i.reply({ content: '📢 Please mention the channel for welcome messages (e.g., #welcome):', ephemeral: true });
@@ -340,6 +342,9 @@ export async function execute(interaction) {
           components: []
         });
       }
+      } catch (err) {
+        console.error('Welcome button error:', err);
+      }
     });
 
     async function updateWizard(originalInteraction, cfg) {
@@ -389,13 +394,20 @@ export async function execute(interaction) {
 export async function handleModal(interaction) {
   if (interaction.customId !== 'welcome_message_modal') return false;
   
-  const guildId = interaction.guild.id;
-  const title = interaction.fields.getTextInputValue('title');
-  const description = interaction.fields.getTextInputValue('description');
-  const footer = interaction.fields.getTextInputValue('footer');
+  try {
+    const guildId = interaction.guild.id;
+    const title = interaction.fields.getTextInputValue('title');
+    const description = interaction.fields.getTextInputValue('description');
+    const footer = interaction.fields.getTextInputValue('footer');
 
-  await setWelcomeConfig(guildId, { title, description, footer: footer || null });
-  
-  await interaction.deferUpdate();
+    await setWelcomeConfig(guildId, { title, description, footer: footer || null });
+    
+    await interaction.reply({ content: '✅ Message settings saved! The wizard will update shortly.', ephemeral: true });
+  } catch (err) {
+    console.error('Welcome modal error:', err);
+    if (!interaction.replied) {
+      await interaction.reply({ content: '❌ Failed to save message settings.', ephemeral: true }).catch(() => null);
+    }
+  }
   return true;
 }
