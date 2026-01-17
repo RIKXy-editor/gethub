@@ -219,12 +219,24 @@ export async function execute(interaction) {
         await i.reply({ content: '📢 Please mention the channel for welcome messages (e.g., #welcome):', ephemeral: true });
         const msgCollector = i.channel.createMessageCollector({ filter: m => m.author.id === interaction.user.id, max: 1, time: 60000 });
         msgCollector.on('collect', async (msg) => {
+          console.log(`Welcome: Channel input received: "${msg.content}"`);
           const channel = msg.mentions.channels.first() || interaction.guild.channels.cache.get(msg.content);
+          console.log(`Welcome: Found channel: ${channel?.id} (type: ${channel?.type})`);
           if (channel && (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement)) {
+            console.log(`Welcome: Saving channel ${channel.id} for guild ${guildId}`);
             await setWelcomeConfig(guildId, { channelId: channel.id });
             config = await getWelcomeConfig(guildId);
+            console.log(`Welcome: Config after save:`, JSON.stringify(config));
             await msg.delete().catch(() => null);
             await updateWizard(interaction, config);
+          } else {
+            console.log(`Welcome: Channel validation failed - channel: ${channel?.id}, type: ${channel?.type}`);
+            await msg.reply({ content: '❌ Invalid channel. Please mention a text channel.', ephemeral: false }).then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+          }
+        });
+        msgCollector.on('end', (collected, reason) => {
+          if (collected.size === 0) {
+            console.log(`Welcome: Channel collector ended with no input (reason: ${reason})`);
           }
         });
       }
