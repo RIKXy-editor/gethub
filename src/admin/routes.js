@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 function requireAuth(req, res, next) {
   if (req.session && req.session.authenticated) {
@@ -22,6 +22,9 @@ router.get('/login', (req, res) => {
 });
 
 router.post('/login', express.json(), (req, res) => {
+  if (!ADMIN_PASSWORD) {
+    return res.status(500).json({ success: false, error: 'Admin password not configured' });
+  }
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
     req.session.authenticated = true;
