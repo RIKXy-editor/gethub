@@ -155,7 +155,8 @@ export async function execute(interaction) {
         { name: '📩 DM Transcripts', value: config.transcriptDm ? 'Enabled' : 'Disabled', inline: true },
         { name: '🎟️ Max Tickets/User', value: String(config.maxTicketsPerUser), inline: true },
         { name: '⏱️ Cooldown', value: `${config.cooldownSeconds}s`, inline: true },
-        { name: '🔘 Button Label', value: config.buttonLabel || '📩 Open Ticket', inline: true }
+        { name: '🔘 Button Label', value: config.buttonLabel || '📩 Open Ticket', inline: true },
+        { name: '🎨 Button Color', value: config.buttonColor || 'Primary (Blue)', inline: true }
       )
       .setColor('#5865F2');
 
@@ -169,6 +170,7 @@ export async function execute(interaction) {
     const buttons2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('ticket:setup_toggle_dm').setLabel('Toggle DM Transcript').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('ticket:setup_button').setLabel('Edit Button Label').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:setup_button_color').setLabel('Edit Button Color').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('ticket:setup_embed').setLabel('Edit Panel Embed').setStyle(ButtonStyle.Primary)
     );
 
@@ -196,11 +198,19 @@ export async function execute(interaction) {
     if (panelEmbed.thumbnail) embed.setThumbnail(panelEmbed.thumbnail);
     if (panelEmbed.image) embed.setImage(panelEmbed.image);
 
+    const buttonStyleMap = {
+      'Primary': ButtonStyle.Primary,
+      'Secondary': ButtonStyle.Secondary,
+      'Success': ButtonStyle.Success,
+      'Danger': ButtonStyle.Danger
+    };
+    const buttonStyle = buttonStyleMap[config.buttonStyle] || ButtonStyle.Primary;
+
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('ticket:open')
         .setLabel(config.buttonLabel || '📩 Open Ticket')
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(buttonStyle)
     );
 
     const panelMsg = await channel.send({ embeds: [embed], components: [row] });
@@ -659,6 +669,30 @@ export async function handleTicketInteraction(interaction) {
     }
   }
 
+  if (customId === 'ticket:setup_button_color') {
+    const colorOptions = {
+      '1': { name: 'Primary (Blue)', style: 'Primary' },
+      '2': { name: 'Secondary (Gray)', style: 'Secondary' },
+      '3': { name: 'Success (Green)', style: 'Success' },
+      '4': { name: 'Danger (Red)', style: 'Danger' }
+    };
+    
+    const result = await promptForInput(interaction, `🎨 **Edit Button Color**\nChoose a color for the ticket button:\n\n**1** - Primary (Blue)\n**2** - Secondary (Gray)\n**3** - Success (Green)\n**4** - Danger (Red)\n\nCurrent: ${config.buttonColor || 'Primary (Blue)'}\n\nType a number (1-4):`, {
+      validator: async (msg) => {
+        const choice = msg.content.trim();
+        if (!colorOptions[choice]) {
+          return { valid: false, error: '❌ Please type a number 1-4.' };
+        }
+        return { valid: true, value: colorOptions[choice] };
+      }
+    });
+    
+    if (result.value) {
+      setTicketConfig(guildId, { buttonColor: result.value.name, buttonStyle: result.value.style });
+      await interaction.channel.send({ content: `✅ Button color updated to: **${result.value.name}**` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
+  }
+
   if (customId === 'ticket:setup_embed') {
     const panelEmbed = config.panelEmbed || {};
     
@@ -714,11 +748,19 @@ export async function handleTicketInteraction(interaction) {
       if (panelEmbed.thumbnail) embed.setThumbnail(panelEmbed.thumbnail);
       if (panelEmbed.image) embed.setImage(panelEmbed.image);
 
+      const buttonStyleMap = {
+        'Primary': ButtonStyle.Primary,
+        'Secondary': ButtonStyle.Secondary,
+        'Success': ButtonStyle.Success,
+        'Danger': ButtonStyle.Danger
+      };
+      const buttonStyle = buttonStyleMap[config.buttonStyle] || ButtonStyle.Primary;
+
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('ticket:open')
           .setLabel(config.buttonLabel || '📩 Open Ticket')
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(buttonStyle)
       );
 
       await message.edit({ embeds: [embed], components: [row] });
