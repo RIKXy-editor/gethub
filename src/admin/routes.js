@@ -938,6 +938,176 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
+  router.get('/check-auth', (req, res) => {
+    res.json({ authenticated: req.session?.authenticated || false });
+  });
+
+  router.post('/logout', (req, res) => {
+    req.session.destroy();
+    res.json({ success: true });
+  });
+
+  router.get('/api/stats/:guildId', requireAuth, async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const pool = getDbPool();
+      
+      let stats = {
+        total: 0,
+        open: 0,
+        closed: 0,
+        avgRating: 0,
+        ticketsPerDay: [],
+        topCategories: [],
+        staffLeaderboard: []
+      };
+
+      if (pool) {
+        const totalRes = await pool.query('SELECT COUNT(*) FROM tickets WHERE guild_id = $1', [guildId]);
+        stats.total = parseInt(totalRes.rows[0]?.count || 0);
+
+        const openRes = await pool.query("SELECT COUNT(*) FROM tickets WHERE guild_id = $1 AND status = 'open'", [guildId]);
+        stats.open = parseInt(openRes.rows[0]?.count || 0);
+
+        stats.closed = stats.total - stats.open;
+
+        const ratingRes = await pool.query('SELECT AVG(rating) FROM ticket_ratings WHERE guild_id = $1', [guildId]);
+        stats.avgRating = parseFloat(ratingRes.rows[0]?.avg || 0);
+
+        const perDayRes = await pool.query(`
+          SELECT DATE(created_at) as date, COUNT(*) as count 
+          FROM tickets WHERE guild_id = $1 AND created_at > NOW() - INTERVAL '7 days'
+          GROUP BY DATE(created_at) ORDER BY date
+        `, [guildId]);
+        stats.ticketsPerDay = perDayRes.rows.map(r => ({ date: r.date, count: parseInt(r.count) }));
+
+        const staffRes = await pool.query(`
+          SELECT claimed_by as userId, COUNT(*) as claimed 
+          FROM tickets WHERE guild_id = $1 AND claimed_by IS NOT NULL
+          GROUP BY claimed_by ORDER BY claimed DESC LIMIT 10
+        `, [guildId]);
+        stats.staffLeaderboard = staffRes.rows.map(r => ({
+          userId: r.userid,
+          username: 'Staff Member',
+          claimed: parseInt(r.claimed),
+          avgRating: 0
+        }));
+      }
+
+      res.json(stats);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+      res.json({
+        total: 0, open: 0, closed: 0, avgRating: 0,
+        ticketsPerDay: [], topCategories: [], staffLeaderboard: []
+      });
+    }
+  });
+
+  router.get('/api/categories/:guildId', requireAuth, (req, res) => {
+    const { guildId } = req.params;
+    const configs = loadData('ticketConfig', {});
+    res.json(configs[guildId]?.categories || []);
+  });
+
+  router.put('/api/categories/:guildId', requireAuth, express.json(), (req, res) => {
+    const { guildId } = req.params;
+    const configs = loadData('ticketConfig', {});
+    if (!configs[guildId]) configs[guildId] = {};
+    configs[guildId].categories = req.body.categories;
+    saveData('ticketConfig', configs);
+    res.json({ success: true });
+  });
+
+  router.get('/api/logs/:guildId', requireAuth, async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const pool = getDbPool();
+      let logs = [];
+
+      if (pool) {
+        const result = await pool.query(`
+          SELECT id, action, user_id, username, details, created_at as timestamp
+          FROM audit_logs WHERE guild_id = $1 ORDER BY created_at DESC LIMIT 100
+        `, [guildId]);
+        logs = result.rows.map(r => ({
+          id: r.id,
+          action: r.action,
+          userId: r.user_id,
+          username: r.username || 'Unknown',
+          details: r.details || '',
+          timestamp: r.timestamp
+        }));
+      }
+
+      res.json(logs);
+    } catch (err) {
+      console.error('Error fetching logs:', err);
+      res.json([]);
+    }
+  });
+
+  router.get('/api/staff/:guildId', requireAuth, async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const pool = getDbPool();
+      let staff = [];
+
+      if (pool) {
+        const result = await pool.query(`
+          SELECT claimed_by as id, COUNT(*) as tickets_claimed
+          FROM tickets WHERE guild_id = $1 AND claimed_by IS NOT NULL
+          GROUP BY claimed_by
+        `, [guildId]);
+        staff = result.rows.map(r => ({
+          id: r.id,
+          username: 'Staff Member',
+          avatar: null,
+          ticketsClaimed: parseInt(r.tickets_claimed),
+          avgRating: 0,
+          blacklisted: false
+        }));
+      }
+
+      res.json(staff);
+    } catch (err) {
+      console.error('Error fetching staff:', err);
+      res.json([]);
+    }
+  });
+
+  router.put('/api/staff/:guildId/:staffId', requireAuth, express.json(), (req, res) => {
+    const { guildId, staffId } = req.params;
+    const configs = loadData('staffConfig', {});
+    if (!configs[guildId]) configs[guildId] = {};
+    if (!configs[guildId][staffId]) configs[guildId][staffId] = {};
+    Object.assign(configs[guildId][staffId], req.body);
+    saveData('staffConfig', configs);
+    res.json({ success: true });
+  });
+
+  router.get('/api/discord/guilds/:guildId/roles', requireAuth, async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const guild = discordClient.guilds.cache.get(guildId);
+      if (!guild) {
+        return res.status(404).json({ error: 'Guild not found' });
+      }
+      const roles = guild.roles.cache
+        .filter(role => role.id !== guild.id)
+        .map(role => ({
+          id: role.id,
+          name: role.name,
+          color: role.color
+        }))
+        .sort((a, b) => b.position - a.position);
+      res.json(roles);
+    } catch (err) {
+      console.error('Error fetching roles:', err);
+      res.status(500).json({ error: 'Failed to fetch roles' });
+    }
+  });
+
   return router;
 }
 
