@@ -32,17 +32,13 @@ function getDbPool() {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-function requireAuth(req, res, next) {
-  if (req.session && req.session.authenticated) {
-    return next();
-  }
-  res.redirect('/admin/login');
-}
+const ADMIN_TOKEN = process.env.ADMIN_PASSWORD || process.env.ADMIN_TOKEN;
 
 function requireApiAuth(req, res, next) {
-  if (req.session && req.session.authenticated) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.replace('Bearer ', '') || req.headers['x-admin-token'];
+  
+  if (token && token === ADMIN_TOKEN) {
     return next();
   }
   res.status(401).json({ error: 'Unauthorized', authenticated: false });
@@ -52,19 +48,19 @@ export function createAdminRoutes(discordClient) {
   const router = express.Router();
 
   router.post('/login', express.json(), (req, res) => {
-    console.log('Login attempt:', { hasPassword: !!req.body?.password, hasAdminPw: !!ADMIN_PASSWORD });
-    if (!ADMIN_PASSWORD) {
-      return res.status(500).json({ success: false, error: 'Admin password not configured' });
+    if (!ADMIN_TOKEN) {
+      return res.status(500).json({ success: false, error: 'Admin token not configured' });
     }
     const { password } = req.body;
-    if (password === ADMIN_PASSWORD) {
-      req.session.authenticated = true;
-      console.log('Login successful');
-      res.json({ success: true });
+    if (password === ADMIN_TOKEN) {
+      res.json({ success: true, token: ADMIN_TOKEN });
     } else {
-      console.log('Password mismatch');
-      res.status(401).json({ success: false, error: 'Invalid password' });
+      res.status(401).json({ success: false, error: 'Invalid token' });
     }
+  });
+
+  router.get('/check-auth', requireApiAuth, (req, res) => {
+    res.json({ authenticated: true });
   });
 
   router.get('/', (req, res) => {

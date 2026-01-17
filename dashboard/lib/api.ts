@@ -4,7 +4,16 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/admin";
 
 const api = axios.create({
   baseURL: API_BASE,
-  withCredentials: true,
+});
+
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
 });
 
 export interface Guild {
@@ -106,20 +115,28 @@ export interface StaffMember {
 }
 
 export const apiClient = {
-  async login(password: string): Promise<{ success: boolean }> {
+  async login(password: string): Promise<{ success: boolean; token?: string }> {
     const res = await api.post("/login", { password });
+    if (res.data.success && res.data.token) {
+      localStorage.setItem('admin_token', res.data.token);
+    }
     return res.data;
   },
 
   async logout(): Promise<void> {
-    await api.post("/logout");
+    localStorage.removeItem('admin_token');
   },
 
   async checkAuth(): Promise<{ authenticated: boolean }> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
+    if (!token) {
+      return { authenticated: false };
+    }
     try {
       const res = await api.get("/check-auth");
       return res.data;
     } catch {
+      localStorage.removeItem('admin_token');
       return { authenticated: false };
     }
   },
