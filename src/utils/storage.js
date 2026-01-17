@@ -331,3 +331,140 @@ export function setStickyClientsCooldown(guildId, until) {
 export function getAllStickyClientsConfigs() {
   return loadData('sticky-clients', {});
 }
+
+// Ban Appeals storage functions
+export function getAppealsConfig(guildId) {
+  const configs = loadData('appeals-config', {});
+  return configs[guildId] || {
+    enabled: false,
+    appealsChannelId: null,
+    staffRoleId: null,
+    cooldownDays: 7,
+    rulesLink: null,
+    supportServerLink: null,
+    dmTemplate: {
+      title: 'You were banned from {server}',
+      description: 'You have been banned from **{server}**.\n\n**Reason:** {reason}\n**Case ID:** {caseId}\n\nIf you believe this was a mistake, you can submit an appeal.',
+      color: '#e74c3c'
+    }
+  };
+}
+
+export function setAppealsConfig(guildId, config) {
+  const configs = loadData('appeals-config', {});
+  configs[guildId] = { ...getAppealsConfig(guildId), ...config };
+  saveData('appeals-config', configs);
+}
+
+export function generateCaseId() {
+  return 'BAN-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase();
+}
+
+export function generateAppealId() {
+  return 'APL-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase();
+}
+
+export function addBanRecord(guildId, userId, banData) {
+  const bans = loadData('bans', {});
+  if (!bans[guildId]) bans[guildId] = {};
+  bans[guildId][userId] = {
+    ...banData,
+    timestamp: Date.now()
+  };
+  saveData('bans', bans);
+}
+
+export function getBanRecord(guildId, userId) {
+  const bans = loadData('bans', {});
+  return bans[guildId]?.[userId] || null;
+}
+
+export function getAllBans(guildId) {
+  const bans = loadData('bans', {});
+  return bans[guildId] || {};
+}
+
+export function addAppeal(appealData) {
+  const appeals = loadData('appeals', []);
+  appeals.push({
+    ...appealData,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    history: [{
+      action: 'submitted',
+      timestamp: Date.now(),
+      details: 'Appeal submitted by user'
+    }]
+  });
+  saveData('appeals', appeals);
+  return appealData;
+}
+
+export function getAppeal(appealId) {
+  const appeals = loadData('appeals', []);
+  return appeals.find(a => a.appealId === appealId) || null;
+}
+
+export function getAppealByUserAndGuild(guildId, userId) {
+  const appeals = loadData('appeals', []);
+  return appeals.filter(a => a.guildId === guildId && a.userId === userId);
+}
+
+export function getAllAppeals() {
+  return loadData('appeals', []);
+}
+
+export function getAppealsByGuild(guildId) {
+  const appeals = loadData('appeals', []);
+  return appeals.filter(a => a.guildId === guildId);
+}
+
+export function updateAppeal(appealId, updates) {
+  const appeals = loadData('appeals', []);
+  const index = appeals.findIndex(a => a.appealId === appealId);
+  if (index !== -1) {
+    appeals[index] = { ...appeals[index], ...updates, updatedAt: Date.now() };
+    saveData('appeals', appeals);
+    return appeals[index];
+  }
+  return null;
+}
+
+export function addAppealHistory(appealId, action, details, staffId = null) {
+  const appeals = loadData('appeals', []);
+  const index = appeals.findIndex(a => a.appealId === appealId);
+  if (index !== -1) {
+    if (!appeals[index].history) appeals[index].history = [];
+    appeals[index].history.push({
+      action,
+      timestamp: Date.now(),
+      details,
+      staffId
+    });
+    appeals[index].updatedAt = Date.now();
+    saveData('appeals', appeals);
+    return appeals[index];
+  }
+  return null;
+}
+
+export function canUserAppeal(guildId, userId, cooldownDays = 7) {
+  const appeals = getAppealByUserAndGuild(guildId, userId);
+  if (appeals.length === 0) return { canAppeal: true };
+  
+  const latestAppeal = appeals.sort((a, b) => b.createdAt - a.createdAt)[0];
+  const cooldownMs = cooldownDays * 24 * 60 * 60 * 1000;
+  const timeSinceLastAppeal = Date.now() - latestAppeal.createdAt;
+  
+  if (timeSinceLastAppeal < cooldownMs) {
+    const remainingDays = Math.ceil((cooldownMs - timeSinceLastAppeal) / (24 * 60 * 60 * 1000));
+    return { canAppeal: false, remainingDays, lastAppeal: latestAppeal };
+  }
+  
+  return { canAppeal: true };
+}
+
+export function hasPendingAppeal(guildId, userId) {
+  const appeals = getAppealByUserAndGuild(guildId, userId);
+  return appeals.some(a => a.status === 'PENDING');
+}

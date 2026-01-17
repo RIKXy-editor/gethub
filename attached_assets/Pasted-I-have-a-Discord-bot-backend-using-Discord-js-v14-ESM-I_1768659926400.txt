@@ -1,0 +1,131 @@
+I have a Discord bot backend using Discord.js v14 (ESM).
+I want you to implement a TOP-TIER BAN APPEAL SYSTEM that is AUTOMATIC and DM-based, plus admin panel controls.
+
+ABSOLUTE RULE:
+- This ban appeal system must work no matter how the ban happens (manual ban, auto-mod ban, anti-raid ban, keyword ban, etc.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1) REQUIRED FLOW (MUST FOLLOW EXACTLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A) Detect bans using guildBanAdd event
+- When any user is banned from the server:
+  - Generate a Ban Case ID (short unique id)
+  - Try to fetch ban reason from Discord audit logs (if possible)
+  - Store ban record in backend:
+    - guildId, userId, caseId, timestamp, reason, moderatorId (if found)
+
+B) Auto DM the banned user instantly
+- Send a premium embed in DM:
+  - Title: "You were banned from {server}"
+  - Show reason (or "No reason provided")
+  - Show caseId
+  - Buttons:
+    1) Submit Appeal (Primary)
+    2) View Rules (Link)
+    3) Support Server (Link optional)
+- Must handle DM closed (if DM fails, log it)
+
+C) Appeal Submission in DM
+- When user clicks Submit Appeal, open a Modal in DM with:
+  1) Appeal Title (required)
+     placeholder: "Unban request"
+  2) What happened? (required)
+  3) Why should we unban you? (required)
+  4) Do you agree to follow the rules from now on? (required)
+     placeholder: "Yes"
+  5) Proof link (optional)
+     placeholder: "https://..."
+
+D) On submit:
+- Save appeal record in backend storage:
+  - appealId
+  - guildId
+  - userId
+  - caseId
+  - appealTitle
+  - answers
+  - proofLink
+  - status: PENDING
+  - createdAt timestamp
+- Send a confirmation DM to user:
+  "✅ Appeal submitted. Staff will review it."
+
+E) Post appeal in private staff channel in server
+- There must be a configurable staff-only channel: appealsChannelId
+- When an appeal is submitted, bot posts an embed into that channel:
+  - user mention + userId
+  - account creation date
+  - ban reason
+  - appeal text
+  - proof link
+  - caseId + appealId
+  - status: PENDING
+- Include Staff Action Buttons:
+  ✅ Approve (Unban)
+  ❌ Deny
+  💬 Ask for more info
+  🧾 History
+
+F) Staff button actions
+- Approve:
+  - Unban user
+  - Update status APPROVED
+  - DM user that appeal is approved
+  - Log to audit logs
+- Deny:
+  - Update status DENIED
+  - DM user that appeal denied + optional reason
+  - Log to audit logs
+- Ask for more info:
+  - DM user asking more info
+  - Any reply from user should be forwarded into appeal staff channel (thread preferred)
+  - Log messages as part of appeal history
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2) PREMIUM FEATURES REQUIRED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Cooldown / anti spam:
+  - 1 appeal per user per X days (configurable)
+- Duplicate appeals detection
+- Appeal History timeline:
+  - keep all actions (submitted, approved, denied, staff message)
+- Security:
+  - Only Admin/ManageGuild can configure appeal system
+  - Only staff review role can approve/deny
+- Must support multi-guild configs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3) ADMIN PANEL CONTROLS (BACKEND WEBSITE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Add Ban Appeals module in dashboard:
+- Enable/disable appeals
+- Select staff-only appeals channel
+- Select staff review role
+- Configure cooldown days
+- Edit DM appeal message template
+- Appeals Inbox:
+  - list: pending/approved/denied
+  - filters + search
+  - view appeal details
+  - approve/deny from dashboard
+  - send DM message to user from dashboard
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4) STORAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Use JSON files in ./data/:
+- data/appeals.json
+- data/security.json
+- data/auditLogs.json
+- data/bans.json (ban history)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5) OUTPUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Provide full working code (no pseudocode):
+- bot events for guildBanAdd and DM flow interactionCreate
+- modal handling
+- channel posting
+- role/permission checks
+- dashboard pages + API endpoints
+- env.example + run instructions
