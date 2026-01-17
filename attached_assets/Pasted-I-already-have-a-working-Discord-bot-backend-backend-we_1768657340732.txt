@@ -1,0 +1,137 @@
+I already have a working Discord bot backend + backend website/API.
+Now I want you to build an ULTIMATE UI (Admin Dashboard) for my Ticket System.
+
+Tech requirements:
+- Frontend: Next.js (App Router) + TypeScript
+- Styling: TailwindCSS + shadcn/ui
+- State/Data: React Query
+- Forms: React Hook Form + Zod validation
+- Auth: JWT session OR Discord OAuth2 (prefer Discord OAuth2 login)
+- Must be production ready and clean.
+
+Goal:
+I want an "Ultimate Ticket Tool Dashboard" like premium bots (Ticket Tool / Tickety) where I can fully customize everything.
+
+Backend:
+- Assume my backend already exists.
+- You must create an API client layer and connect all dashboard features.
+- If an endpoint doesn’t exist, create a stub/mock + clearly list required backend endpoints.
+
+Dashboard must include these pages:
+
+1) Home Overview
+- Cards: Total tickets, Open tickets, Closed tickets, Avg rating
+- Charts: tickets per day, top categories, staff leaderboard
+- Recent activity feed (claimed/closed/reopened)
+
+2) Ticket Panel Builder (ULTRA IMPORTANT)
+- Drag & drop style builder (or modular block builder)
+- Live preview (exact same embed preview Discord will show)
+- Customize:
+  - Title, description, footer
+  - Color picker
+  - Image url / thumbnail url
+  - Button labels + select menu placeholder text
+  - Add/remove ticket categories
+  - Add emoji per category
+  - Assign staff roles to category
+- Save changes button
+- Publish panel button (sends to Discord via backend call)
+
+3) Categories & Roles
+- Create/edit/delete categories
+- Fields:
+  - Name, id, emoji
+  - Support roles list
+  - Max tickets per user (override)
+  - Auto-close duration optional
+- Toggle category active/inactive
+
+4) Ticket Behavior Settings
+- Global settings:
+  - Ticket creation category (Discord category channel)
+  - Logs channel
+  - Transcript DM toggle
+  - Cooldown seconds
+  - Max tickets per user per category
+  - Enable/Disable system
+- Save & Apply
+
+5) Transcript Settings
+- Enable/disable transcript generation
+- Transcript formats:
+  - HTML transcript ON/OFF
+  - Text transcript ON/OFF
+- Transcript destination:
+  - Logs channel
+  - DM opener
+- Preview transcript UI
+
+6) Ticket Ratings System
+- Toggle rating system
+- Customize rating DM message
+- Minimum rating required? (optional)
+- Stats page:
+  - Staff leaderboard
+  - Ratings per staff
+  - Avg response time (if backend provides)
+
+7) Staff Management Page
+- Add staff roles globally
+- List staff members:
+  - Tickets claimed
+  - Avg rating
+  - Actions: blacklist, suspend ticket permissions
+
+8) Audit Logs / Activity
+- Filterable logs table:
+  - Ticket created/claimed/closed/reopened/transcript downloaded
+  - Admin config changes
+  - Panel publish logs
+- Export logs to CSV
+
+9) Multi-server support
+- If user is admin in multiple servers:
+  - Server selector dropdown at top
+  - Each server has its own config + panel builder
+
+UI Requirements:
+- Modern premium UI like SaaS dashboard
+- Sidebar navigation
+- Mobile responsive
+- Dark mode toggle
+- Search + filter on tables
+- Toast notifications
+- Confirm modals for destructive actions
+- Skeleton loading states
+- Error boundaries and graceful errors
+- NEVER show raw JSON to user
+
+Implementation:
+- Must provide FULL working code:
+  - /app pages
+  - components
+  - api client
+  - auth system
+  - middleware for protected routes
+  - env.example
+  - clean folder structure
+
+Connectivity:
+- All config is saved using API calls to backend.
+- Use an api client file:
+  - getGuilds()
+  - getConfig(guildId)
+  - updateConfig(guildId, payload)
+  - publishPanel(guildId)
+  - getStats(guildId)
+  - getLogs(guildId)
+  - getCategories(guildId)
+  - updateCategories(guildId, payload)
+- Use React Query caching.
+
+Output rules:
+- Give me COMPLETE code for all files.
+- No pseudocode.
+- Must run successfully on Replit.
+- Provide steps to setup environment variables.
