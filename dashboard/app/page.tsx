@@ -27,8 +27,10 @@ export default function LoginPage() {
       } else {
         toast({ title: "Error", description: "Invalid password", variant: "destructive" });
       }
-    } catch (error) {
-      toast({ title: "Error", description: "Login failed", variant: "destructive" });
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || error?.message || "Login failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      console.error("Login error:", error);
     } finally {
       setLoading(false);
     }
