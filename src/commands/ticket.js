@@ -1266,10 +1266,21 @@ export async function handleTicketInteraction(interaction) {
 
   if (customId.startsWith('ticket:edit_payment:')) {
     const paymentKey = customId.split(':')[2];
+    const defaultMethods = {
+      upi: { name: 'UPI (Recommended)', embed: { title: '💳 UPI Payment', description: 'Please pay using the UPI ID below and upload screenshot.', color: '#00ff00' } },
+      card: { name: 'Card (Recommended)', embed: { title: '💳 Card Payment', description: 'Please use the payment link below.', color: '#0099ff' } },
+      paypal: { name: 'PayPal', embed: { title: '💰 PayPal Payment', description: 'Please send payment to our PayPal.', color: '#003087' } },
+      crypto: { name: 'Crypto', embed: { title: '🪙 Crypto Payment', description: 'Please send crypto to the wallet address below.', color: '#f7931a' } }
+    };
     const methods = config.paymentMethods || {};
-    const method = methods[paymentKey];
+    const method = methods[paymentKey] || defaultMethods[paymentKey];
     
     if (!method) return await interaction.reply({ content: '❌ Payment method not found.', ephemeral: true });
+    
+    if (!methods[paymentKey]) {
+      methods[paymentKey] = method;
+      setTicketConfig(guildId, { paymentMethods: methods });
+    }
 
     const previewEmbed = new EmbedBuilder()
       .setTitle(method.embed?.title || `💳 ${method.name}`)
