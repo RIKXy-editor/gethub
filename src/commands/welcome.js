@@ -81,8 +81,12 @@ async function getWelcomeConfig(guildId) {
 }
 
 async function setWelcomeConfig(guildId, updates) {
-  if (!pool) return;
+  if (!pool) {
+    console.error('Welcome: Cannot save - pool is null');
+    return;
+  }
   try {
+    console.log(`Welcome: Saving config for guild ${guildId}:`, JSON.stringify(updates));
     const current = await getWelcomeConfig(guildId);
     const merged = { ...current, ...updates };
     
@@ -93,6 +97,7 @@ async function setWelcomeConfig(guildId, updates) {
         enabled = $2, channel_id = $3, title = $4, description = $5, footer = $6,
         color = $7, thumbnail_mode = $8, image_url = $9, ping_user = $10, dm_welcome = $11, auto_role_id = $12
     `, [guildId, merged.enabled, merged.channelId, merged.title, merged.description, merged.footer, merged.color, merged.thumbnailMode, merged.imageUrl, merged.pingUser, merged.dmWelcome, merged.autoRoleId]);
+    console.log(`Welcome: Config saved successfully for guild ${guildId}`);
   } catch (err) {
     console.error('Error setting welcome config:', err.message);
   }
