@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
 import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
+import { handleTicketInteraction, handleTicketModal, handleRating } from './src/commands/ticket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,9 +77,30 @@ async function deployCommands() {
 }
 
 client.on('interactionCreate', async interaction => {
+  // Handle string select menus (ticket category selection)
+  if (interaction.isStringSelectMenu()) {
+    try {
+      if (interaction.customId.startsWith('ticket:')) {
+        await handleTicketInteraction(interaction);
+      }
+    } catch (error) {
+      console.error('Error handling select menu:', error);
+    }
+    return;
+  }
+
   // Handle buttons
   if (interaction.isButton()) {
     try {
+      // Handle ticket buttons
+      if (interaction.customId.startsWith('ticket:')) {
+        if (interaction.customId.startsWith('ticket:rate:')) {
+          await handleRating(interaction);
+        } else {
+          await handleTicketInteraction(interaction);
+        }
+        return;
+      }
       // Check guild ID restriction if applicable
       if (interaction.guildId && interaction.guildId !== process.env.DISCORD_GUILD_ID) {
          // Allow buttons in DMs (where guildId is null) or specific guild
@@ -94,6 +116,11 @@ client.on('interactionCreate', async interaction => {
   // Handle modals
   if (interaction.isModalSubmit()) {
     try {
+      // Handle ticket modals
+      if (interaction.customId.startsWith('ticket:')) {
+        await handleTicketModal(interaction);
+        return;
+      }
       const welcomeHandled = await handleWelcomeModal(interaction);
       if (!welcomeHandled) {
         await handleJobModal(interaction);

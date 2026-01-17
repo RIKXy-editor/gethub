@@ -1,0 +1,125 @@
+Build me a production-ready Discord Ticket System using Discord.js v14 (ESM) on Node.js.
+
+GOAL:
+An “Ultimate Ticket Tool” like premium bots (Ticket Tool / Tickety style), including ticket panel, categories, role support, claim system, transcript export, logs, rating, and admin setup commands.
+
+MUST HAVE FEATURES:
+1) Ticket Panel (public message)
+   - /ticket panel -> posts the ticket panel embed in a selected channel
+   - Panel must have:
+     - Embed title/description/footer
+     - Dropdown (StringSelectMenu) for ticket categories (Support, Report, Partnership, Bug, Purchase etc.)
+     - Button row: Create Ticket + Support Server / Rules link (optional)
+   - Panel must be editable: /ticket panel edit
+
+2) Ticket creation
+   - When user selects a category:
+     - Create a private ticket channel in a configured category
+     - Channel name format: ticket-<username>-<shortid>
+     - Permissions:
+       - Only ticket opener + staff roles for that category + admins can see
+       - Deny @everyone
+   - Send a “Ticket Control” message inside ticket channel:
+     - Embed with user info + category + timestamp
+     - Buttons:
+       - Claim
+       - Unclaim
+       - Add User
+       - Remove User
+       - Close
+       - Transcript
+       - Reopen (only visible after close OR separate button)
+     - Must store ticket metadata:
+       openerId, channelId, category, createdAt, claimedBy, status
+
+3) Ticket staff roles per category
+   - /ticket category add <name> <supportRole> <emoji>
+   - /ticket category remove <name>
+   - /ticket category list
+   - Each category can have its own support role(s)
+
+4) Ticket limit + anti-spam
+   - Max 1 open ticket per user per category (configurable)
+   - Cooldown per user (example 60 seconds)
+   - If user tries spam, reply ephemerally with cooldown remaining
+
+5) Closing system
+   - Close button:
+     - Ask for close reason (Modal input)
+     - Lock ticket channel: remove opener access but keep staff access
+     - Mark status closed
+     - Show Reopen button
+   - On close:
+     - Post close log in configured logs channel
+
+6) Transcript system (REAL transcripts)
+   - Transcript button:
+     - Fetch messages from ticket channel (pagination)
+     - Generate transcript file:
+       - HTML transcript preferred (clean + styled)
+       - Include message author, avatar, timestamp, content, attachments, embeds summary
+     - Upload transcript file to:
+       - Ticket logs channel
+       - AND DM opener if possible
+   - Must not exceed API limits (handle pagination)
+
+7) Ticket logs
+   - /ticket setlogs <channel>
+   - Logs must include:
+     - Ticket created
+     - Ticket claimed/unclaimed
+     - User added/removed
+     - Ticket closed (reason)
+     - Transcript link/file
+     - Ticket reopened
+
+8) Rating system (post-close)
+   - After ticket close, DM the opener:
+     - “Rate your support: ⭐1–⭐5”
+     - Use buttons
+   - Store rating with ticket id and staff who claimed it
+   - /ticket stats -> show staff leaderboard: tickets claimed + avg rating
+
+9) Admin Setup Commands
+   - /ticket setup -> step-by-step wizard (ephemeral) with LIVE PREVIEW like pro bots
+   - Steps with preview:
+     - Set ticket category (where channels get created)
+     - Set logs channel
+     - Toggle transcript DM
+     - Set max tickets per user
+     - Set cooldown
+     - Configure categories/roles
+
+10) Storage (must persist)
+   - Use JSON storage under ./data/
+   - Files:
+     - data/tickets.json (active ticket metadata)
+     - data/ticketConfig.json (guild config)
+     - data/ticketStats.json (ratings/leaderboard)
+   - Implement utils/storage.js:
+     - ensureDir()
+     - loadData(filename, defaultValue)
+     - saveData(filename, data)
+
+11) Project Structure (MANDATORY)
+   - /commands/ticket.js  (all slash commands)
+   - /events/interactionCreate.js (handles select menu + buttons + modals)
+   - /utils/storage.js
+   - /utils/transcript.js (transcript generator)
+   - /events/ready.js (register commands if needed)
+   - /index.js main bot file (client login etc.)
+
+12) Code quality rules
+   - MUST be fully working code, no pseudo code.
+   - Use proper Permission checks (Administrator for setup).
+   - Must handle missing permissions gracefully.
+   - Must avoid crashes if logs channel missing or category deleted.
+   - Use clean, consistent component IDs (e.g. ticket:create, ticket:close).
+   - Use ephemeral replies for admin controls.
+   - Follow Discord.js v14 best practices.
+   - ESM imports only.
+
+OUTPUT:
+Give me FULL CODE for every file with filenames.
+Do not skip any file.
+Must include exact working implementation.
