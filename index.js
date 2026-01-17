@@ -219,7 +219,10 @@ async function startServer() {
     }
   }));
   
-  app.use('/admin', createAdminRoutes(client));
+  app.use('/admin', (req, res, next) => {
+    console.log(`Admin route: ${req.method} ${req.path}`);
+    next();
+  }, createAdminRoutes(client));
   
   if (dev) {
     app.get('/', (req, res) => {

@@ -47,6 +47,10 @@ function requireApiAuth(req, res, next) {
 export function createAdminRoutes(discordClient) {
   const router = express.Router();
 
+  router.get('/health', (req, res) => {
+    res.json({ status: 'ok', hasToken: !!ADMIN_TOKEN });
+  });
+
   router.post('/login', express.json(), (req, res) => {
     if (!ADMIN_TOKEN) {
       return res.status(500).json({ success: false, error: 'Admin token not configured' });
