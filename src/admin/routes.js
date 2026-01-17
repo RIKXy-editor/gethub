@@ -247,6 +247,11 @@ export function createAdminRoutes(discordClient) {
         .setTitle(config.panelEmbed?.title || '🎫 Support Tickets')
         .setDescription(config.panelEmbed?.description || 'Click the button below to create a support ticket.')
         .setColor(config.panelEmbed?.color ? parseInt(config.panelEmbed.color.replace('#', ''), 16) : 0xdc2626);
+      
+      if (config.panelEmbed?.image) {
+        embed.setImage(config.panelEmbed.image);
+      }
+      
       const buttonStyle = {
         'Primary': ButtonStyle.Primary,
         'Success': ButtonStyle.Success,
@@ -255,7 +260,7 @@ export function createAdminRoutes(discordClient) {
       }[config.buttonColor] || ButtonStyle.Primary;
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId('create_ticket')
+          .setCustomId('ticket:open')
           .setLabel(config.buttonLabel || 'Open Ticket')
           .setStyle(buttonStyle)
           .setEmoji('🎫')

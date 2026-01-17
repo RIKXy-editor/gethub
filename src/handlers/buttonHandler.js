@@ -231,7 +231,7 @@ export async function handleJobButton(interaction) {
   await interaction.showModal(modal);
 }
 
-async function handleGiveawayEntry(interaction) {
+export async function handleGiveawayEntry(interaction) {
   try {
     const messageId = interaction.customId.split('_')[2];
     const { getGiveaway } = await import('../utils/storage.js');

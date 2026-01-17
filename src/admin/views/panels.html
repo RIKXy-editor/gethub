@@ -12,6 +12,20 @@
     .plan-item .plan-fields { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 12px; }
     .plan-item .form-control { background: var(--card-bg); }
     .remove-plan { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 18px; }
+    .discord-textarea { font-size: 16px; line-height: 1.5; font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif; min-height: 150px; }
+    .emoji-btn { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; cursor: pointer; margin-bottom: 8px; color: var(--text-primary); }
+    .emoji-btn:hover { background: var(--accent); }
+    .emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+    .emoji-picker span { cursor: pointer; font-size: 20px; padding: 4px; border-radius: 4px; }
+    .emoji-picker span:hover { background: var(--bg-hover); }
+    .preview-embed { background: #2b2d31; border-left: 4px solid #dc2626; border-radius: 4px; padding: 16px; margin-top: 20px; }
+    .preview-embed .embed-title { font-size: 16px; font-weight: 600; color: #ffffff; margin-bottom: 8px; }
+    .preview-embed .embed-desc { font-size: 14px; color: #b5bac1; white-space: pre-wrap; line-height: 1.5; }
+    .preview-embed .embed-image { max-width: 100%; border-radius: 4px; margin-top: 12px; }
+    .preview-btn { background: #5865f2; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 14px; margin-top: 12px; cursor: default; }
+    .preview-btn.green { background: #248046; }
+    .preview-btn.red { background: #da373c; }
+    .preview-btn.gray { background: #4e5058; }
   </style>
 </head>
 <body>
@@ -59,23 +73,45 @@
         <div class="card-body">
           <div class="form-group">
             <label>Panel Title</label>
-            <input type="text" class="form-control" id="panelTitle" placeholder="🎫 Support Tickets">
+            <input type="text" class="form-control" id="panelTitle" placeholder="🎫 Support Tickets" oninput="updatePreview()">
           </div>
           <div class="form-group">
             <label>Panel Description</label>
-            <textarea class="form-control" id="panelDescription" placeholder="Click the button below to create a ticket"></textarea>
+            <div class="emoji-picker" id="emojiPicker">
+              <span onclick="insertEmoji('🎫')">🎫</span>
+              <span onclick="insertEmoji('✨')">✨</span>
+              <span onclick="insertEmoji('💎')">💎</span>
+              <span onclick="insertEmoji('🎁')">🎁</span>
+              <span onclick="insertEmoji('📌')">📌</span>
+              <span onclick="insertEmoji('🔥')">🔥</span>
+              <span onclick="insertEmoji('⭐')">⭐</span>
+              <span onclick="insertEmoji('💰')">💰</span>
+              <span onclick="insertEmoji('🎯')">🎯</span>
+              <span onclick="insertEmoji('🚀')">🚀</span>
+              <span onclick="insertEmoji('💼')">💼</span>
+              <span onclick="insertEmoji('📢')">📢</span>
+              <span onclick="insertEmoji('✅')">✅</span>
+              <span onclick="insertEmoji('❌')">❌</span>
+              <span onclick="insertEmoji('⚠️')">⚠️</span>
+              <span onclick="insertEmoji('💳')">💳</span>
+            </div>
+            <textarea class="form-control discord-textarea" id="panelDescription" placeholder="Click the button below to create a ticket" oninput="updatePreview()"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Panel Image URL (optional)</label>
+            <input type="text" class="form-control" id="panelImage" placeholder="https://example.com/image.png" oninput="updatePreview()">
           </div>
           <div class="form-group">
             <label>Panel Color (hex)</label>
-            <input type="text" class="form-control" id="panelColor" placeholder="#dc2626">
+            <input type="text" class="form-control" id="panelColor" placeholder="#dc2626" oninput="updatePreview()">
           </div>
           <div class="form-group">
             <label>Button Label</label>
-            <input type="text" class="form-control" id="buttonLabel" placeholder="Open Ticket">
+            <input type="text" class="form-control" id="buttonLabel" placeholder="Open Ticket" oninput="updatePreview()">
           </div>
           <div class="form-group">
             <label>Button Color</label>
-            <select class="form-control" id="buttonColor">
+            <select class="form-control" id="buttonColor" onchange="updatePreview()">
               <option value="Primary">Blue</option>
               <option value="Success">Green</option>
               <option value="Danger">Red</option>
@@ -83,6 +119,13 @@
             </select>
           </div>
           <button class="btn btn-primary" onclick="savePanelSettings()">Save Panel Settings</button>
+          
+          <div class="preview-embed" id="panelPreview">
+            <div class="embed-title" id="previewTitle">🎫 Support Tickets</div>
+            <div class="embed-desc" id="previewDesc">Click the button below to create a ticket</div>
+            <img class="embed-image" id="previewImage" style="display:none;">
+            <button class="preview-btn" id="previewBtn">Open Ticket</button>
+          </div>
         </div>
       </div>
 
@@ -208,8 +251,10 @@
         document.getElementById('panelTitle').value = config.panelEmbed?.title || '';
         document.getElementById('panelDescription').value = config.panelEmbed?.description || '';
         document.getElementById('panelColor').value = config.panelEmbed?.color || '';
+        document.getElementById('panelImage').value = config.panelEmbed?.image || '';
         document.getElementById('buttonLabel').value = config.buttonLabel || '';
         document.getElementById('buttonColor').value = config.buttonColor || 'Primary';
+        updatePreview();
         
         document.getElementById('ticketTitle').value = config.ticketEmbed?.title || '';
         document.getElementById('ticketDescription').value = config.ticketEmbed?.description || '';
@@ -226,12 +271,52 @@
       }
     }
     
+    function insertEmoji(emoji) {
+      const textarea = document.getElementById('panelDescription');
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      textarea.value = text.substring(0, start) + emoji + text.substring(end);
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+      updatePreview();
+    }
+    
+    function updatePreview() {
+      const title = document.getElementById('panelTitle').value || '🎫 Support Tickets';
+      const desc = document.getElementById('panelDescription').value || 'Click the button below to create a ticket';
+      const color = document.getElementById('panelColor').value || '#dc2626';
+      const image = document.getElementById('panelImage').value;
+      const btnLabel = document.getElementById('buttonLabel').value || 'Open Ticket';
+      const btnColor = document.getElementById('buttonColor').value;
+      
+      document.getElementById('previewTitle').textContent = title;
+      document.getElementById('previewDesc').textContent = desc;
+      document.getElementById('panelPreview').style.borderLeftColor = color;
+      
+      const previewImage = document.getElementById('previewImage');
+      if (image) {
+        previewImage.src = image;
+        previewImage.style.display = 'block';
+      } else {
+        previewImage.style.display = 'none';
+      }
+      
+      const previewBtn = document.getElementById('previewBtn');
+      previewBtn.textContent = btnLabel;
+      previewBtn.className = 'preview-btn';
+      if (btnColor === 'Success') previewBtn.classList.add('green');
+      else if (btnColor === 'Danger') previewBtn.classList.add('red');
+      else if (btnColor === 'Secondary') previewBtn.classList.add('gray');
+    }
+    
     async function savePanelSettings() {
       const data = {
         panelEmbed: {
           title: document.getElementById('panelTitle').value,
           description: document.getElementById('panelDescription').value,
-          color: document.getElementById('panelColor').value
+          color: document.getElementById('panelColor').value,
+          image: document.getElementById('panelImage').value
         },
         buttonLabel: document.getElementById('buttonLabel').value,
         buttonColor: document.getElementById('buttonColor').value

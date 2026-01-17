@@ -103,11 +103,14 @@ client.on('interactionCreate', async interaction => {
         }
         return;
       }
-      // Check guild ID restriction if applicable
-      if (interaction.guildId && interaction.guildId !== process.env.DISCORD_GUILD_ID) {
-         // Allow buttons in DMs (where guildId is null) or specific guild
-         // For reviews, we want them to work in DMs
+      
+      // Handle giveaway entry buttons
+      if (interaction.customId.startsWith('giveaway_enter')) {
+        const { handleGiveawayEntry } = await import('./src/handlers/buttonHandler.js');
+        await handleGiveawayEntry(interaction);
+        return;
       }
+      
       await handleJobButton(interaction);
     } catch (error) {
       console.error('Error handling button:', error);
