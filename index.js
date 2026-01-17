@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Partials, REST, Routes, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import express from 'express';
 import session from 'express-session';
+import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -175,11 +176,16 @@ async function startServer() {
   const app = express();
   const port = process.env.PORT || 5000;
   
+  app.use(cors({
+    origin: true,
+    credentials: true
+  }));
+  
   app.use(session({
     secret: process.env.SESSION_SECRET || 'ticket-admin-secret-key-change-me',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000, sameSite: 'lax' }
   }));
   
   app.use('/admin/css', express.static(path.join(__dirname, 'src/admin/public/css')));
