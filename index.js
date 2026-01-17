@@ -9,6 +9,7 @@ import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
 import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
 import { handleTicketInteraction, handleRating } from './src/commands/ticket.js';
+import { handleAppealButton, handleAppealModal, handleDenyModal, handleAskInfoModal } from './src/handlers/appealHandler.js';
 import { createAdminRoutes } from './src/admin/routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -105,6 +106,12 @@ client.on('interactionCreate', async interaction => {
         return;
       }
       
+      // Handle appeal buttons
+      if (interaction.customId.startsWith('appeal:')) {
+        await handleAppealButton(interaction);
+        return;
+      }
+      
       // Handle giveaway entry buttons
       if (interaction.customId.startsWith('giveaway_enter')) {
         const { handleGiveawayEntry } = await import('./src/handlers/buttonHandler.js');
@@ -122,6 +129,18 @@ client.on('interactionCreate', async interaction => {
   // Handle modals
   if (interaction.isModalSubmit()) {
     try {
+      // Handle appeal modals first
+      if (interaction.customId.startsWith('appeal:')) {
+        const appealHandled = await handleAppealModal(interaction);
+        if (!appealHandled) {
+          const denyHandled = await handleDenyModal(interaction);
+          if (!denyHandled) {
+            await handleAskInfoModal(interaction);
+          }
+        }
+        return;
+      }
+      
       const welcomeHandled = await handleWelcomeModal(interaction);
       if (!welcomeHandled) {
         await handleJobModal(interaction);
