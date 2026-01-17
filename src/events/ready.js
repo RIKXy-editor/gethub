@@ -1,5 +1,5 @@
 import pkg from 'pg';
-const { Client } = pkg;
+const { Pool } = pkg;
 import { ActivityType, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import { getScheduledMessages, getJobConfig, setJobConfig, getJobBannerText } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
@@ -46,24 +46,43 @@ export async function execute(client) {
   
   // Database initialization
   if (process.env.DATABASE_URL) {
-    const db = new Client({ connectionString: process.env.DATABASE_URL });
+    const pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    });
     try {
-      await db.connect();
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS welcome_settings (
-          guild_id TEXT PRIMARY KEY,
-          channel_id TEXT,
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS welcome_config (
+          guild_id VARCHAR(255) PRIMARY KEY,
           enabled BOOLEAN DEFAULT FALSE,
-          title TEXT,
-          message TEXT,
-          banner_url TEXT
+          channel_id VARCHAR(255),
+          title TEXT DEFAULT 'Welcome to {server}!',
+          description TEXT,
+          footer TEXT,
+          color VARCHAR(10) DEFAULT '#9b59b6',
+          thumbnail_mode VARCHAR(20) DEFAULT 'user',
+          image_url TEXT,
+          ping_user BOOLEAN DEFAULT TRUE,
+          dm_welcome BOOLEAN DEFAULT FALSE,
+          auto_role_id VARCHAR(255)
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS keyword_settings (
+          guild_id VARCHAR(255) PRIMARY KEY,
+          enabled BOOLEAN DEFAULT FALSE
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS keywords (
+          id SERIAL PRIMARY KEY,
+          guild_id VARCHAR(255),
+          keyword TEXT NOT NULL
         )
       `);
       console.log('Database initialized successfully.');
     } catch (err) {
-      console.error('Database initialization error:', err);
-    } finally {
-      await db.end().catch(() => null);
+      console.error('Database initialization error:', err.message);
     }
   } else {
     console.warn('DATABASE_URL not found, skipping database initialization.');
