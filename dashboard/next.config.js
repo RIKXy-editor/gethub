@@ -4,17 +4,10 @@ const nextConfig = {
   images: {
     domains: ['cdn.discordapp.com'],
   },
-  allowedDevOrigins: ['*'],
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-        ],
-      },
-    ];
-  },
+  allowedDevOrigins: [
+    '5298c165-ac5e-4b78-885d-30d78914b3b6-00-2vs63sqy2cwxv.kirk.replit.dev',
+    'localhost',
+  ],
 };
 
 module.exports = nextConfig;
