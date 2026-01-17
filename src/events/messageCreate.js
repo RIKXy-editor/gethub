@@ -108,9 +108,10 @@ export async function execute(message) {
 
   // Check for sticky clients repost
   const stickyConfig = getStickyClientsConfig(message.guildId);
-  if (stickyConfig.enabled && stickyConfig.channelId === message.channelId) {
+  if (stickyConfig.enabled && stickyConfig.channelId === message.channel.id) {
     // Only repost if this message is not the sticky itself
     if (message.id !== stickyConfig.stickyMessageId) {
+      console.log(`[Sticky] Reposting sticky in channel ${message.channel.id}`);
       setTimeout(() => repostStickyClients(message.client, message.guildId), 3000);
     }
   }
