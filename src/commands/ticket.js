@@ -63,7 +63,19 @@ function getTicketConfig(guildId) {
     },
     ticketEmbed: {
       title: '🎫 Support Ticket',
-      description: 'Welcome {user}!\n\nPlease describe your issue and our support team will assist you shortly.'
+      description: 'Welcome {user}!\n\nPlease select your subscription plan below.'
+    },
+    subscriptionPlans: [
+      { name: '1 Month', priceINR: '₹595', priceUSD: '$8' },
+      { name: '3 Months', priceINR: '₹1785', priceUSD: '$25' },
+      { name: '6 Months', priceINR: '₹2889', priceUSD: '$40' },
+      { name: '1 Year', priceINR: '₹5499', priceUSD: '$70' }
+    ],
+    paymentMethods: {
+      upi: { name: 'UPI (Recommended)', embed: { title: '💳 UPI Payment', description: 'Please pay using the UPI ID below and upload screenshot.', color: '#00ff00' } },
+      card: { name: 'Card (Recommended)', embed: { title: '💳 Card Payment', description: 'Please use the payment link below.', color: '#0099ff' } },
+      paypal: { name: 'PayPal', embed: { title: '💰 PayPal Payment', description: 'Please send payment to our PayPal.', color: '#003087' } },
+      crypto: { name: 'Crypto', embed: { title: '🪙 Crypto Payment', description: 'Please send crypto to the wallet address below.', color: '#f7931a' } }
     },
     panelMessageId: null,
     panelChannelId: null
@@ -182,7 +194,12 @@ export async function execute(interaction) {
       new ButtonBuilder().setCustomId('ticket:setup_ticket_embed').setLabel('Edit Ticket Embed').setStyle(ButtonStyle.Primary)
     );
 
-    await interaction.reply({ embeds: [embed], components: [buttons1, buttons2, buttons3], ephemeral: true });
+    const buttons4 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:setup_plans').setLabel('Edit Subscription Plans').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('ticket:setup_payments').setLabel('Edit Payment Methods').setStyle(ButtonStyle.Success)
+    );
+
+    await interaction.reply({ embeds: [embed], components: [buttons1, buttons2, buttons3, buttons4], ephemeral: true });
   }
 
   if (subcommand === 'panel') {
@@ -278,11 +295,28 @@ export async function handleTicketInteraction(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const shortId = generateShortId();
-      const channelName = `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}-${shortId}`;
+      const existingTickets = getTickets(guildId);
+      const usedNumbers = new Set(Object.values(existingTickets).map(t => t.ticketNumber).filter(n => n));
+      let ticketNumber;
+      let attempts = 0;
+      do {
+        ticketNumber = Math.floor(Math.random() * 1000) + 1;
+        attempts++;
+      } while (usedNumbers.has(ticketNumber) && attempts < 100);
       
+      if (attempts >= 100) {
+        ticketNumber = Date.now() % 10000;
+      }
+      
+      const threadName = `ticket-${ticketNumber}`;
+      
+      const category = await interaction.guild.channels.fetch(config.categoryId);
+      if (!category) {
+        return await interaction.editReply({ content: '❌ Ticket category not found. Please contact an admin.' });
+      }
+
       const ticketChannel = await interaction.guild.channels.create({
-        name: channelName,
+        name: threadName,
         type: ChannelType.GuildText,
         parent: config.categoryId,
         permissionOverwrites: [
@@ -296,9 +330,12 @@ export async function handleTicketInteraction(interaction) {
         openerId: interaction.user.id,
         openerTag: interaction.user.tag,
         channelId: ticketChannel.id,
+        ticketNumber: ticketNumber,
         createdAt: Date.now(),
         claimedBy: null,
-        status: 'open'
+        status: 'open',
+        selectedPlan: null,
+        selectedPayment: null
       };
 
       saveTicket(guildId, ticketChannel.id, ticketData);
@@ -306,32 +343,60 @@ export async function handleTicketInteraction(interaction) {
 
       const ticketEmbed = config.ticketEmbed || {};
       const ticketTitle = ticketEmbed.title || '🎫 Support Ticket';
-      const ticketDesc = (ticketEmbed.description || 'Welcome {user}!\n\nPlease describe your issue and our support team will assist you shortly.')
+      const ticketDesc = (ticketEmbed.description || 'Welcome {user}!\n\nPlease select your subscription plan below.')
         .replace(/{user}/g, interaction.user.toString());
 
       const controlEmbed = new EmbedBuilder()
         .setTitle(ticketTitle)
         .setDescription(ticketDesc)
         .addFields(
+          { name: 'Ticket #', value: String(ticketNumber), inline: true },
           { name: 'Opened by', value: interaction.user.tag, inline: true },
           { name: 'Status', value: '🟢 Open', inline: true }
         )
         .setColor('#00ff00')
         .setTimestamp();
 
-      const buttons1 = new ActionRowBuilder().addComponents(
+      const staffButtons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket:claim').setLabel('Claim').setStyle(ButtonStyle.Success).setEmoji('✋'),
         new ButtonBuilder().setCustomId('ticket:unclaim').setLabel('Unclaim').setStyle(ButtonStyle.Secondary).setEmoji('👋'),
         new ButtonBuilder().setCustomId('ticket:add_user').setLabel('Add User').setStyle(ButtonStyle.Primary).setEmoji('➕'),
         new ButtonBuilder().setCustomId('ticket:remove_user').setLabel('Remove User').setStyle(ButtonStyle.Primary).setEmoji('➖')
       );
 
-      const buttons2 = new ActionRowBuilder().addComponents(
+      const staffButtons2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket:close').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
         new ButtonBuilder().setCustomId('ticket:transcript').setLabel('Transcript').setStyle(ButtonStyle.Secondary).setEmoji('📜')
       );
 
-      await ticketChannel.send({ content: `${interaction.user} <@&${config.supportRoleId}>`, embeds: [controlEmbed], components: [buttons1, buttons2] });
+      await ticketChannel.send({ content: `<@&${config.supportRoleId}>`, embeds: [controlEmbed], components: [staffButtons, staffButtons2] });
+
+      const plans = config.subscriptionPlans || [];
+      const planEmbed = new EmbedBuilder()
+        .setTitle('📦 Select Your Subscription Plan')
+        .setDescription(`${interaction.user}, please choose your subscription plan:\n\n` + 
+          plans.map((p, i) => `**${i + 1}.** ${p.name} – ${p.priceINR} / ${p.priceUSD} (PayPal)`).join('\n'))
+        .setColor('#5865F2');
+
+      const planRows = [];
+      let currentRow = new ActionRowBuilder();
+      plans.forEach((p, i) => {
+        if (currentRow.components.length >= 5) {
+          planRows.push(currentRow);
+          currentRow = new ActionRowBuilder();
+        }
+        currentRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`ticket:plan:${i}`)
+            .setLabel(p.name)
+            .setStyle(ButtonStyle.Primary)
+        );
+      });
+      if (currentRow.components.length > 0) {
+        planRows.push(currentRow);
+      }
+
+      await ticketChannel.send({ content: `${interaction.user}`, embeds: [planEmbed], components: planRows });
 
       if (config.logsChannelId) {
         const logsChannel = await interaction.guild.channels.fetch(config.logsChannelId).catch(() => null);
@@ -482,7 +547,8 @@ export async function handleTicketInteraction(interaction) {
 
       const reopenRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket:reopen').setLabel('Reopen').setStyle(ButtonStyle.Success).setEmoji('🔓'),
-        new ButtonBuilder().setCustomId('ticket:transcript').setLabel('Transcript').setStyle(ButtonStyle.Secondary).setEmoji('📜')
+        new ButtonBuilder().setCustomId('ticket:transcript').setLabel('Transcript').setStyle(ButtonStyle.Secondary).setEmoji('📜'),
+        new ButtonBuilder().setCustomId('ticket:delete').setLabel('Delete Channel').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
       );
 
       await interaction.channel.send({ embeds: [closedEmbed], components: [reopenRow] });
@@ -549,6 +615,146 @@ export async function handleTicketInteraction(interaction) {
     await interaction.channel.permissionOverwrites.edit(ticket.openerId, { ViewChannel: true, SendMessages: true });
     await interaction.reply({ content: '✅ Ticket has been reopened.' });
     await logTicketAction(interaction.guild, config, 'Reopened', ticket, interaction.user);
+  }
+
+  if (customId.startsWith('ticket:plan:')) {
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+    
+    if (interaction.user.id !== ticket.openerId) {
+      return await interaction.reply({ content: '❌ Only the ticket opener can select a plan.', ephemeral: true });
+    }
+
+    const planIndex = parseInt(customId.split(':')[2]);
+    const plans = config.subscriptionPlans || [];
+    const selectedPlan = plans[planIndex];
+    
+    if (!selectedPlan) {
+      return await interaction.reply({ content: '❌ Invalid plan selection.', ephemeral: true });
+    }
+
+    ticket.selectedPlan = selectedPlan.name;
+    saveTicket(guildId, interaction.channel.id, ticket);
+
+    await interaction.message.edit({ components: [] });
+
+    const paymentEmbed = new EmbedBuilder()
+      .setTitle('💳 Select Payment Method')
+      .setDescription(`${interaction.user}, you selected **${selectedPlan.name}** (${selectedPlan.priceINR} / ${selectedPlan.priceUSD})\n\nPlease choose your payment method:`)
+      .setColor('#5865F2');
+
+    const paymentButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:payment:upi').setLabel('UPI (Recommended)').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('ticket:payment:card').setLabel('Card (Recommended)').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('ticket:payment:paypal').setLabel('PayPal').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:payment:crypto').setLabel('Crypto').setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.reply({ content: `${interaction.user}`, embeds: [paymentEmbed], components: [paymentButtons] });
+  }
+
+  if (customId.startsWith('ticket:payment:')) {
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+    
+    if (interaction.user.id !== ticket.openerId) {
+      return await interaction.reply({ content: '❌ Only the ticket opener can select a payment method.', ephemeral: true });
+    }
+
+    const paymentKey = customId.split(':')[2];
+    const paymentMethods = config.paymentMethods || {};
+    const paymentInfo = paymentMethods[paymentKey];
+    
+    if (!paymentInfo) {
+      return await interaction.reply({ content: '❌ Invalid payment method.', ephemeral: true });
+    }
+
+    ticket.selectedPayment = paymentKey;
+    saveTicket(guildId, interaction.channel.id, ticket);
+
+    await interaction.message.edit({ components: [] });
+
+    const paymentEmbed = new EmbedBuilder()
+      .setTitle(paymentInfo.embed?.title || `💳 ${paymentInfo.name} Payment`)
+      .setDescription(paymentInfo.embed?.description || 'Please follow the payment instructions.')
+      .setColor(paymentInfo.embed?.color || '#5865F2');
+
+    const actionButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:paid').setLabel('✅ I have Paid').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('ticket:doubt').setLabel('❓ Have a Doubt').setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.reply({ content: `${interaction.user}`, embeds: [paymentEmbed], components: [actionButtons] });
+  }
+
+  if (customId === 'ticket:paid') {
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+    
+    if (interaction.user.id !== ticket.openerId) {
+      return await interaction.reply({ content: '❌ Only the ticket opener can confirm payment.', ephemeral: true });
+    }
+
+    await interaction.message.edit({ components: [] });
+
+    const result = await promptForInput(interaction, `📧 **Email Confirmation**\n${interaction.user}, please enter your email address for your subscription:`, {
+      validator: async (msg) => {
+        const email = msg.content.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return { valid: false, error: '❌ Please enter a valid email address.' };
+        }
+        return { valid: true, value: email };
+      }
+    });
+    
+    if (result.value) {
+      ticket.email = result.value;
+      saveTicket(guildId, interaction.channel.id, ticket);
+
+      const confirmEmbed = new EmbedBuilder()
+        .setTitle('✅ Payment Received')
+        .setDescription(`Thank you ${interaction.user}!\n\nYour subscription will be activated within **2 hours**.\n\n📧 Email: ${result.value}\n📦 Plan: ${ticket.selectedPlan || 'N/A'}`)
+        .setColor('#00ff00')
+        .setTimestamp();
+
+      await interaction.channel.send({ embeds: [confirmEmbed] });
+      await logTicketAction(interaction.guild, config, `Payment confirmed - Email: ${result.value}, Plan: ${ticket.selectedPlan}`, ticket, interaction.user);
+    }
+  }
+
+  if (customId === 'ticket:doubt') {
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+
+    await interaction.message.edit({ components: [] });
+
+    const doubtEmbed = new EmbedBuilder()
+      .setTitle('❓ Question Received')
+      .setDescription(`${interaction.user}, please wait. An admin will join the chat shortly to assist you.`)
+      .setColor('#FFA500')
+      .setTimestamp();
+
+    await interaction.reply({ content: `<@&${config.supportRoleId}>`, embeds: [doubtEmbed] });
+  }
+
+  if (customId === 'ticket:delete') {
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    const hasRole = member.roles.cache.has(config.supportRoleId);
+    
+    if (!hasRole && !member.permissions.has('Administrator')) {
+      return await interaction.reply({ content: '❌ Only staff can delete ticket channels.', ephemeral: true });
+    }
+
+    await interaction.reply({ content: '🗑️ Deleting this ticket channel in 5 seconds...' });
+    setTimeout(async () => {
+      try {
+        deleteTicket(guildId, interaction.channel.id);
+        await interaction.channel.delete();
+      } catch (err) {
+        console.error('Failed to delete channel:', err);
+      }
+    }, 5000);
   }
 
   if (customId === 'ticket:setup_category') {
@@ -980,6 +1186,164 @@ export async function handleTicketInteraction(interaction) {
       panelEmbed.image = result.value;
       setTicketConfig(guildId, { panelEmbed });
       await interaction.channel.send({ content: result.value ? '✅ Panel image set!' : '✅ Panel image removed.' }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
+  }
+
+  if (customId === 'ticket:setup_plans') {
+    const plans = config.subscriptionPlans || [];
+    const planList = plans.map((p, i) => `**${i + 1}.** ${p.name} – ${p.priceINR} / ${p.priceUSD}`).join('\n');
+
+    const planEmbed = new EmbedBuilder()
+      .setTitle('📦 Subscription Plans')
+      .setDescription(`Current plans:\n\n${planList}\n\nClick a button to edit a plan.`)
+      .setColor('#5865F2');
+
+    const planRows = [];
+    let currentRow = new ActionRowBuilder();
+    plans.forEach((p, i) => {
+      if (currentRow.components.length >= 5) {
+        planRows.push(currentRow);
+        currentRow = new ActionRowBuilder();
+      }
+      currentRow.addComponents(
+        new ButtonBuilder().setCustomId(`ticket:edit_plan:${i}`).setLabel(`Edit ${p.name}`).setStyle(ButtonStyle.Primary)
+      );
+    });
+    if (currentRow.components.length > 0) {
+      planRows.push(currentRow);
+    }
+
+    await interaction.reply({ embeds: [planEmbed], components: planRows, ephemeral: true });
+  }
+
+  if (customId.startsWith('ticket:edit_plan:')) {
+    const planIndex = parseInt(customId.split(':')[2]);
+    const plans = config.subscriptionPlans || [];
+    const plan = plans[planIndex];
+    
+    if (!plan) return await interaction.reply({ content: '❌ Plan not found.', ephemeral: true });
+
+    const result = await promptForInput(interaction, `📦 **Edit Plan: ${plan.name}**\n\nEnter new pricing in format:\n\`Name | INR Price | USD Price\`\n\nExample: \`1 Month | ₹595 | $8\`\n\nCurrent: ${plan.name} | ${plan.priceINR} | ${plan.priceUSD}`, {
+      validator: async (msg) => {
+        const parts = msg.content.split('|').map(p => p.trim());
+        if (parts.length !== 3) {
+          return { valid: false, error: '❌ Please use format: Name | INR Price | USD Price' };
+        }
+        return { valid: true, value: { name: parts[0], priceINR: parts[1], priceUSD: parts[2] } };
+      }
+    });
+    
+    if (result.value) {
+      plans[planIndex] = result.value;
+      setTicketConfig(guildId, { subscriptionPlans: plans });
+      await interaction.channel.send({ content: `✅ Plan updated: **${result.value.name}** – ${result.value.priceINR} / ${result.value.priceUSD}` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
+  }
+
+  if (customId === 'ticket:setup_payments') {
+    const methods = config.paymentMethods || {};
+    
+    const methodEmbed = new EmbedBuilder()
+      .setTitle('💳 Payment Methods')
+      .setDescription('Edit the embed that appears for each payment method.')
+      .setColor('#5865F2');
+
+    const methodButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:edit_payment:upi').setLabel('Edit UPI').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:edit_payment:card').setLabel('Edit Card').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:edit_payment:paypal').setLabel('Edit PayPal').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:edit_payment:crypto').setLabel('Edit Crypto').setStyle(ButtonStyle.Primary)
+    );
+
+    await interaction.reply({ embeds: [methodEmbed], components: [methodButtons], ephemeral: true });
+  }
+
+  if (customId.startsWith('ticket:edit_payment:')) {
+    const paymentKey = customId.split(':')[2];
+    const methods = config.paymentMethods || {};
+    const method = methods[paymentKey];
+    
+    if (!method) return await interaction.reply({ content: '❌ Payment method not found.', ephemeral: true });
+
+    const previewEmbed = new EmbedBuilder()
+      .setTitle(method.embed?.title || `💳 ${method.name}`)
+      .setDescription(method.embed?.description || 'Payment instructions here.')
+      .setColor(method.embed?.color || '#5865F2');
+
+    const editButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`ticket:payment_title:${paymentKey}`).setLabel('Edit Title').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`ticket:payment_desc:${paymentKey}`).setLabel('Edit Description').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`ticket:payment_color:${paymentKey}`).setLabel('Edit Color').setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.reply({ content: `**${method.name} Embed Preview:**`, embeds: [previewEmbed], components: [editButtons], ephemeral: true });
+  }
+
+  if (customId.startsWith('ticket:payment_title:')) {
+    const paymentKey = customId.split(':')[2];
+    const methods = config.paymentMethods || {};
+    const method = methods[paymentKey];
+    
+    const result = await promptForInput(interaction, `📝 **Edit ${method.name} Title**\nType the new title for this payment method embed.\n\nCurrent: ${method.embed?.title || '(default)'}`, {
+      validator: async (msg) => {
+        const title = msg.content.trim();
+        if (title.length > 256) return { valid: false, error: '❌ Title must be 256 characters or less.' };
+        return { valid: true, value: title };
+      }
+    });
+    
+    if (result.value) {
+      if (!method.embed) method.embed = {};
+      method.embed.title = result.value;
+      methods[paymentKey] = method;
+      setTicketConfig(guildId, { paymentMethods: methods });
+      await interaction.channel.send({ content: `✅ ${method.name} title updated!` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
+  }
+
+  if (customId.startsWith('ticket:payment_desc:')) {
+    const paymentKey = customId.split(':')[2];
+    const methods = config.paymentMethods || {};
+    const method = methods[paymentKey];
+    
+    const result = await promptForInput(interaction, `📝 **Edit ${method.name} Description**\nType the new description/instructions for this payment method.\n\nCurrent:\n${method.embed?.description || '(default)'}`, {
+      validator: async (msg) => {
+        const desc = msg.content.trim();
+        if (desc.length > 4000) return { valid: false, error: '❌ Description must be 4000 characters or less.' };
+        return { valid: true, value: desc };
+      }
+    });
+    
+    if (result.value) {
+      if (!method.embed) method.embed = {};
+      method.embed.description = result.value;
+      methods[paymentKey] = method;
+      setTicketConfig(guildId, { paymentMethods: methods });
+      await interaction.channel.send({ content: `✅ ${method.name} description updated!` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
+  }
+
+  if (customId.startsWith('ticket:payment_color:')) {
+    const paymentKey = customId.split(':')[2];
+    const methods = config.paymentMethods || {};
+    const method = methods[paymentKey];
+    
+    const result = await promptForInput(interaction, `🎨 **Edit ${method.name} Color**\nType a hex color code (e.g., #00ff00, #5865F2).\n\nCurrent: ${method.embed?.color || '#5865F2'}`, {
+      validator: async (msg) => {
+        const color = msg.content.trim();
+        if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+          return { valid: false, error: '❌ Invalid hex color. Use format like #00ff00' };
+        }
+        return { valid: true, value: color };
+      }
+    });
+    
+    if (result.value) {
+      if (!method.embed) method.embed = {};
+      method.embed.color = result.value;
+      methods[paymentKey] = method;
+      setTicketConfig(guildId, { paymentMethods: methods });
+      await interaction.channel.send({ content: `✅ ${method.name} color updated to ${result.value}!` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
     }
   }
 }
