@@ -493,11 +493,15 @@
           <div class="plan-fields">
             <div class="form-group">
               <label>Plan Name</label>
-              <input type="text" class="form-control plan-name" data-index="${i}" value="${plan.name || ''}" placeholder="e.g. Basic">
+              <input type="text" class="form-control plan-name" data-index="${i}" value="${plan.name || ''}" placeholder="e.g. 1 Month">
             </div>
             <div class="form-group">
-              <label>Price</label>
-              <input type="text" class="form-control plan-price" data-index="${i}" value="${plan.price || ''}" placeholder="e.g. $9.99/mo">
+              <label>INR Price</label>
+              <input type="text" class="form-control plan-priceINR" data-index="${i}" value="${plan.priceINR || ''}" placeholder="e.g. ₹595">
+            </div>
+            <div class="form-group">
+              <label>USD Price</label>
+              <input type="text" class="form-control plan-priceUSD" data-index="${i}" value="${plan.priceUSD || ''}" placeholder="e.g. $8">
             </div>
             <div class="form-group">
               <label>Features (comma separated)</label>
@@ -516,8 +520,10 @@
       const index = parseInt(e.target.dataset.index);
       if (e.target.classList.contains('plan-name')) {
         subscriptionPlans[index].name = e.target.value;
-      } else if (e.target.classList.contains('plan-price')) {
-        subscriptionPlans[index].price = e.target.value;
+      } else if (e.target.classList.contains('plan-priceINR')) {
+        subscriptionPlans[index].priceINR = e.target.value;
+      } else if (e.target.classList.contains('plan-priceUSD')) {
+        subscriptionPlans[index].priceUSD = e.target.value;
       } else if (e.target.classList.contains('plan-features')) {
         subscriptionPlans[index].features = e.target.value.split(',').map(f => f.trim()).filter(f => f);
       }
@@ -525,7 +531,7 @@
     }
     
     function addPlan() {
-      subscriptionPlans.push({ name: '', price: '', features: [] });
+      subscriptionPlans.push({ name: '', priceINR: '', priceUSD: '', features: [] });
       renderPlans();
       UnsavedChanges.markDirty();
     }
