@@ -52,14 +52,17 @@ export function createAdminRoutes(discordClient) {
   const router = express.Router();
 
   router.post('/login', express.json(), (req, res) => {
+    console.log('Login attempt:', { hasPassword: !!req.body?.password, hasAdminPw: !!ADMIN_PASSWORD });
     if (!ADMIN_PASSWORD) {
       return res.status(500).json({ success: false, error: 'Admin password not configured' });
     }
     const { password } = req.body;
     if (password === ADMIN_PASSWORD) {
       req.session.authenticated = true;
+      console.log('Login successful');
       res.json({ success: true });
     } else {
+      console.log('Password mismatch');
       res.status(401).json({ success: false, error: 'Invalid password' });
     }
   });
