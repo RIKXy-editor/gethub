@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embed Builder - Ticket Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .embed-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 1200px) {
+      .embed-container { grid-template-columns: 1fr; }
+    }
+    .form-section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: var(--card-bg);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .form-section h4 {
+      margin: 0 0 12px 0;
+      color: var(--accent-color);
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      padding: 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    .color-picker-wrapper {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .color-picker-wrapper input[type="color"] {
+      width: 50px;
+      height: 38px;
+      padding: 2px;
+      cursor: pointer;
+    }
+    .color-picker-wrapper input[type="text"] {
+      flex: 1;
+    }
+    .embed-preview {
+      position: sticky;
+      top: 20px;
+    }
+    .discord-embed {
+      background: #2f3136;
+      border-radius: 4px;
+      display: flex;
+      max-width: 520px;
+      border-left: 4px solid #5865f2;
+    }
+    .embed-content {
+      padding: 12px 16px 12px 12px;
+      flex: 1;
+    }
+    .embed-author {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .embed-author img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+    .embed-author-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #00b0f4;
+    }
+    .embed-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #00b0f4;
+      margin-bottom: 8px;
+    }
+    .embed-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .embed-title a:hover {
+      text-decoration: underline;
+    }
+    .embed-description {
+      font-size: 14px;
+      color: #dcddde;
+      line-height: 1.4;
+      margin-bottom: 8px;
+      white-space: pre-wrap;
+    }
+    .embed-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .embed-field {
+      min-width: 150px;
+    }
+    .embed-field.inline {
+      flex: 1;
+      min-width: 100px;
+    }
+    .embed-field-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 2px;
+    }
+    .embed-field-value {
+      font-size: 14px;
+      color: #dcddde;
+    }
+    .embed-image {
+      margin-top: 8px;
+      max-width: 100%;
+      border-radius: 4px;
+    }
+    .embed-thumbnail {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 4px;
+      margin: 8px 16px 8px 0;
+    }
+    .embed-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #72767d;
+    }
+    .embed-footer img {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+    }
+    .fields-container {
+      border: 1px dashed var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+    .field-item {
+      background: var(--bg-secondary);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .field-item .remove-field {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--accent-color);
+      border: none;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .field-inline-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .field-inline-check input[type="checkbox"] {
+      width: auto;
+    }
+    .btn-add-field {
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      border: 2px dashed var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-add-field:hover {
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+    }
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .template-list {
+      margin-top: 12px;
+    }
+    .template-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .template-item button {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .channel-select-wrapper {
+      display: flex;
+      gap: 12px;
+    }
+    .channel-select-wrapper select {
+      flex: 1;
+    }
+    .success-toast, .error-toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+    }
+    .success-toast { background: #43b581; }
+    .error-toast { background: #f04747; }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>Ticket Admin</h1>
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/embed-builder" class="active"><span class="icon">🎨</span> Embed Builder</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/stats"><span class="icon">📈</span> Staff Stats</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Embed Builder</h2>
+      <p>Create and send custom embeds to your Discord server</p>
+    </div>
+
+    <div class="form-section">
+      <h4>Send To</h4>
+      <div class="channel-select-wrapper">
+        <select id="guildSelect">
+          <option value="">Select Server...</option>
+        </select>
+        <select id="channelSelect" disabled>
+          <option value="">Select Channel...</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="embed-container">
+      <div class="embed-form">
+        <div class="form-section">
+          <h4>Author</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Author Name</label>
+              <input type="text" id="authorName" placeholder="Author name">
+            </div>
+            <div class="form-group">
+              <label>Author Icon URL</label>
+              <input type="url" id="authorIcon" placeholder="https://...">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Author URL</label>
+            <input type="url" id="authorUrl" placeholder="https://...">
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Content</h4>
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="embedTitle" placeholder="Embed title" maxlength="256">
+          </div>
+          <div class="form-group">
+            <label>Title URL</label>
+            <input type="url" id="embedUrl" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="embedDescription" placeholder="Embed description (supports markdown)" maxlength="4096"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Color</label>
+            <div class="color-picker-wrapper">
+              <input type="color" id="embedColorPicker" value="#5865f2">
+              <input type="text" id="embedColor" value="#5865f2" placeholder="#5865f2">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Images</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Thumbnail URL</label>
+              <input type="url" id="embedThumbnail" placeholder="https://...">
+            </div>
+            <div class="form-group">
+              <label>Image URL</label>
+              <input type="url" id="embedImage" placeholder="https://...">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Fields</h4>
+          <div id="fieldsContainer" class="fields-container"></div>
+          <button type="button" class="btn-add-field" onclick="addField()">+ Add Field</button>
+        </div>
+
+        <div class="form-section">
+          <h4>Footer</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Footer Text</label>
+              <input type="text" id="footerText" placeholder="Footer text" maxlength="2048">
+            </div>
+            <div class="form-group">
+              <label>Footer Icon URL</label>
+              <input type="url" id="footerIcon" placeholder="https://...">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-inline-check">
+              <input type="checkbox" id="addTimestamp">
+              <span>Add Timestamp</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button type="button" class="btn btn-primary" onclick="sendEmbed()">Send Embed</button>
+          <button type="button" class="btn btn-secondary" onclick="saveTemplate()">Save as Template</button>
+          <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear</button>
+        </div>
+
+        <div class="form-section" style="margin-top: 20px;">
+          <h4>Saved Templates</h4>
+          <div id="templateList" class="template-list"></div>
+        </div>
+      </div>
+
+      <div class="embed-preview">
+        <div class="form-section">
+          <h4>Preview</h4>
+          <div id="embedPreview" class="discord-embed">
+            <div class="embed-content">
+              <div class="embed-description" style="color: #72767d;">Start building your embed...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let fields = [];
+
+    async function loadGuilds() {
+      try {
+        const res = await fetch('/admin/api/discord/guilds');
+        const guilds = await res.json();
+        const select = document.getElementById('guildSelect');
+        guilds.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id;
+          opt.textContent = g.name;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.error('Failed to load guilds:', err);
+      }
+    }
+
+    async function loadChannels(guildId) {
+      const channelSelect = document.getElementById('channelSelect');
+      channelSelect.innerHTML = '<option value="">Select Channel...</option>';
+      if (!guildId) {
+        channelSelect.disabled = true;
+        return;
+      }
+      try {
+        const res = await fetch(`/admin/api/discord/guilds/${guildId}/channels`);
+        const channels = await res.json();
+        channels.forEach(ch => {
+          const opt = document.createElement('option');
+          opt.value = ch.id;
+          opt.textContent = ch.parent ? `${ch.parent} > #${ch.name}` : `#${ch.name}`;
+          channelSelect.appendChild(opt);
+        });
+        channelSelect.disabled = false;
+      } catch (err) {
+        console.error('Failed to load channels:', err);
+      }
+    }
+
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      loadChannels(e.target.value);
+    });
+
+    function addField() {
+      const id = Date.now();
+      fields.push({ id, name: '', value: '', inline: false });
+      renderFields();
+    }
+
+    function removeField(id) {
+      fields = fields.filter(f => f.id !== id);
+      renderFields();
+      updatePreview();
+    }
+
+    function renderFields() {
+      const container = document.getElementById('fieldsContainer');
+      container.innerHTML = fields.map(f => `
+        <div class="field-item" data-id="${f.id}">
+          <button type="button" class="remove-field" onclick="removeField(${f.id})">×</button>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" class="field-name" value="${f.name}" maxlength="256" oninput="updateFieldValue(${f.id}, 'name', this.value)">
+            </div>
+            <div class="form-group">
+              <label>Value</label>
+              <input type="text" class="field-value" value="${f.value}" maxlength="1024" oninput="updateFieldValue(${f.id}, 'value', this.value)">
+            </div>
+          </div>
+          <label class="field-inline-check">
+            <input type="checkbox" ${f.inline ? 'checked' : ''} onchange="updateFieldValue(${f.id}, 'inline', this.checked)">
+            <span>Inline</span>
+          </label>
+        </div>
+      `).join('');
+    }
+
+    function updateFieldValue(id, key, value) {
+      const field = fields.find(f => f.id === id);
+      if (field) field[key] = value;
+      updatePreview();
+    }
+
+    function getEmbedData() {
+      return {
+        author: document.getElementById('authorName').value,
+        authorIcon: document.getElementById('authorIcon').value,
+        authorUrl: document.getElementById('authorUrl').value,
+        title: document.getElementById('embedTitle').value,
+        url: document.getElementById('embedUrl').value,
+        description: document.getElementById('embedDescription').value,
+        color: document.getElementById('embedColor').value,
+        thumbnail: document.getElementById('embedThumbnail').value,
+        image: document.getElementById('embedImage').value,
+        footer: document.getElementById('footerText').value,
+        footerIcon: document.getElementById('footerIcon').value,
+        timestamp: document.getElementById('addTimestamp').checked,
+        fields: fields.filter(f => f.name && f.value).map(f => ({
+          name: f.name,
+          value: f.value,
+          inline: f.inline
+        }))
+      };
+    }
+
+    function updatePreview() {
+      const data = getEmbedData();
+      const preview = document.getElementById('embedPreview');
+      preview.style.borderLeftColor = data.color || '#5865f2';
+
+      let html = '';
+      if (data.thumbnail) {
+        html += `<img src="${data.thumbnail}" class="embed-thumbnail" onerror="this.style.display='none'">`;
+      }
+      html += '<div class="embed-content">';
+
+      if (data.author) {
+        html += `<div class="embed-author">`;
+        if (data.authorIcon) html += `<img src="${data.authorIcon}" onerror="this.style.display='none'">`;
+        html += `<span class="embed-author-name">${data.author}</span></div>`;
+      }
+
+      if (data.title) {
+        if (data.url) {
+          html += `<div class="embed-title"><a href="${data.url}" target="_blank">${data.title}</a></div>`;
+        } else {
+          html += `<div class="embed-title">${data.title}</div>`;
+        }
+      }
+
+      if (data.description) {
+        html += `<div class="embed-description">${data.description}</div>`;
+      }
+
+      if (data.fields.length > 0) {
+        html += '<div class="embed-fields">';
+        data.fields.forEach(f => {
+          html += `<div class="embed-field${f.inline ? ' inline' : ''}">
+            <div class="embed-field-name">${f.name}</div>
+            <div class="embed-field-value">${f.value}</div>
+          </div>`;
+        });
+        html += '</div>';
+      }
+
+      if (data.image) {
+        html += `<img src="${data.image}" class="embed-image" onerror="this.style.display='none'">`;
+      }
+
+      if (data.footer || data.timestamp) {
+        html += '<div class="embed-footer">';
+        if (data.footerIcon) html += `<img src="${data.footerIcon}" onerror="this.style.display='none'">`;
+        let footerParts = [];
+        if (data.footer) footerParts.push(data.footer);
+        if (data.timestamp) footerParts.push(new Date().toLocaleString());
+        html += `<span>${footerParts.join(' • ')}</span>`;
+        html += '</div>';
+      }
+
+      html += '</div>';
+
+      if (!data.title && !data.description && !data.author && data.fields.length === 0) {
+        html = '<div class="embed-content"><div class="embed-description" style="color: #72767d;">Start building your embed...</div></div>';
+      }
+
+      preview.innerHTML = html;
+    }
+
+    async function sendEmbed() {
+      const channelId = document.getElementById('channelSelect').value;
+      if (!channelId) {
+        showToast('Please select a channel', 'error');
+        return;
+      }
+
+      const embed = getEmbedData();
+      if (!embed.title && !embed.description) {
+        showToast('Embed must have at least a title or description', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/admin/api/discord/send-embed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channelId, embed })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Embed sent successfully!', 'success');
+        } else {
+          showToast(data.error || 'Failed to send embed', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to send embed', 'error');
+      }
+    }
+
+    async function saveTemplate() {
+      const name = prompt('Enter template name:');
+      if (!name) return;
+
+      const embed = getEmbedData();
+      try {
+        const res = await fetch('/admin/api/embed-templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, embed })
+        });
+        if (res.ok) {
+          showToast('Template saved!', 'success');
+          loadTemplates();
+        }
+      } catch (err) {
+        showToast('Failed to save template', 'error');
+      }
+    }
+
+    async function loadTemplates() {
+      try {
+        const res = await fetch('/admin/api/embed-templates');
+        const templates = await res.json();
+        const container = document.getElementById('templateList');
+        if (templates.length === 0) {
+          container.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;">No saved templates</p>';
+        } else {
+          container.innerHTML = templates.map(t => `
+            <div class="template-item">
+              <span>${t.name}</span>
+              <div>
+                <button class="btn btn-secondary btn-sm" onclick="loadTemplate('${t.id}')">Load</button>
+                <button class="btn btn-secondary btn-sm" onclick="deleteTemplate('${t.id}')">Delete</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load templates:', err);
+      }
+    }
+
+    async function loadTemplate(id) {
+      try {
+        const res = await fetch('/admin/api/embed-templates');
+        const templates = await res.json();
+        const template = templates.find(t => t.id === id);
+        if (template) {
+          const e = template.embed;
+          document.getElementById('authorName').value = e.author || '';
+          document.getElementById('authorIcon').value = e.authorIcon || '';
+          document.getElementById('authorUrl').value = e.authorUrl || '';
+          document.getElementById('embedTitle').value = e.title || '';
+          document.getElementById('embedUrl').value = e.url || '';
+          document.getElementById('embedDescription').value = e.description || '';
+          document.getElementById('embedColor').value = e.color || '#5865f2';
+          document.getElementById('embedColorPicker').value = e.color || '#5865f2';
+          document.getElementById('embedThumbnail').value = e.thumbnail || '';
+          document.getElementById('embedImage').value = e.image || '';
+          document.getElementById('footerText').value = e.footer || '';
+          document.getElementById('footerIcon').value = e.footerIcon || '';
+          document.getElementById('addTimestamp').checked = e.timestamp || false;
+          fields = (e.fields || []).map((f, i) => ({ id: Date.now() + i, ...f }));
+          renderFields();
+          updatePreview();
+          showToast('Template loaded!', 'success');
+        }
+      } catch (err) {
+        showToast('Failed to load template', 'error');
+      }
+    }
+
+    async function deleteTemplate(id) {
+      if (!confirm('Delete this template?')) return;
+      try {
+        await fetch(`/admin/api/embed-templates/${id}`, { method: 'DELETE' });
+        loadTemplates();
+        showToast('Template deleted', 'success');
+      } catch (err) {
+        showToast('Failed to delete template', 'error');
+      }
+    }
+
+    function clearForm() {
+      document.getElementById('authorName').value = '';
+      document.getElementById('authorIcon').value = '';
+      document.getElementById('authorUrl').value = '';
+      document.getElementById('embedTitle').value = '';
+      document.getElementById('embedUrl').value = '';
+      document.getElementById('embedDescription').value = '';
+      document.getElementById('embedColor').value = '#5865f2';
+      document.getElementById('embedColorPicker').value = '#5865f2';
+      document.getElementById('embedThumbnail').value = '';
+      document.getElementById('embedImage').value = '';
+      document.getElementById('footerText').value = '';
+      document.getElementById('footerIcon').value = '';
+      document.getElementById('addTimestamp').checked = false;
+      fields = [];
+      renderFields();
+      updatePreview();
+    }
+
+    function showToast(message, type) {
+      const toast = document.createElement('div');
+      toast.className = type === 'success' ? 'success-toast' : 'error-toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    document.getElementById('embedColorPicker').addEventListener('input', (e) => {
+      document.getElementById('embedColor').value = e.target.value;
+      updatePreview();
+    });
+
+    document.getElementById('embedColor').addEventListener('input', (e) => {
+      if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+        document.getElementById('embedColorPicker').value = e.target.value;
+      }
+      updatePreview();
+    });
+
+    ['authorName', 'authorIcon', 'authorUrl', 'embedTitle', 'embedUrl', 'embedDescription',
+     'embedThumbnail', 'embedImage', 'footerText', 'footerIcon'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updatePreview);
+    });
+    document.getElementById('addTimestamp').addEventListener('change', updatePreview);
+
+    loadGuilds();
+    loadTemplates();
+    updatePreview();
+  </script>
+</body>
+</html>
