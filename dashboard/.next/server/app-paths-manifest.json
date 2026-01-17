@@ -1,14 +1,3 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/admin/[...path]/route": "app/api/admin/[...path]/route.js",
-  "/page": "app/page.js",
-  "/dashboard/logs/page": "app/dashboard/logs/page.js",
-  "/dashboard/appeals/page": "app/dashboard/appeals/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/panels/page": "app/dashboard/panels/page.js",
-  "/dashboard/settings/page": "app/dashboard/settings/page.js",
-  "/dashboard/ratings/page": "app/dashboard/ratings/page.js",
-  "/dashboard/staff/page": "app/dashboard/staff/page.js",
-  "/dashboard/transcripts/page": "app/dashboard/transcripts/page.js",
-  "/dashboard/categories/page": "app/dashboard/categories/page.js"
+  "/page": "app/page.js"
 }

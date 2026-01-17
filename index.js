@@ -244,11 +244,21 @@ async function startServer() {
 }
 
 async function start() {
-  await loadCommands();
-  await loadEvents();
-  await deployCommands();
-  startServer();
-  await client.login(process.env.DISCORD_TOKEN);
+  try {
+    await loadCommands();
+    await loadEvents();
+    await deployCommands();
+    await startServer();
+    
+    if (process.env.DISCORD_TOKEN) {
+      await client.login(process.env.DISCORD_TOKEN);
+    } else {
+      console.warn('DISCORD_TOKEN not set - bot will not connect to Discord');
+    }
+  } catch (error) {
+    console.error('Failed to start application:', error);
+    process.exit(1);
+  }
 }
 
 start();
