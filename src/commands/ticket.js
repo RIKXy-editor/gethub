@@ -61,6 +61,10 @@ function getTicketConfig(guildId) {
       thumbnail: null,
       image: null
     },
+    ticketEmbed: {
+      title: '🎫 Support Ticket',
+      description: 'Welcome {user}!\n\nPlease describe your issue and our support team will assist you shortly.'
+    },
     panelMessageId: null,
     panelChannelId: null
   };
@@ -170,11 +174,15 @@ export async function execute(interaction) {
     const buttons2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('ticket:setup_toggle_dm').setLabel('Toggle DM Transcript').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('ticket:setup_button').setLabel('Edit Button Label').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('ticket:setup_button_color').setLabel('Edit Button Color').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('ticket:setup_embed').setLabel('Edit Panel Embed').setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId('ticket:setup_button_color').setLabel('Edit Button Color').setStyle(ButtonStyle.Secondary)
     );
 
-    await interaction.reply({ embeds: [embed], components: [buttons1, buttons2], ephemeral: true });
+    const buttons3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:setup_embed').setLabel('Edit Panel Embed').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:setup_ticket_embed').setLabel('Edit Ticket Embed').setStyle(ButtonStyle.Primary)
+    );
+
+    await interaction.reply({ embeds: [embed], components: [buttons1, buttons2, buttons3], ephemeral: true });
   }
 
   if (subcommand === 'panel') {
@@ -296,9 +304,14 @@ export async function handleTicketInteraction(interaction) {
       saveTicket(guildId, ticketChannel.id, ticketData);
       setUserCooldown(guildId, interaction.user.id);
 
+      const ticketEmbed = config.ticketEmbed || {};
+      const ticketTitle = ticketEmbed.title || '🎫 Support Ticket';
+      const ticketDesc = (ticketEmbed.description || 'Welcome {user}!\n\nPlease describe your issue and our support team will assist you shortly.')
+        .replace(/{user}/g, interaction.user.toString());
+
       const controlEmbed = new EmbedBuilder()
-        .setTitle('🎫 Support Ticket')
-        .setDescription(`Welcome ${interaction.user}!\n\nPlease describe your issue and our support team will assist you shortly.`)
+        .setTitle(ticketTitle)
+        .setDescription(ticketDesc)
         .addFields(
           { name: 'Opened by', value: interaction.user.tag, inline: true },
           { name: 'Status', value: '🟢 Open', inline: true }
@@ -727,6 +740,76 @@ export async function handleTicketInteraction(interaction) {
       components: [buttons1, buttons2, buttons3], 
       ephemeral: true 
     });
+  }
+
+  if (customId === 'ticket:setup_ticket_embed') {
+    const ticketEmbed = config.ticketEmbed || {};
+    
+    const previewEmbed = new EmbedBuilder()
+      .setTitle(ticketEmbed.title || '🎫 Support Ticket')
+      .setDescription((ticketEmbed.description || 'Welcome {user}!\n\nPlease describe your issue...').replace(/{user}/g, interaction.user.toString()))
+      .addFields(
+        { name: 'Opened by', value: interaction.user.tag, inline: true },
+        { name: 'Status', value: '🟢 Open', inline: true }
+      )
+      .setColor('#00ff00')
+      .setTimestamp();
+
+    const buttons1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:ticket_title').setLabel('Edit Title').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:ticket_desc').setLabel('Edit Description').setStyle(ButtonStyle.Primary)
+    );
+
+    await interaction.reply({ 
+      content: '**Ticket Opening Embed Preview:**\nThis is what users see when they open a ticket.\nUse `{user}` in the description to mention the ticket opener.',
+      embeds: [previewEmbed], 
+      components: [buttons1], 
+      ephemeral: true 
+    });
+  }
+
+  if (customId === 'ticket:ticket_title') {
+    const ticketEmbed = config.ticketEmbed || {};
+    const result = await promptForInput(interaction, `📝 **Edit Ticket Title**\nType the new title for the ticket opening embed.\n\nCurrent: ${ticketEmbed.title || '🎫 Support Ticket'}\n(Max 256 characters)`, {
+      validator: async (msg) => {
+        const title = msg.content.trim();
+        if (title.length > 256) {
+          return { valid: false, error: '❌ Title must be 256 characters or less.' };
+        }
+        if (title.length === 0) {
+          return { valid: false, error: '❌ Title cannot be empty.' };
+        }
+        return { valid: true, value: title };
+      }
+    });
+    
+    if (result.value) {
+      ticketEmbed.title = result.value;
+      setTicketConfig(guildId, { ticketEmbed });
+      await interaction.channel.send({ content: `✅ Ticket title updated to: **${result.value}**` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
+  }
+
+  if (customId === 'ticket:ticket_desc') {
+    const ticketEmbed = config.ticketEmbed || {};
+    const result = await promptForInput(interaction, `📝 **Edit Ticket Description**\nType the new description for the ticket opening embed.\n\nUse \`{user}\` to mention the ticket opener.\n\nCurrent:\n${ticketEmbed.description || 'Welcome {user}!\\n\\nPlease describe your issue...'}\n\n(Max 4000 characters)`, {
+      validator: async (msg) => {
+        const desc = msg.content.trim();
+        if (desc.length > 4000) {
+          return { valid: false, error: '❌ Description must be 4000 characters or less.' };
+        }
+        if (desc.length === 0) {
+          return { valid: false, error: '❌ Description cannot be empty.' };
+        }
+        return { valid: true, value: desc };
+      }
+    });
+    
+    if (result.value) {
+      ticketEmbed.description = result.value;
+      setTicketConfig(guildId, { ticketEmbed });
+      await interaction.channel.send({ content: `✅ Ticket description updated!` }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+    }
   }
 
   if (customId === 'ticket:panel_update') {
