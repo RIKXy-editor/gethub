@@ -441,13 +441,106 @@ export async function handleTicketInteraction(interaction) {
       .setTitle('Set Ticket Limits')
       .addComponents(
         new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('max_tickets').setLabel('Max tickets per user per category').setStyle(TextInputStyle.Short).setRequired(true).setValue(String(config.maxTicketsPerUser))
+          new TextInputBuilder().setCustomId('max_tickets').setLabel('Max tickets per user').setStyle(TextInputStyle.Short).setRequired(true).setValue(String(config.maxTicketsPerUser))
         ),
         new ActionRowBuilder().addComponents(
           new TextInputBuilder().setCustomId('cooldown').setLabel('Cooldown in seconds').setStyle(TextInputStyle.Short).setRequired(true).setValue(String(config.cooldownSeconds))
         )
       );
     await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:setup_role') {
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:setup_role_modal')
+      .setTitle('Set Support Role')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('role_id').setLabel('Support Role ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Right-click role > Copy ID')
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:setup_button') {
+    const modal = new ModalBuilder()
+      .setCustomId('ticket:setup_button_modal')
+      .setTitle('Edit Button Label')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('label').setLabel('Button Label (max 80 chars)').setStyle(TextInputStyle.Short).setRequired(true).setValue(config.buttonLabel || '📩 Open Ticket').setMaxLength(80)
+        )
+      );
+    await interaction.showModal(modal);
+  }
+
+  if (customId === 'ticket:setup_embed') {
+    const panelEmbed = config.panelEmbed || {};
+    
+    const previewEmbed = new EmbedBuilder()
+      .setTitle(panelEmbed.title || '🎫 Support Tickets')
+      .setDescription(panelEmbed.description || 'Need help? Click the button below...')
+      .setColor(panelEmbed.color || '#5865F2');
+    
+    if (panelEmbed.footer) previewEmbed.setFooter({ text: panelEmbed.footer });
+    if (panelEmbed.thumbnail) previewEmbed.setThumbnail(panelEmbed.thumbnail);
+    if (panelEmbed.image) previewEmbed.setImage(panelEmbed.image);
+
+    const buttons1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:panel_title').setLabel('Edit Title').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:panel_desc').setLabel('Edit Description').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:panel_color').setLabel('Edit Color').setStyle(ButtonStyle.Primary)
+    );
+    
+    const buttons2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:panel_footer').setLabel('Edit Footer').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:panel_thumb').setLabel('Set Thumbnail').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:panel_image').setLabel('Set Image').setStyle(ButtonStyle.Secondary)
+    );
+
+    const buttons3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:panel_update').setLabel('Update Live Panel').setStyle(ButtonStyle.Success)
+    );
+
+    await interaction.reply({ 
+      content: '**Panel Embed Preview:**\nUse the buttons to customize, then click "Update Live Panel" to apply.',
+      embeds: [previewEmbed], 
+      components: [buttons1, buttons2, buttons3], 
+      ephemeral: true 
+    });
+  }
+
+  if (customId === 'ticket:panel_update') {
+    if (!config.panelMessageId || !config.panelChannelId) {
+      return await interaction.reply({ content: '❌ No panel found. Use `/ticket panel` to post one first.', ephemeral: true });
+    }
+
+    try {
+      const channel = await interaction.guild.channels.fetch(config.panelChannelId);
+      const message = await channel.messages.fetch(config.panelMessageId);
+      
+      const panelEmbed = config.panelEmbed || {};
+      const embed = new EmbedBuilder()
+        .setTitle(panelEmbed.title || '🎫 Support Tickets')
+        .setDescription(panelEmbed.description || 'Need help? Click the button below...')
+        .setColor(panelEmbed.color || '#5865F2');
+      
+      if (panelEmbed.footer) embed.setFooter({ text: panelEmbed.footer });
+      if (panelEmbed.thumbnail) embed.setThumbnail(panelEmbed.thumbnail);
+      if (panelEmbed.image) embed.setImage(panelEmbed.image);
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('ticket:open')
+          .setLabel(config.buttonLabel || '📩 Open Ticket')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      await message.edit({ embeds: [embed], components: [row] });
+      await interaction.reply({ content: '✅ Panel updated successfully!', ephemeral: true });
+    } catch (err) {
+      await interaction.reply({ content: '❌ Failed to update panel. The message may have been deleted. Use `/ticket panel` to post a new one.', ephemeral: true });
+    }
   }
 
   if (customId === 'ticket:panel_title') {
@@ -655,12 +748,36 @@ export async function handleTicketModal(interaction) {
     await interaction.reply({ content: `✅ Limits updated: Max ${maxTickets} ticket(s) per user, ${cooldown}s cooldown.`, ephemeral: true });
   }
 
+  if (customId === 'ticket:setup_role_modal') {
+    const roleId = interaction.fields.getTextInputValue('role_id').trim();
+    try {
+      const role = await interaction.guild.roles.fetch(roleId);
+      if (role) {
+        setTicketConfig(guildId, { supportRoleId: roleId });
+        await interaction.reply({ content: `✅ Support role set to ${role}`, ephemeral: true });
+      } else {
+        await interaction.reply({ content: '❌ Role not found.', ephemeral: true });
+      }
+    } catch {
+      await interaction.reply({ content: '❌ Invalid role ID.', ephemeral: true });
+    }
+  }
+
+  if (customId === 'ticket:setup_button_modal') {
+    const label = interaction.fields.getTextInputValue('label').trim();
+    if (label.length > 80) {
+      return await interaction.reply({ content: '❌ Button label must be 80 characters or less.', ephemeral: true });
+    }
+    setTicketConfig(guildId, { buttonLabel: label });
+    await interaction.reply({ content: `✅ Button label updated to: **${label}**\n\nUse \`/ticket panel\` to post a new panel or click "Update Live Panel" to apply.`, ephemeral: true });
+  }
+
   if (customId === 'ticket:panel_title_modal') {
     const title = interaction.fields.getTextInputValue('title').trim();
     const panelEmbed = config.panelEmbed || {};
     panelEmbed.title = title;
     setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: `✅ Panel title updated to: **${title}**\n\nUse \`/ticket panelupdate\` to apply changes to the live panel.`, ephemeral: true });
+    await interaction.reply({ content: `✅ Panel title updated to: **${title}**\n\nClick "Update Live Panel" to apply changes.`, ephemeral: true });
   }
 
   if (customId === 'ticket:panel_desc_modal') {
@@ -668,7 +785,7 @@ export async function handleTicketModal(interaction) {
     const panelEmbed = config.panelEmbed || {};
     panelEmbed.description = description;
     setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: `✅ Panel description updated!\n\nUse \`/ticket panelupdate\` to apply changes to the live panel.`, ephemeral: true });
+    await interaction.reply({ content: `✅ Panel description updated!\n\nClick "Update Live Panel" to apply changes.`, ephemeral: true });
   }
 
   if (customId === 'ticket:panel_color_modal') {
@@ -680,7 +797,7 @@ export async function handleTicketModal(interaction) {
     const panelEmbed = config.panelEmbed || {};
     panelEmbed.color = color;
     setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: `✅ Panel color updated to: **${color}**\n\nUse \`/ticket panelupdate\` to apply changes to the live panel.`, ephemeral: true });
+    await interaction.reply({ content: `✅ Panel color updated to: **${color}**\n\nClick "Update Live Panel" to apply changes.`, ephemeral: true });
   }
 
   if (customId === 'ticket:panel_footer_modal') {
@@ -688,7 +805,7 @@ export async function handleTicketModal(interaction) {
     const panelEmbed = config.panelEmbed || {};
     panelEmbed.footer = footer || null;
     setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: footer ? `✅ Panel footer updated!\n\nUse \`/ticket panelupdate\` to apply changes.` : `✅ Panel footer removed.\n\nUse \`/ticket panelupdate\` to apply changes.`, ephemeral: true });
+    await interaction.reply({ content: footer ? `✅ Panel footer updated!` : `✅ Panel footer removed.`, ephemeral: true });
   }
 
   if (customId === 'ticket:panel_thumb_modal') {
@@ -699,7 +816,7 @@ export async function handleTicketModal(interaction) {
     const panelEmbed = config.panelEmbed || {};
     panelEmbed.thumbnail = thumbnail || null;
     setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: thumbnail ? `✅ Panel thumbnail set!\n\nUse \`/ticket panelupdate\` to apply changes.` : `✅ Panel thumbnail removed.\n\nUse \`/ticket panelupdate\` to apply changes.`, ephemeral: true });
+    await interaction.reply({ content: thumbnail ? `✅ Panel thumbnail set!` : `✅ Panel thumbnail removed.`, ephemeral: true });
   }
 
   if (customId === 'ticket:panel_image_modal') {
@@ -710,7 +827,7 @@ export async function handleTicketModal(interaction) {
     const panelEmbed = config.panelEmbed || {};
     panelEmbed.image = image || null;
     setTicketConfig(guildId, { panelEmbed });
-    await interaction.reply({ content: image ? `✅ Panel image set!\n\nUse \`/ticket panelupdate\` to apply changes.` : `✅ Panel image removed.\n\nUse \`/ticket panelupdate\` to apply changes.`, ephemeral: true });
+    await interaction.reply({ content: image ? `✅ Panel image set!` : `✅ Panel image removed.`, ephemeral: true });
   }
 }
 
