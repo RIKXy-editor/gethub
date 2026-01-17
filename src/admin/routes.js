@@ -31,6 +31,13 @@ function requireAuth(req, res, next) {
   res.redirect('/admin/login');
 }
 
+function requireApiAuth(req, res, next) {
+  if (req.session && req.session.authenticated) {
+    return next();
+  }
+  res.status(401).json({ error: 'Unauthorized', authenticated: false });
+}
+
 export function createAdminRoutes(discordClient) {
   const router = express.Router();
 
@@ -124,7 +131,7 @@ export function createAdminRoutes(discordClient) {
     res.sendFile(path.join(__dirname, 'views', 'sticky-clients.html'));
   });
 
-  router.get('/api/tickets', requireAuth, (req, res) => {
+  router.get('/api/tickets', requireApiAuth, (req, res) => {
     const tickets = loadData('tickets', {});
     const allTickets = [];
     for (const guildId in tickets) {
@@ -135,7 +142,7 @@ export function createAdminRoutes(discordClient) {
     res.json(allTickets);
   });
 
-  router.get('/api/tickets/:guildId/:channelId', requireAuth, (req, res) => {
+  router.get('/api/tickets/:guildId/:channelId', requireApiAuth, (req, res) => {
     const { guildId, channelId } = req.params;
     const tickets = loadData('tickets', {});
     const ticket = tickets[guildId]?.[channelId];
@@ -146,7 +153,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.delete('/api/tickets/:guildId/:channelId', requireAuth, (req, res) => {
+  router.delete('/api/tickets/:guildId/:channelId', requireApiAuth, (req, res) => {
     const { guildId, channelId } = req.params;
     const tickets = loadData('tickets', {});
     if (tickets[guildId]?.[channelId]) {
@@ -158,7 +165,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.put('/api/tickets/:guildId/:channelId/close', requireAuth, (req, res) => {
+  router.put('/api/tickets/:guildId/:channelId/close', requireApiAuth, (req, res) => {
     const { guildId, channelId } = req.params;
     const tickets = loadData('tickets', {});
     if (tickets[guildId]?.[channelId]) {
@@ -171,13 +178,13 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/config/:guildId', requireAuth, (req, res) => {
+  router.get('/api/config/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     res.json(configs[guildId] || {});
   });
 
-  router.put('/api/config/:guildId', requireAuth, express.json(), (req, res) => {
+  router.put('/api/config/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     configs[guildId] = { ...configs[guildId], ...req.body };
@@ -185,26 +192,26 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.get('/api/stats/:guildId', requireAuth, (req, res) => {
+  router.get('/api/stats/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
     const stats = loadData('ticketStats', {});
     res.json(stats[guildId] || { totalTickets: 0, staffStats: {} });
   });
 
-  router.get('/api/guilds', requireAuth, (req, res) => {
+  router.get('/api/guilds', requireApiAuth, (req, res) => {
     const configs = loadData('ticketConfig', {});
     const guilds = Object.keys(configs).map(id => ({ id, ...configs[id] }));
     res.json(guilds);
   });
 
-  router.get('/api/plans/:guildId', requireAuth, (req, res) => {
+  router.get('/api/plans/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     const config = configs[guildId] || {};
     res.json(config.subscriptionPlans || []);
   });
 
-  router.put('/api/plans/:guildId', requireAuth, express.json(), (req, res) => {
+  router.put('/api/plans/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     if (!configs[guildId]) configs[guildId] = {};
@@ -213,14 +220,14 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.get('/api/payments/:guildId', requireAuth, (req, res) => {
+  router.get('/api/payments/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     const config = configs[guildId] || {};
     res.json(config.paymentMethods || {});
   });
 
-  router.put('/api/payments/:guildId', requireAuth, express.json(), (req, res) => {
+  router.put('/api/payments/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     if (!configs[guildId]) configs[guildId] = {};
@@ -229,7 +236,7 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.post('/api/panels/:guildId/post', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/panels/:guildId/post', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { guildId } = req.params;
       const { channelId } = req.body;
@@ -273,7 +280,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/discord/guilds', requireAuth, async (req, res) => {
+  router.get('/api/discord/guilds', requireApiAuth, async (req, res) => {
     try {
       const guilds = discordClient.guilds.cache.map(guild => ({
         id: guild.id,
@@ -287,7 +294,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/discord/guilds/:guildId/channels', requireAuth, async (req, res) => {
+  router.get('/api/discord/guilds/:guildId/channels', requireApiAuth, async (req, res) => {
     try {
       const { guildId } = req.params;
       const guild = discordClient.guilds.cache.get(guildId);
@@ -310,7 +317,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/discord/guilds/:guildId/roles', requireAuth, async (req, res) => {
+  router.get('/api/discord/guilds/:guildId/roles', requireApiAuth, async (req, res) => {
     try {
       const { guildId } = req.params;
       const guild = discordClient.guilds.cache.get(guildId);
@@ -333,7 +340,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.post('/api/discord/send-embed', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/discord/send-embed', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { channelId, embed } = req.body;
       
@@ -389,12 +396,12 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/embed-templates', requireAuth, (req, res) => {
+  router.get('/api/embed-templates', requireApiAuth, (req, res) => {
     const templates = loadData('embedTemplates', []);
     res.json(templates);
   });
 
-  router.post('/api/embed-templates', requireAuth, express.json(), (req, res) => {
+  router.post('/api/embed-templates', requireApiAuth, express.json(), (req, res) => {
     const templates = loadData('embedTemplates', []);
     const newTemplate = {
       id: Date.now().toString(),
@@ -407,14 +414,14 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true, template: newTemplate });
   });
 
-  router.delete('/api/embed-templates/:id', requireAuth, (req, res) => {
+  router.delete('/api/embed-templates/:id', requireApiAuth, (req, res) => {
     let templates = loadData('embedTemplates', []);
     templates = templates.filter(t => t.id !== req.params.id);
     saveData('embedTemplates', templates);
     res.json({ success: true });
   });
 
-  router.get('/api/welcome/:guildId', requireAuth, async (req, res) => {
+  router.get('/api/welcome/:guildId', requireApiAuth, async (req, res) => {
     const db = getDbPool();
     if (!db) return res.status(500).json({ error: 'Database not available' });
     try {
@@ -455,7 +462,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.put('/api/welcome/:guildId', requireAuth, express.json(), async (req, res) => {
+  router.put('/api/welcome/:guildId', requireApiAuth, express.json(), async (req, res) => {
     const db = getDbPool();
     if (!db) return res.status(500).json({ error: 'Database not available' });
     try {
@@ -475,7 +482,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/keywords/:guildId', requireAuth, async (req, res) => {
+  router.get('/api/keywords/:guildId', requireApiAuth, async (req, res) => {
     const db = getDbPool();
     if (!db) return res.status(500).json({ error: 'Database not available' });
     try {
@@ -491,7 +498,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.put('/api/keywords/:guildId/toggle', requireAuth, express.json(), async (req, res) => {
+  router.put('/api/keywords/:guildId/toggle', requireApiAuth, express.json(), async (req, res) => {
     const db = getDbPool();
     if (!db) return res.status(500).json({ error: 'Database not available' });
     try {
@@ -503,7 +510,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.post('/api/keywords/:guildId', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/keywords/:guildId', requireApiAuth, express.json(), async (req, res) => {
     const db = getDbPool();
     if (!db) return res.status(500).json({ error: 'Database not available' });
     try {
@@ -524,7 +531,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.delete('/api/keywords/:guildId/:keywordId', requireAuth, async (req, res) => {
+  router.delete('/api/keywords/:guildId/:keywordId', requireApiAuth, async (req, res) => {
     const db = getDbPool();
     if (!db) return res.status(500).json({ error: 'Database not available' });
     try {
@@ -536,7 +543,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/giveaways/:guildId', requireAuth, (req, res) => {
+  router.get('/api/giveaways/:guildId', requireApiAuth, (req, res) => {
     const giveaways = loadData('giveaways', {});
     const guildGiveaways = giveaways[req.params.guildId] || {};
     const list = Object.values(guildGiveaways).map(g => ({
@@ -546,7 +553,7 @@ export function createAdminRoutes(discordClient) {
     res.json(list);
   });
 
-  router.post('/api/giveaways/:guildId/end/:messageId', requireAuth, async (req, res) => {
+  router.post('/api/giveaways/:guildId/end/:messageId', requireApiAuth, async (req, res) => {
     try {
       const { guildId, messageId } = req.params;
       const giveaways = loadData('giveaways', {});
@@ -609,7 +616,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.delete('/api/giveaways/:guildId/:messageId', requireAuth, (req, res) => {
+  router.delete('/api/giveaways/:guildId/:messageId', requireApiAuth, (req, res) => {
     const { guildId, messageId } = req.params;
     const giveaways = loadData('giveaways', {});
     if (giveaways[guildId]?.[messageId]) {
@@ -621,7 +628,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.post('/api/giveaways/:guildId/create', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/giveaways/:guildId/create', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { guildId } = req.params;
       const { channelId, prize, duration, winnerCount, requiredRoleId, multiplierRoles } = req.body;
@@ -666,7 +673,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.post('/api/announcements/send', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/announcements/send', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { channelId, message, useEmbed, title, color, mentionEveryone } = req.body;
       if (!channelId || !message) return res.status(400).json({ error: 'Channel and message required' });
@@ -691,13 +698,13 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/scheduled/:guildId', requireAuth, (req, res) => {
+  router.get('/api/scheduled/:guildId', requireApiAuth, (req, res) => {
     const schedules = loadData('scheduledMessages', {});
     const guildSchedules = schedules[req.params.guildId] || [];
     res.json(guildSchedules);
   });
 
-  router.post('/api/scheduled/:guildId', requireAuth, express.json(), (req, res) => {
+  router.post('/api/scheduled/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const { channelId, message, time, frequency, dayOfWeek } = req.body;
     if (!channelId || !message || !time) return res.status(400).json({ error: 'Channel, message, and time required' });
@@ -717,7 +724,7 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true, schedule: newSchedule });
   });
 
-  router.delete('/api/scheduled/:guildId/:scheduleId', requireAuth, (req, res) => {
+  router.delete('/api/scheduled/:guildId/:scheduleId', requireApiAuth, (req, res) => {
     const { guildId, scheduleId } = req.params;
     const schedules = loadData('scheduledMessages', {});
     if (schedules[guildId]) {
@@ -727,13 +734,13 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.get('/api/sticky/:guildId', requireAuth, (req, res) => {
+  router.get('/api/sticky/:guildId', requireApiAuth, (req, res) => {
     const stickies = loadData('stickyMessages', {});
     const guildStickies = stickies[req.params.guildId] || {};
     res.json(Object.entries(guildStickies).map(([channelId, data]) => ({ channelId, ...data })));
   });
 
-  router.post('/api/sticky/:guildId', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/sticky/:guildId', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { guildId } = req.params;
       const { channelId, content } = req.body;
@@ -758,7 +765,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.delete('/api/sticky/:guildId/:channelId', requireAuth, async (req, res) => {
+  router.delete('/api/sticky/:guildId/:channelId', requireApiAuth, async (req, res) => {
     try {
       const { guildId, channelId } = req.params;
       const stickies = loadData('stickyMessages', {});
@@ -777,7 +784,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.post('/api/dm/send', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/dm/send', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { guildId, roleId, message, useEmbed, title, color } = req.body;
       if (!guildId || !roleId || !message) return res.status(400).json({ error: 'Guild, role, and message required' });
@@ -805,12 +812,12 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/job-config/:guildId', requireAuth, (req, res) => {
+  router.get('/api/job-config/:guildId', requireApiAuth, (req, res) => {
     const configs = loadData('jobConfig', {});
     res.json(configs[req.params.guildId] || { enabled: false, channelId: null, roleId: null, cooldown: 86400000, bannerText: '' });
   });
 
-  router.put('/api/job-config/:guildId', requireAuth, express.json(), (req, res) => {
+  router.put('/api/job-config/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('jobConfig', {});
     configs[guildId] = { ...configs[guildId], ...req.body };
@@ -818,12 +825,12 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.get('/api/bot-settings', requireAuth, (req, res) => {
+  router.get('/api/bot-settings', requireApiAuth, (req, res) => {
     const settings = loadData('botSettings', { statusMessages: [], activityType: 'Playing' });
     res.json(settings);
   });
 
-  router.put('/api/bot-settings', requireAuth, express.json(), async (req, res) => {
+  router.put('/api/bot-settings', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { statusMessages, activityType } = req.body;
       const settings = loadData('botSettings', {});
@@ -837,7 +844,7 @@ export function createAdminRoutes(discordClient) {
   });
 
   // Sticky Clients API endpoints
-  router.get('/api/sticky-clients/:guildId', requireAuth, (req, res) => {
+  router.get('/api/sticky-clients/:guildId', requireApiAuth, (req, res) => {
     const configs = loadData('sticky-clients', {});
     res.json(configs[req.params.guildId] || {
       enabled: false,
@@ -851,7 +858,7 @@ export function createAdminRoutes(discordClient) {
     });
   });
 
-  router.put('/api/sticky-clients/:guildId', requireAuth, express.json(), (req, res) => {
+  router.put('/api/sticky-clients/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('sticky-clients', {});
     configs[guildId] = { ...configs[guildId], ...req.body };
@@ -859,7 +866,7 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.post('/api/sticky-clients/:guildId/post', requireAuth, express.json(), async (req, res) => {
+  router.post('/api/sticky-clients/:guildId/post', requireApiAuth, express.json(), async (req, res) => {
     try {
       const { guildId } = req.params;
       const configs = loadData('sticky-clients', {});
@@ -915,7 +922,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.post('/api/sticky-clients/:guildId/disable', requireAuth, async (req, res) => {
+  router.post('/api/sticky-clients/:guildId/disable', requireApiAuth, async (req, res) => {
     try {
       const { guildId } = req.params;
       const configs = loadData('sticky-clients', {});
@@ -947,7 +954,7 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.get('/api/stats/:guildId', requireAuth, async (req, res) => {
+  router.get('/api/stats/:guildId', requireApiAuth, async (req, res) => {
     try {
       const { guildId } = req.params;
       const pool = getDbPool();
@@ -1004,13 +1011,13 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/categories/:guildId', requireAuth, (req, res) => {
+  router.get('/api/categories/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     res.json(configs[guildId]?.categories || []);
   });
 
-  router.put('/api/categories/:guildId', requireAuth, express.json(), (req, res) => {
+  router.put('/api/categories/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
     if (!configs[guildId]) configs[guildId] = {};
@@ -1019,7 +1026,7 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.get('/api/logs/:guildId', requireAuth, async (req, res) => {
+  router.get('/api/logs/:guildId', requireApiAuth, async (req, res) => {
     try {
       const { guildId } = req.params;
       const pool = getDbPool();
@@ -1047,7 +1054,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/staff/:guildId', requireAuth, async (req, res) => {
+  router.get('/api/staff/:guildId', requireApiAuth, async (req, res) => {
     try {
       const { guildId } = req.params;
       const pool = getDbPool();
@@ -1076,7 +1083,7 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.put('/api/staff/:guildId/:staffId', requireAuth, express.json(), (req, res) => {
+  router.put('/api/staff/:guildId/:staffId', requireApiAuth, express.json(), (req, res) => {
     const { guildId, staffId } = req.params;
     const configs = loadData('staffConfig', {});
     if (!configs[guildId]) configs[guildId] = {};
@@ -1086,7 +1093,7 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
-  router.get('/api/discord/guilds/:guildId/roles', requireAuth, async (req, res) => {
+  router.get('/api/discord/guilds/:guildId/roles', requireApiAuth, async (req, res) => {
     try {
       const { guildId } = req.params;
       const guild = discordClient.guilds.cache.get(guildId);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import { apiClient } from "@/lib/api";
 
 const navigation = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -32,7 +33,13 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
+
+  const handleLogout = async () => {
+    await apiClient.logout();
+    router.push("/");
+  };
 
   return (
     <div className="flex h-full w-64 flex-col bg-card border-r">
@@ -78,12 +85,15 @@ export function Sidebar() {
           )}
           {theme === "dark" ? "Light Mode" : "Dark Mode"}
         </Button>
-        <Link href="/logout">
-          <Button variant="ghost" size="sm" className="w-full justify-start text-destructive">
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-destructive"
+          onClick={handleLogout}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
       </div>
     </div>
   );
