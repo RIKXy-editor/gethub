@@ -95,6 +95,14 @@
               <span onclick="insertEmoji('⚠️')">⚠️</span>
               <span onclick="insertEmoji('💳')">💳</span>
             </div>
+            <div class="format-toolbar">
+              <button type="button" class="format-btn" onclick="formatText('bold')" title="Bold"><b>B</b></button>
+              <button type="button" class="format-btn" onclick="formatText('italic')" title="Italic"><i>I</i></button>
+              <button type="button" class="format-btn" onclick="formatText('underline')" title="Underline"><u>U</u></button>
+              <button type="button" class="format-btn" onclick="formatText('strikethrough')" title="Strikethrough"><s>S</s></button>
+              <button type="button" class="format-btn" onclick="formatText('code')" title="Code">&lt;/&gt;</button>
+              <button type="button" class="format-btn" onclick="formatText('codeblock')" title="Code Block">```</button>
+            </div>
             <textarea class="form-control discord-textarea" id="panelDescription" placeholder="Click the button below to create a ticket" oninput="updatePreview()"></textarea>
           </div>
           <div class="form-group">
@@ -279,6 +287,39 @@
       textarea.value = text.substring(0, start) + emoji + text.substring(end);
       textarea.focus();
       textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+      updatePreview();
+    }
+    
+    function formatText(type) {
+      const textarea = document.getElementById('panelDescription');
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      const selected = text.substring(start, end);
+      
+      const formats = {
+        'bold': { prefix: '**', suffix: '**' },
+        'italic': { prefix: '*', suffix: '*' },
+        'underline': { prefix: '__', suffix: '__' },
+        'strikethrough': { prefix: '~~', suffix: '~~' },
+        'code': { prefix: '`', suffix: '`' },
+        'codeblock': { prefix: '```\n', suffix: '\n```' }
+      };
+      
+      const format = formats[type];
+      if (!format) return;
+      
+      const newText = format.prefix + (selected || 'text') + format.suffix;
+      textarea.value = text.substring(0, start) + newText + text.substring(end);
+      textarea.focus();
+      
+      if (selected) {
+        textarea.selectionStart = start;
+        textarea.selectionEnd = start + newText.length;
+      } else {
+        textarea.selectionStart = start + format.prefix.length;
+        textarea.selectionEnd = start + format.prefix.length + 4;
+      }
       updatePreview();
     }
     

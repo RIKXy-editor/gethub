@@ -513,6 +513,47 @@ textarea.form-control {
   border-color: var(--danger);
 }
 
+.format-toolbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.format-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  min-width: 36px;
+}
+
+.format-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+}
+
+.format-btn b {
+  font-weight: 700;
+}
+
+.format-btn i {
+  font-style: italic;
+}
+
+.format-btn u {
+  text-decoration: underline;
+}
+
+.format-btn s {
+  text-decoration: line-through;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
