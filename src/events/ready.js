@@ -46,10 +46,12 @@ export async function execute(client) {
   
   // Database initialization
   if (process.env.DATABASE_URL) {
+    const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
     const pool = new Pool({ 
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
+      ssl: isInternalRailway ? false : { rejectUnauthorized: false }
     });
+    console.log(`Database: Connecting to ${isInternalRailway ? 'Railway internal' : 'external'} PostgreSQL...`);
     try {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS welcome_config (

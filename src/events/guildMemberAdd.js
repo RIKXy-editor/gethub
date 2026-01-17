@@ -5,9 +5,10 @@ const { Pool } = pg;
 let pool = null;
 
 if (process.env.DATABASE_URL) {
+  const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
   pool = new Pool({ 
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL.includes('railway') ? { rejectUnauthorized: false } : false
+    ssl: isInternalRailway ? false : { rejectUnauthorized: false }
   });
 }
 
