@@ -201,14 +201,19 @@ async function startServer() {
     credentials: true
   }));
   
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+  
   app.use(session({
     secret: process.env.SESSION_SECRET || 'ticket-admin-secret-key-change-me',
     resave: false,
     saveUninitialized: false,
     cookie: { 
       secure: process.env.NODE_ENV === 'production', 
+      httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, 
-      sameSite: 'lax' 
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     }
   }));
   
