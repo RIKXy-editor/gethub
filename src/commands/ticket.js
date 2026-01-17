@@ -95,7 +95,9 @@ function getTickets(guildId) {
 
 function getTicket(guildId, channelId) {
   const tickets = getTickets(guildId);
-  return tickets[channelId] || null;
+  const ticket = tickets[channelId] || null;
+  console.log(`[TICKET] Getting ticket for channel ${channelId} in guild ${guildId}: ${ticket ? 'FOUND' : 'NOT FOUND'}`);
+  return ticket;
 }
 
 function saveTicket(guildId, channelId, ticketData) {
@@ -103,6 +105,7 @@ function saveTicket(guildId, channelId, ticketData) {
   if (!tickets[guildId]) tickets[guildId] = {};
   tickets[guildId][channelId] = ticketData;
   saveData('tickets', tickets);
+  console.log(`[TICKET] Saved ticket for channel ${channelId} in guild ${guildId}`);
 }
 
 function deleteTicket(guildId, channelId) {
@@ -276,6 +279,7 @@ export async function handleTicketInteraction(interaction) {
   const config = getTicketConfig(guildId);
 
   if (customId === 'ticket:open') {
+    console.log(`[TICKET] ticket:open triggered by ${interaction.user.tag} in guild ${guildId}`);
     const cooldownExpiry = getUserCooldown(guildId, interaction.user.id);
     const timeLeft = Math.ceil((cooldownExpiry + (config.cooldownSeconds * 1000) - Date.now()) / 1000);
     
@@ -338,7 +342,9 @@ export async function handleTicketInteraction(interaction) {
         selectedPayment: null
       };
 
+      console.log(`[TICKET] About to save ticket for channel ${ticketChannel.id}`);
       saveTicket(guildId, ticketChannel.id, ticketData);
+      console.log(`[TICKET] Ticket saved successfully`);
       setUserCooldown(guildId, interaction.user.id);
 
       const ticketEmbed = config.ticketEmbed || {};
