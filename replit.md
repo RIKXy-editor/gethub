@@ -52,19 +52,23 @@ Private Discord bot for Editors Club server with **complete admin website contro
 
 ## Admin Dashboard
 
-**URL:** Your Replit project link (/)
+**URL:** Your Replit project link (/admin)
 
 **Login:**
-- Default password: `admin123`
-- Change via env: `DASHBOARD_PASSWORD=your_password`
+- Set via environment variable: `ADMIN_PASSWORD=your_password`
 
 **Sections:**
-1. **📊 Overview** - Server status, member count, bot status
-2. **🤖 Bot Control** - Master enable/disable, maintenance mode
-3. **🎯 Features** - Toggle and configure all features with parameters
-4. **⚡ Commands** - Enable/disable each command
+1. **📊 Dashboard** - Overview of bot status and statistics
+2. **🎫 Tickets** - View and manage all tickets
+3. **📋 Panels** - Create and configure ticket panels
+4. **🎨 Embed Builder** - Build custom embeds with live preview, save templates, send to channels
+5. **👋 Welcome** - Configure welcome messages, channel, auto-role, DM options
+6. **🔑 Keywords** - Manage auto-warning keyword system
+7. **🎁 Giveaways** - View/end/delete giveaways with full winner selection
+8. **⚙️ Settings** - Bot configuration and payment methods
+9. **📈 Staff Stats** - View staff performance metrics
 
-**Theme:** Dark red (#cc0000) and black (#0a0a0a) - minimalist admin style
+**Theme:** Dark modern design with purple accents
 
 ## Configuration Structure
 
