@@ -193,7 +193,7 @@ client.on('interactionCreate', async interaction => {
 
 async function startServer() {
   const app = express();
-  const port = process.env.PORT || 5000;
+  const port = process.env.API_PORT || 3001;
   
   app.use(cors({
     origin: true,
@@ -210,7 +210,7 @@ async function startServer() {
   app.use('/admin', createAdminRoutes(client));
   
   app.get('/', (req, res) => {
-    res.json({ status: 'Bot API running', dashboard: 'Use port 3000 for the admin dashboard' });
+    res.json({ status: 'Bot API running' });
   });
   
   app.listen(port, '0.0.0.0', () => {
