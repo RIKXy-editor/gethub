@@ -41,7 +41,7 @@ export async function handleJobButton(interaction) {
       .setCustomId('sc_about')
       .setLabel('About Yourself & Social Media (optional)')
       .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder('Write something short about yourself, add social media links (insta, yt, behance), and optionally add a profile pic URL')
+      .setPlaceholder('About you, social links (insta/yt), profile pic URL')
       .setRequired(false);
 
     modal.addComponents(
