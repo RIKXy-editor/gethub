@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keywords - Ticket Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .keyword-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .keyword-tag { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 20px; font-size: 14px; }
+    .keyword-tag button { background: transparent; border: none; color: var(--accent-color); cursor: pointer; font-size: 16px; padding: 0; line-height: 1; }
+    .keyword-tag button:hover { color: #ff6b6b; }
+    .add-form { display: flex; gap: 12px; margin-top: 16px; }
+    .add-form input { flex: 1; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); }
+    .toggle-card { display: flex; align-items: center; justify-content: space-between; padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+    .toggle-switch { position: relative; width: 50px; height: 26px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: 0.3s; border-radius: 26px; }
+    .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: 0.3s; border-radius: 50%; }
+    input:checked + .toggle-slider { background-color: var(--accent-color); }
+    input:checked + .toggle-slider:before { transform: translateX(24px); }
+    .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .status-on { background: rgba(67, 181, 129, 0.2); color: #43b581; }
+    .status-off { background: rgba(240, 71, 71, 0.2); color: #f04747; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header"><h1>Ticket Admin</h1></div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/embed-builder"><span class="icon">🎨</span> Embed Builder</a></li>
+      <li><a href="/admin/welcome"><span class="icon">👋</span> Welcome</a></li>
+      <li><a href="/admin/keywords" class="active"><span class="icon">🔑</span> Keywords</a></li>
+      <li><a href="/admin/giveaways"><span class="icon">🎁</span> Giveaways</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/stats"><span class="icon">📈</span> Staff Stats</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Keyword Warning System</h2>
+      <p>Manage keywords that trigger automatic warnings when used in messages</p>
+    </div>
+
+    <div class="form-section" style="padding:16px;background:var(--card-bg);border-radius:8px;border:1px solid var(--border-color);margin-bottom:20px;">
+      <label style="margin-right:10px;">Select Server:</label>
+      <select id="guildSelect" class="form-control" style="width:auto;display:inline-block;"></select>
+    </div>
+
+    <div class="toggle-card">
+      <div>
+        <h3 style="margin:0 0 4px;">Keyword System</h3>
+        <p style="margin:0;color:var(--text-secondary);font-size:14px;">Automatically flag messages containing these keywords</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <span class="status-badge" id="statusBadge">OFF</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="enableToggle" onchange="toggleSystem()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Keywords</h3>
+        <span id="keywordCount" style="color:var(--text-secondary);">0 keywords</span>
+      </div>
+      <div class="card-body">
+        <div class="add-form">
+          <input type="text" id="newKeyword" placeholder="Enter keyword or phrase..." onkeypress="if(event.key==='Enter')addKeyword()">
+          <button class="btn btn-primary" onclick="addKeyword()">Add Keyword</button>
+        </div>
+        <div id="keywordList" class="keyword-list"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentGuildId = null;
+    let keywords = [];
+
+    async function loadGuilds() {
+      const res = await fetch('/admin/api/discord/guilds');
+      const guilds = await res.json();
+      const select = document.getElementById('guildSelect');
+      guilds.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        select.appendChild(opt);
+      });
+      if (guilds.length > 0) {
+        currentGuildId = guilds[0].id;
+        loadKeywords();
+      }
+    }
+
+    async function loadKeywords() {
+      if (!currentGuildId) return;
+      const res = await fetch(`/admin/api/keywords/${currentGuildId}`);
+      const data = await res.json();
+      document.getElementById('enableToggle').checked = data.enabled;
+      updateStatusBadge(data.enabled);
+      keywords = data.keywords || [];
+      renderKeywords();
+    }
+
+    function renderKeywords() {
+      const container = document.getElementById('keywordList');
+      document.getElementById('keywordCount').textContent = `${keywords.length} keyword${keywords.length !== 1 ? 's' : ''}`;
+      if (keywords.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-secondary);margin:16px 0;">No keywords added yet</p>';
+        return;
+      }
+      container.innerHTML = keywords.map(k => `
+        <div class="keyword-tag">
+          <span>${k.keyword}</span>
+          <button onclick="deleteKeyword(${k.id})" title="Remove">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    function updateStatusBadge(enabled) {
+      const badge = document.getElementById('statusBadge');
+      badge.textContent = enabled ? 'ON' : 'OFF';
+      badge.className = 'status-badge ' + (enabled ? 'status-on' : 'status-off');
+    }
+
+    async function toggleSystem() {
+      const enabled = document.getElementById('enableToggle').checked;
+      await fetch(`/admin/api/keywords/${currentGuildId}/toggle`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      updateStatusBadge(enabled);
+    }
+
+    async function addKeyword() {
+      const input = document.getElementById('newKeyword');
+      const keyword = input.value.trim();
+      if (!keyword) return;
+      const res = await fetch(`/admin/api/keywords/${currentGuildId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
+      if (res.ok) {
+        input.value = '';
+        loadKeywords();
+      }
+    }
+
+    async function deleteKeyword(id) {
+      if (!confirm('Remove this keyword?')) return;
+      await fetch(`/admin/api/keywords/${currentGuildId}/${id}`, { method: 'DELETE' });
+      loadKeywords();
+    }
+
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      currentGuildId = e.target.value;
+      loadKeywords();
+    });
+
+    loadGuilds();
+  </script>
+</body>
+</html>

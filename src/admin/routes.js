@@ -3,6 +3,21 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { ChannelType } from 'discord.js';
 import { loadData, saveData } from '../utils/storage.js';
+import pg from 'pg';
+
+const { Pool } = pg;
+let dbPool = null;
+
+function getDbPool() {
+  if (!dbPool && process.env.DATABASE_URL) {
+    const isInternalRailway = process.env.DATABASE_URL.includes('.railway.internal');
+    dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: isInternalRailway ? false : { rejectUnauthorized: false }
+    });
+  }
+  return dbPool;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +78,18 @@ export function createAdminRoutes(discordClient) {
 
   router.get('/embed-builder', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'embed-builder.html'));
+  });
+
+  router.get('/welcome', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'welcome.html'));
+  });
+
+  router.get('/keywords', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'keywords.html'));
+  });
+
+  router.get('/giveaways', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'giveaways.html'));
   });
 
   router.get('/api/tickets', requireAuth, (req, res) => {
@@ -286,6 +313,159 @@ export function createAdminRoutes(discordClient) {
     templates = templates.filter(t => t.id !== req.params.id);
     saveData('embedTemplates', templates);
     res.json({ success: true });
+  });
+
+  router.get('/api/welcome/:guildId', requireAuth, async (req, res) => {
+    const db = getDbPool();
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    try {
+      const result = await db.query('SELECT * FROM welcome_config WHERE guild_id = $1', [req.params.guildId]);
+      if (result.rows[0]) {
+        const row = result.rows[0];
+        res.json({
+          enabled: row.enabled,
+          channelId: row.channel_id,
+          title: row.title,
+          description: row.description,
+          footer: row.footer,
+          color: row.color,
+          thumbnailMode: row.thumbnail_mode,
+          imageUrl: row.image_url,
+          pingUser: row.ping_user,
+          dmWelcome: row.dm_welcome,
+          autoRoleId: row.auto_role_id
+        });
+      } else {
+        res.json({
+          enabled: false,
+          channelId: null,
+          title: 'Welcome to {server}!',
+          description: 'Hey {user}, welcome to **{server}**!\nYou are our **{memberCount}** member.',
+          footer: 'Member #{memberCount}',
+          color: '#9b59b6',
+          thumbnailMode: 'user',
+          imageUrl: null,
+          pingUser: true,
+          dmWelcome: false,
+          autoRoleId: null
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching welcome config:', err);
+      res.status(500).json({ error: 'Failed to fetch config' });
+    }
+  });
+
+  router.put('/api/welcome/:guildId', requireAuth, express.json(), async (req, res) => {
+    const db = getDbPool();
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    try {
+      const { guildId } = req.params;
+      const config = req.body;
+      await db.query(`
+        INSERT INTO welcome_config (guild_id, enabled, channel_id, title, description, footer, color, thumbnail_mode, image_url, ping_user, dm_welcome, auto_role_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (guild_id) DO UPDATE SET
+          enabled = $2, channel_id = $3, title = $4, description = $5, footer = $6,
+          color = $7, thumbnail_mode = $8, image_url = $9, ping_user = $10, dm_welcome = $11, auto_role_id = $12
+      `, [guildId, config.enabled, config.channelId, config.title, config.description, config.footer, config.color, config.thumbnailMode, config.imageUrl, config.pingUser, config.dmWelcome, config.autoRoleId]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error saving welcome config:', err);
+      res.status(500).json({ error: 'Failed to save config' });
+    }
+  });
+
+  router.get('/api/keywords/:guildId', requireAuth, async (req, res) => {
+    const db = getDbPool();
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    try {
+      const settingsRes = await db.query('SELECT enabled FROM keyword_settings WHERE guild_id = $1', [req.params.guildId]);
+      const keywordsRes = await db.query('SELECT id, keyword FROM keywords WHERE guild_id = $1', [req.params.guildId]);
+      res.json({
+        enabled: settingsRes.rows[0]?.enabled || false,
+        keywords: keywordsRes.rows
+      });
+    } catch (err) {
+      console.error('Error fetching keywords:', err);
+      res.status(500).json({ error: 'Failed to fetch keywords' });
+    }
+  });
+
+  router.put('/api/keywords/:guildId/toggle', requireAuth, express.json(), async (req, res) => {
+    const db = getDbPool();
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    try {
+      await db.query('INSERT INTO keyword_settings (guild_id, enabled) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET enabled = $2', [req.params.guildId, req.body.enabled]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error toggling keywords:', err);
+      res.status(500).json({ error: 'Failed to toggle' });
+    }
+  });
+
+  router.post('/api/keywords/:guildId', requireAuth, express.json(), async (req, res) => {
+    const db = getDbPool();
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    try {
+      await db.query('INSERT INTO keyword_settings (guild_id) VALUES ($1) ON CONFLICT DO NOTHING', [req.params.guildId]);
+      await db.query('INSERT INTO keywords (guild_id, keyword) VALUES ($1, $2)', [req.params.guildId, req.body.keyword.toLowerCase()]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error adding keyword:', err);
+      res.status(500).json({ error: 'Failed to add keyword' });
+    }
+  });
+
+  router.delete('/api/keywords/:guildId/:keywordId', requireAuth, async (req, res) => {
+    const db = getDbPool();
+    if (!db) return res.status(500).json({ error: 'Database not available' });
+    try {
+      await db.query('DELETE FROM keywords WHERE guild_id = $1 AND id = $2', [req.params.guildId, req.params.keywordId]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting keyword:', err);
+      res.status(500).json({ error: 'Failed to delete keyword' });
+    }
+  });
+
+  router.get('/api/giveaways/:guildId', requireAuth, (req, res) => {
+    const giveaways = loadData('giveaways', {});
+    const guildGiveaways = giveaways[req.params.guildId] || {};
+    const list = Object.values(guildGiveaways).map(g => ({
+      ...g,
+      isEnded: g.ended || Date.now() > g.endTime
+    }));
+    res.json(list);
+  });
+
+  router.post('/api/giveaways/:guildId/end/:messageId', requireAuth, async (req, res) => {
+    try {
+      const { guildId, messageId } = req.params;
+      const giveaways = loadData('giveaways', {});
+      const giveaway = giveaways[guildId]?.[messageId];
+      if (!giveaway) {
+        return res.status(404).json({ error: 'Giveaway not found' });
+      }
+      giveaways[guildId][messageId].ended = true;
+      saveData('giveaways', giveaways);
+      res.json({ success: true, message: 'Giveaway marked as ended' });
+    } catch (err) {
+      console.error('Error ending giveaway:', err);
+      res.status(500).json({ error: 'Failed to end giveaway' });
+    }
+  });
+
+  router.delete('/api/giveaways/:guildId/:messageId', requireAuth, (req, res) => {
+    const { guildId, messageId } = req.params;
+    const giveaways = loadData('giveaways', {});
+    if (giveaways[guildId]?.[messageId]) {
+      delete giveaways[guildId][messageId];
+      saveData('giveaways', giveaways);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Giveaway not found' });
+    }
   });
 
   return router;

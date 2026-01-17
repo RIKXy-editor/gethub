@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome Config - Ticket Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 1000px) { .config-grid { grid-template-columns: 1fr; } }
+    .form-section { padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px; }
+    .form-section h4 { margin: 0 0 16px; color: var(--accent-color); font-size: 14px; text-transform: uppercase; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .toggle-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 6px; margin-bottom: 12px; }
+    .toggle-row input[type="checkbox"] { width: 20px; height: 20px; }
+    .toggle-row span { flex: 1; }
+    .preview-card { background: #2f3136; border-radius: 8px; padding: 16px; }
+    .preview-embed { border-left: 4px solid #9b59b6; background: #2f3136; border-radius: 4px; padding: 12px; }
+    .preview-title { font-size: 16px; font-weight: 600; color: #ffffff; margin-bottom: 8px; }
+    .preview-desc { color: #dcddde; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+    .preview-footer { color: #72767d; font-size: 12px; margin-top: 12px; }
+    .preview-ping { color: #5865f2; margin-bottom: 8px; }
+    .placeholders { background: var(--bg-secondary); padding: 12px; border-radius: 6px; font-size: 13px; color: var(--text-secondary); }
+    .placeholders code { background: var(--card-bg); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header"><h1>Ticket Admin</h1></div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/embed-builder"><span class="icon">🎨</span> Embed Builder</a></li>
+      <li><a href="/admin/welcome" class="active"><span class="icon">👋</span> Welcome</a></li>
+      <li><a href="/admin/keywords"><span class="icon">🔑</span> Keywords</a></li>
+      <li><a href="/admin/giveaways"><span class="icon">🎁</span> Giveaways</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/stats"><span class="icon">📈</span> Staff Stats</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Welcome Message Configuration</h2>
+      <p>Configure automatic welcome messages for new members</p>
+    </div>
+
+    <div class="form-section">
+      <label style="margin-right:10px;">Select Server:</label>
+      <select id="guildSelect" class="form-control" style="width:auto;display:inline-block;"></select>
+    </div>
+
+    <div class="config-grid">
+      <div>
+        <div class="form-section">
+          <h4>Settings</h4>
+          <div class="toggle-row">
+            <input type="checkbox" id="enabled">
+            <span><strong>Enable Welcome Messages</strong></span>
+          </div>
+          <div class="form-group">
+            <label>Welcome Channel</label>
+            <select id="channelId"></select>
+          </div>
+          <div class="toggle-row">
+            <input type="checkbox" id="pingUser" checked>
+            <span>Ping user in channel</span>
+          </div>
+          <div class="toggle-row">
+            <input type="checkbox" id="dmWelcome">
+            <span>Also send DM welcome</span>
+          </div>
+          <div class="form-group">
+            <label>Auto-assign Role (optional)</label>
+            <select id="autoRoleId">
+              <option value="">None</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h4>Embed Content</h4>
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="title" placeholder="Welcome to {server}!">
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="description" placeholder="Hey {user}, welcome to **{server}**!"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Footer</label>
+            <input type="text" id="footer" placeholder="Member #{memberCount}">
+          </div>
+          <div class="form-group">
+            <label>Color</label>
+            <input type="color" id="color" value="#9b59b6" style="width:60px;height:36px;">
+          </div>
+          <div class="form-group">
+            <label>Thumbnail</label>
+            <select id="thumbnailMode">
+              <option value="user">User Avatar</option>
+              <option value="server">Server Icon</option>
+              <option value="custom">Custom URL</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+          <div class="form-group" id="imageUrlGroup" style="display:none;">
+            <label>Custom Image URL</label>
+            <input type="url" id="imageUrl" placeholder="https://...">
+          </div>
+        </div>
+
+        <div class="placeholders">
+          <strong>Placeholders:</strong><br>
+          <code>{user}</code> - @mention user<br>
+          <code>{username}</code> - username<br>
+          <code>{server}</code> - server name<br>
+          <code>{memberCount}</code> - member count
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:16px;width:100%;" onclick="saveConfig()">Save Configuration</button>
+      </div>
+
+      <div>
+        <div class="form-section">
+          <h4>Preview</h4>
+          <div class="preview-card">
+            <div class="preview-ping" id="previewPing">@NewUser</div>
+            <div class="preview-embed" id="previewEmbed">
+              <div class="preview-title" id="previewTitle">Welcome to Server!</div>
+              <div class="preview-desc" id="previewDesc">Hey @user, welcome to Server!</div>
+              <div class="preview-footer" id="previewFooter">Member #100</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentGuildId = null;
+    let config = {};
+
+    async function loadGuilds() {
+      const res = await fetch('/admin/api/discord/guilds');
+      const guilds = await res.json();
+      const select = document.getElementById('guildSelect');
+      guilds.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        select.appendChild(opt);
+      });
+      if (guilds.length > 0) {
+        currentGuildId = guilds[0].id;
+        loadConfig();
+        loadChannels();
+        loadRoles();
+      }
+    }
+
+    async function loadChannels() {
+      if (!currentGuildId) return;
+      const res = await fetch(`/admin/api/discord/guilds/${currentGuildId}/channels`);
+      const channels = await res.json();
+      const select = document.getElementById('channelId');
+      select.innerHTML = '<option value="">Select channel...</option>';
+      channels.forEach(ch => {
+        const opt = document.createElement('option');
+        opt.value = ch.id;
+        opt.textContent = `#${ch.name}`;
+        select.appendChild(opt);
+      });
+      if (config.channelId) select.value = config.channelId;
+    }
+
+    async function loadRoles() {
+      const select = document.getElementById('autoRoleId');
+      select.innerHTML = '<option value="">None</option>';
+    }
+
+    async function loadConfig() {
+      if (!currentGuildId) return;
+      const res = await fetch(`/admin/api/welcome/${currentGuildId}`);
+      config = await res.json();
+      document.getElementById('enabled').checked = config.enabled;
+      document.getElementById('pingUser').checked = config.pingUser;
+      document.getElementById('dmWelcome').checked = config.dmWelcome;
+      document.getElementById('title').value = config.title || '';
+      document.getElementById('description').value = config.description || '';
+      document.getElementById('footer').value = config.footer || '';
+      document.getElementById('color').value = config.color || '#9b59b6';
+      document.getElementById('thumbnailMode').value = config.thumbnailMode || 'user';
+      document.getElementById('imageUrl').value = config.imageUrl || '';
+      document.getElementById('channelId').value = config.channelId || '';
+      toggleImageUrl();
+      updatePreview();
+    }
+
+    async function saveConfig() {
+      const data = {
+        enabled: document.getElementById('enabled').checked,
+        channelId: document.getElementById('channelId').value || null,
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        footer: document.getElementById('footer').value,
+        color: document.getElementById('color').value,
+        thumbnailMode: document.getElementById('thumbnailMode').value,
+        imageUrl: document.getElementById('imageUrl').value || null,
+        pingUser: document.getElementById('pingUser').checked,
+        dmWelcome: document.getElementById('dmWelcome').checked,
+        autoRoleId: document.getElementById('autoRoleId').value || null
+      };
+      const res = await fetch(`/admin/api/welcome/${currentGuildId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        alert('Configuration saved!');
+      } else {
+        alert('Failed to save configuration');
+      }
+    }
+
+    function toggleImageUrl() {
+      const mode = document.getElementById('thumbnailMode').value;
+      document.getElementById('imageUrlGroup').style.display = mode === 'custom' ? 'block' : 'none';
+    }
+
+    function updatePreview() {
+      const title = document.getElementById('title').value || 'Welcome to {server}!';
+      const desc = document.getElementById('description').value || 'Hey {user}, welcome!';
+      const footer = document.getElementById('footer').value || '';
+      const color = document.getElementById('color').value;
+      const ping = document.getElementById('pingUser').checked;
+      
+      document.getElementById('previewTitle').textContent = title.replace('{server}', 'Server');
+      document.getElementById('previewDesc').textContent = desc.replace('{user}', '@NewUser').replace('{server}', 'Server').replace('{memberCount}', '100').replace('{username}', 'NewUser');
+      document.getElementById('previewFooter').textContent = footer.replace('{memberCount}', '100');
+      document.getElementById('previewEmbed').style.borderLeftColor = color;
+      document.getElementById('previewPing').style.display = ping ? 'block' : 'none';
+    }
+
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      currentGuildId = e.target.value;
+      loadConfig();
+      loadChannels();
+    });
+
+    document.getElementById('thumbnailMode').addEventListener('change', toggleImageUrl);
+    ['title', 'description', 'footer', 'color', 'pingUser'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updatePreview);
+      document.getElementById(id).addEventListener('change', updatePreview);
+    });
+
+    loadGuilds();
+  </script>
+</body>
+</html>
