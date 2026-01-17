@@ -1,7 +1,40 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { getJobConfig, addCooldown, setJobConfig, getJobBannerText, getStickyClientsConfig, setStickyClientsConfig } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
-import { repostStickyClients } from '../events/messageCreate.js';
+
+async function repostStickyAfterSubmission(client, guildId) {
+  try {
+    const config = getStickyClientsConfig(guildId);
+    if (!config.enabled || !config.channelId) return;
+
+    const channel = await client.channels.fetch(config.channelId);
+    if (!channel) return;
+
+    if (config.stickyMessageId) {
+      try {
+        const oldMsg = await channel.messages.fetch(config.stickyMessageId);
+        await oldMsg.delete();
+      } catch {}
+    }
+
+    const stickyEmbed = new EmbedBuilder()
+      .setTitle(config.embedTitle || 'Looking for Clients?')
+      .setDescription(config.embedDescription || '**Rules:**\n- No spam\n- No fake portfolio\n- No agencies')
+      .setColor(config.embedColor ? parseInt(config.embedColor.replace('#', ''), 16) : 0x9b59b6)
+      .setFooter({ text: 'Share your portfolio to find clients!' });
+
+    const button = new ButtonBuilder()
+      .setCustomId('stickyclients_share')
+      .setLabel(config.buttonLabel || 'Share your work')
+      .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(button);
+    const msg = await channel.send({ embeds: [stickyEmbed], components: [row] });
+    setStickyClientsConfig(guildId, { stickyMessageId: msg.id });
+  } catch (error) {
+    console.error('Error reposting sticky after submission:', error);
+  }
+}
 
 export async function handleJobModal(interaction) {
   // Handle sticky clients form submission
@@ -16,8 +49,7 @@ export async function handleJobModal(interaction) {
       const portfolio = interaction.fields.getTextInputValue('sc_portfolio');
       const about = interaction.fields.getTextInputValue('sc_about') || '';
 
-      // Parse about field for social media and profile pic
-      let socialMedia = '';
+      // Parse about field for profile pic URL
       let profilePic = '';
       let aboutText = about;
       
@@ -39,22 +71,18 @@ export async function handleJobModal(interaction) {
         .setFooter({ text: 'Posted via Client Form' })
         .setTimestamp();
 
-      // Add portfolio as clickable link
       embed.addFields({ name: 'Portfolio', value: `[Click Here](${portfolio})`, inline: false });
 
-      // Add about/social if provided
       if (aboutText) {
         embed.addFields({ name: 'About', value: aboutText, inline: false });
       }
 
-      // Add thumbnail if profile pic URL found
       if (profilePic) {
         embed.setThumbnail(profilePic);
       } else {
         embed.setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }));
       }
 
-      // Post to channel
       const channel = await interaction.client.channels.fetch(config.channelId);
       if (!channel) {
         await interaction.reply({ content: 'Error: Channel not found.', ephemeral: true });
@@ -68,8 +96,7 @@ export async function handleJobModal(interaction) {
         ephemeral: true
       });
 
-      // Repost sticky to keep it at bottom
-      setTimeout(() => repostStickyClients(interaction.client, guildId), 2000);
+      setTimeout(() => repostStickyAfterSubmission(interaction.client, guildId), 2000);
 
     } catch (error) {
       console.error('Error handling sticky clients modal:', error);
