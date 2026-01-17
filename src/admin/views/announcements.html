@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Announcements - Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .announce-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 900px) { .announce-grid { grid-template-columns: 1fr; } }
+    .form-section { padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); }
+    .form-group textarea { min-height: 150px; resize: vertical; }
+    .preview-card { background: #2f3136; border-radius: 8px; padding: 16px; min-height: 200px; }
+    .preview-embed { border-left: 4px solid #9b59b6; background: #2f3136; border-radius: 4px; padding: 12px; }
+    .preview-title { font-size: 16px; font-weight: 600; color: #ffffff; margin-bottom: 8px; }
+    .preview-desc { color: #dcddde; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+    .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .toggle-row input[type="checkbox"] { width: 18px; height: 18px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header"><h1>Ticket Admin</h1></div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/embed-builder"><span class="icon">🎨</span> Embed Builder</a></li>
+      <li><a href="/admin/welcome"><span class="icon">👋</span> Welcome</a></li>
+      <li><a href="/admin/keywords"><span class="icon">🔑</span> Keywords</a></li>
+      <li><a href="/admin/giveaways"><span class="icon">🎁</span> Giveaways</a></li>
+      <li><a href="/admin/announcements" class="active"><span class="icon">📢</span> Announcements</a></li>
+      <li><a href="/admin/scheduled"><span class="icon">⏰</span> Scheduled</a></li>
+      <li><a href="/admin/sticky"><span class="icon">📌</span> Sticky</a></li>
+      <li><a href="/admin/dm-sender"><span class="icon">✉️</span> DM Sender</a></li>
+      <li><a href="/admin/job-config"><span class="icon">💼</span> Job Config</a></li>
+      <li><a href="/admin/bot-settings"><span class="icon">🤖</span> Bot Settings</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Send Announcement</h2>
+      <p>Broadcast messages to your server channels</p>
+    </div>
+
+    <div class="form-section" style="padding:16px;margin-bottom:20px;">
+      <label style="margin-right:10px;">Select Server:</label>
+      <select id="guildSelect" style="width:auto;display:inline-block;padding:8px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></select>
+    </div>
+
+    <div class="announce-grid">
+      <div class="form-section">
+        <h3 style="margin:0 0 16px;color:var(--accent-color);">Announcement</h3>
+        <div class="form-group">
+          <label>Channel</label>
+          <select id="channelId"></select>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="useEmbed" checked>
+          <span>Send as embed</span>
+        </div>
+        <div id="embedOptions">
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="title" placeholder="Announcement title...">
+          </div>
+          <div class="form-group">
+            <label>Color</label>
+            <input type="color" id="color" value="#9b59b6" style="width:60px;height:36px;">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea id="message" placeholder="Your announcement message..."></textarea>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="mentionEveryone">
+          <span>Mention @everyone</span>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="sendAnnouncement()">Send Announcement</button>
+      </div>
+
+      <div class="form-section">
+        <h3 style="margin:0 0 16px;color:var(--accent-color);">Preview</h3>
+        <div class="preview-card">
+          <div id="previewPing" style="color:#5865f2;margin-bottom:8px;display:none;">@everyone</div>
+          <div class="preview-embed" id="previewEmbed">
+            <div class="preview-title" id="previewTitle">Announcement</div>
+            <div class="preview-desc" id="previewDesc">Your message will appear here...</div>
+          </div>
+          <div id="previewPlain" style="color:#dcddde;display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentGuildId = null;
+
+    async function loadGuilds() {
+      const res = await fetch('/admin/api/discord/guilds');
+      const guilds = await res.json();
+      const select = document.getElementById('guildSelect');
+      guilds.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        select.appendChild(opt);
+      });
+      if (guilds.length > 0) {
+        currentGuildId = guilds[0].id;
+        loadChannels();
+      }
+    }
+
+    async function loadChannels() {
+      const res = await fetch(`/admin/api/discord/guilds/${currentGuildId}/channels`);
+      const channels = await res.json();
+      document.getElementById('channelId').innerHTML = channels.map(ch => `<option value="${ch.id}">#${ch.name}</option>`).join('');
+    }
+
+    function updatePreview() {
+      const useEmbed = document.getElementById('useEmbed').checked;
+      const title = document.getElementById('title').value || 'Announcement';
+      const message = document.getElementById('message').value || 'Your message will appear here...';
+      const color = document.getElementById('color').value;
+      const mention = document.getElementById('mentionEveryone').checked;
+
+      document.getElementById('previewPing').style.display = mention ? 'block' : 'none';
+      document.getElementById('previewEmbed').style.display = useEmbed ? 'block' : 'none';
+      document.getElementById('previewPlain').style.display = useEmbed ? 'none' : 'block';
+      document.getElementById('embedOptions').style.display = useEmbed ? 'block' : 'none';
+
+      if (useEmbed) {
+        document.getElementById('previewTitle').textContent = title;
+        document.getElementById('previewDesc').textContent = message;
+        document.getElementById('previewEmbed').style.borderLeftColor = color;
+      } else {
+        document.getElementById('previewPlain').textContent = message;
+      }
+    }
+
+    async function sendAnnouncement() {
+      const channelId = document.getElementById('channelId').value;
+      const message = document.getElementById('message').value.trim();
+      if (!message) { alert('Please enter a message'); return; }
+
+      const data = {
+        channelId,
+        message,
+        useEmbed: document.getElementById('useEmbed').checked,
+        title: document.getElementById('title').value,
+        color: document.getElementById('color').value,
+        mentionEveryone: document.getElementById('mentionEveryone').checked
+      };
+
+      try {
+        const res = await fetch('/admin/api/announcements/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert('Announcement sent!');
+          document.getElementById('message').value = '';
+          document.getElementById('title').value = '';
+          updatePreview();
+        } else {
+          alert(result.error || 'Failed to send');
+        }
+      } catch (err) {
+        alert('Error sending announcement');
+      }
+    }
+
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      currentGuildId = e.target.value;
+      loadChannels();
+    });
+
+    ['useEmbed', 'title', 'message', 'color', 'mentionEveryone'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updatePreview);
+      document.getElementById(id).addEventListener('change', updatePreview);
+    });
+
+    loadGuilds();
+    updatePreview();
+  </script>
+</body>
+</html>

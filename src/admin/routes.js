@@ -92,6 +92,34 @@ export function createAdminRoutes(discordClient) {
     res.sendFile(path.join(__dirname, 'views', 'giveaways.html'));
   });
 
+  router.get('/giveaways/create', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'giveaway-create.html'));
+  });
+
+  router.get('/announcements', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'announcements.html'));
+  });
+
+  router.get('/scheduled', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'scheduled.html'));
+  });
+
+  router.get('/sticky', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'sticky.html'));
+  });
+
+  router.get('/dm-sender', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'dm-sender.html'));
+  });
+
+  router.get('/job-config', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'job-config.html'));
+  });
+
+  router.get('/bot-settings', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'bot-settings.html'));
+  });
+
   router.get('/api/tickets', requireAuth, (req, res) => {
     const tickets = loadData('tickets', {});
     const allTickets = [];
@@ -581,6 +609,221 @@ export function createAdminRoutes(discordClient) {
       res.json({ success: true });
     } else {
       res.status(404).json({ error: 'Giveaway not found' });
+    }
+  });
+
+  router.post('/api/giveaways/:guildId/create', requireAuth, express.json(), async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const { channelId, prize, duration, winnerCount, requiredRoleId, multiplierRoles } = req.body;
+      if (!channelId || !prize || !duration) {
+        return res.status(400).json({ error: 'Channel, prize, and duration are required' });
+      }
+      const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+      const { addGiveaway } = await import('../utils/storage.js');
+      const channel = await discordClient.channels.fetch(channelId);
+      if (!channel) return res.status(404).json({ error: 'Channel not found' });
+      const endTime = Date.now() + duration;
+      const embed = new EmbedBuilder()
+        .setTitle('🎉 GIVEAWAY 🎉')
+        .setDescription(`**${prize}**`)
+        .setColor(0x9b59b6)
+        .addFields({
+          name: '🎯 Giveaway Details',
+          value: `**Ends:** <t:${Math.floor(endTime / 1000)}:R>\n**Winner(s):** ${winnerCount || 1}\n**Hosted by:** Bot Admin`
+        })
+        .setFooter({ text: 'Click the button below to enter!' });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('giveaway_enter').setLabel('Enter Giveaway').setStyle(ButtonStyle.Primary).setEmoji('🎉')
+      );
+      const message = await channel.send({ embeds: [embed], components: [row] });
+      const giveawayData = {
+        messageId: message.id,
+        channelId,
+        prize,
+        endTime,
+        winnerCount: winnerCount || 1,
+        requiredRoleId: requiredRoleId || null,
+        multiplierRoles: multiplierRoles || {},
+        hostId: 'admin',
+        hostTag: 'Admin Dashboard',
+        ended: false
+      };
+      addGiveaway(guildId, giveawayData);
+      res.json({ success: true, messageId: message.id });
+    } catch (err) {
+      console.error('Error creating giveaway:', err);
+      res.status(500).json({ error: 'Failed to create giveaway' });
+    }
+  });
+
+  router.post('/api/announcements/send', requireAuth, express.json(), async (req, res) => {
+    try {
+      const { channelId, message, useEmbed, title, color, mentionEveryone } = req.body;
+      if (!channelId || !message) return res.status(400).json({ error: 'Channel and message required' });
+      const channel = await discordClient.channels.fetch(channelId);
+      if (!channel) return res.status(404).json({ error: 'Channel not found' });
+      const content = mentionEveryone ? '@everyone' : undefined;
+      if (useEmbed) {
+        const { EmbedBuilder } = await import('discord.js');
+        const embed = new EmbedBuilder()
+          .setTitle(title || 'Announcement')
+          .setDescription(message)
+          .setColor(color ? parseInt(color.replace('#', ''), 16) : 0x9b59b6)
+          .setTimestamp();
+        await channel.send({ content, embeds: [embed] });
+      } else {
+        await channel.send({ content: mentionEveryone ? `@everyone\n${message}` : message });
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error sending announcement:', err);
+      res.status(500).json({ error: 'Failed to send announcement' });
+    }
+  });
+
+  router.get('/api/scheduled/:guildId', requireAuth, (req, res) => {
+    const schedules = loadData('scheduledMessages', {});
+    const guildSchedules = schedules[req.params.guildId] || [];
+    res.json(guildSchedules);
+  });
+
+  router.post('/api/scheduled/:guildId', requireAuth, express.json(), (req, res) => {
+    const { guildId } = req.params;
+    const { channelId, message, time, frequency, dayOfWeek } = req.body;
+    if (!channelId || !message || !time) return res.status(400).json({ error: 'Channel, message, and time required' });
+    const schedules = loadData('scheduledMessages', {});
+    if (!schedules[guildId]) schedules[guildId] = [];
+    const newSchedule = {
+      id: Date.now().toString(),
+      channelId,
+      message,
+      time,
+      frequency: frequency || 'once',
+      dayOfWeek: dayOfWeek || null,
+      createdAt: Date.now()
+    };
+    schedules[guildId].push(newSchedule);
+    saveData('scheduledMessages', schedules);
+    res.json({ success: true, schedule: newSchedule });
+  });
+
+  router.delete('/api/scheduled/:guildId/:scheduleId', requireAuth, (req, res) => {
+    const { guildId, scheduleId } = req.params;
+    const schedules = loadData('scheduledMessages', {});
+    if (schedules[guildId]) {
+      schedules[guildId] = schedules[guildId].filter(s => s.id !== scheduleId);
+      saveData('scheduledMessages', schedules);
+    }
+    res.json({ success: true });
+  });
+
+  router.get('/api/sticky/:guildId', requireAuth, (req, res) => {
+    const stickies = loadData('stickyMessages', {});
+    const guildStickies = stickies[req.params.guildId] || {};
+    res.json(Object.entries(guildStickies).map(([channelId, data]) => ({ channelId, ...data })));
+  });
+
+  router.post('/api/sticky/:guildId', requireAuth, express.json(), async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const { channelId, content } = req.body;
+      if (!channelId || !content) return res.status(400).json({ error: 'Channel and content required' });
+      const channel = await discordClient.channels.fetch(channelId);
+      if (!channel) return res.status(404).json({ error: 'Channel not found' });
+      const stickies = loadData('stickyMessages', {});
+      if (!stickies[guildId]) stickies[guildId] = {};
+      if (stickies[guildId][channelId]?.messageId) {
+        try {
+          const oldMsg = await channel.messages.fetch(stickies[guildId][channelId].messageId);
+          await oldMsg.delete();
+        } catch {}
+      }
+      const msg = await channel.send({ content: `📌 **Sticky Message**\n\n${content}` });
+      stickies[guildId][channelId] = { content, messageId: msg.id, channelName: channel.name };
+      saveData('stickyMessages', stickies);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error creating sticky:', err);
+      res.status(500).json({ error: 'Failed to create sticky' });
+    }
+  });
+
+  router.delete('/api/sticky/:guildId/:channelId', requireAuth, async (req, res) => {
+    try {
+      const { guildId, channelId } = req.params;
+      const stickies = loadData('stickyMessages', {});
+      if (stickies[guildId]?.[channelId]) {
+        try {
+          const channel = await discordClient.channels.fetch(channelId);
+          const msg = await channel.messages.fetch(stickies[guildId][channelId].messageId);
+          await msg.delete();
+        } catch {}
+        delete stickies[guildId][channelId];
+        saveData('stickyMessages', stickies);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to delete sticky' });
+    }
+  });
+
+  router.post('/api/dm/send', requireAuth, express.json(), async (req, res) => {
+    try {
+      const { guildId, roleId, message, useEmbed, title, color } = req.body;
+      if (!guildId || !roleId || !message) return res.status(400).json({ error: 'Guild, role, and message required' });
+      const guild = discordClient.guilds.cache.get(guildId);
+      if (!guild) return res.status(404).json({ error: 'Guild not found' });
+      const members = await guild.members.fetch();
+      const targetMembers = members.filter(m => m.roles.cache.has(roleId));
+      let sent = 0, failed = 0;
+      for (const [, member] of targetMembers) {
+        try {
+          if (useEmbed) {
+            const { EmbedBuilder } = await import('discord.js');
+            const embed = new EmbedBuilder().setTitle(title || 'Message').setDescription(message).setColor(color ? parseInt(color.replace('#', ''), 16) : 0x9b59b6);
+            await member.send({ embeds: [embed] });
+          } else {
+            await member.send(message);
+          }
+          sent++;
+        } catch { failed++; }
+      }
+      res.json({ success: true, sent, failed, total: targetMembers.size });
+    } catch (err) {
+      console.error('Error sending DMs:', err);
+      res.status(500).json({ error: 'Failed to send DMs' });
+    }
+  });
+
+  router.get('/api/job-config/:guildId', requireAuth, (req, res) => {
+    const configs = loadData('jobConfig', {});
+    res.json(configs[req.params.guildId] || { enabled: false, channelId: null, roleId: null, cooldown: 86400000, bannerText: '' });
+  });
+
+  router.put('/api/job-config/:guildId', requireAuth, express.json(), (req, res) => {
+    const { guildId } = req.params;
+    const configs = loadData('jobConfig', {});
+    configs[guildId] = { ...configs[guildId], ...req.body };
+    saveData('jobConfig', configs);
+    res.json({ success: true });
+  });
+
+  router.get('/api/bot-settings', requireAuth, (req, res) => {
+    const settings = loadData('botSettings', { statusMessages: [], activityType: 'Playing' });
+    res.json(settings);
+  });
+
+  router.put('/api/bot-settings', requireAuth, express.json(), async (req, res) => {
+    try {
+      const { statusMessages, activityType } = req.body;
+      const settings = loadData('botSettings', {});
+      if (statusMessages) settings.statusMessages = statusMessages;
+      if (activityType) settings.activityType = activityType;
+      saveData('botSettings', settings);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to save settings' });
     }
   });
 

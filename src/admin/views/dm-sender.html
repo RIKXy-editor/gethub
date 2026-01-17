@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DM Sender - Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .form-section { padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; max-width: 600px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); }
+    .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .toggle-row input[type="checkbox"] { width: 18px; height: 18px; }
+    .warning { background: rgba(255, 166, 0, 0.1); border: 1px solid orange; border-radius: 6px; padding: 12px; margin-bottom: 16px; color: #ffa600; font-size: 13px; }
+    .result { padding: 16px; background: var(--bg-secondary); border-radius: 6px; margin-top: 16px; display: none; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header"><h1>Ticket Admin</h1></div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/embed-builder"><span class="icon">🎨</span> Embed Builder</a></li>
+      <li><a href="/admin/welcome"><span class="icon">👋</span> Welcome</a></li>
+      <li><a href="/admin/keywords"><span class="icon">🔑</span> Keywords</a></li>
+      <li><a href="/admin/giveaways"><span class="icon">🎁</span> Giveaways</a></li>
+      <li><a href="/admin/announcements"><span class="icon">📢</span> Announcements</a></li>
+      <li><a href="/admin/scheduled"><span class="icon">⏰</span> Scheduled</a></li>
+      <li><a href="/admin/sticky"><span class="icon">📌</span> Sticky</a></li>
+      <li><a href="/admin/dm-sender" class="active"><span class="icon">✉️</span> DM Sender</a></li>
+      <li><a href="/admin/job-config"><span class="icon">💼</span> Job Config</a></li>
+      <li><a href="/admin/bot-settings"><span class="icon">🤖</span> Bot Settings</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>DM Sender</h2>
+      <p>Send direct messages to members with a specific role</p>
+    </div>
+
+    <div class="form-section">
+      <div class="warning">Be careful - mass DMing can be slow and may fail for users with DMs disabled.</div>
+      
+      <div class="form-group">
+        <label>Server</label>
+        <select id="guildSelect"></select>
+      </div>
+      <div class="form-group">
+        <label>Target Role</label>
+        <select id="roleId"></select>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="useEmbed">
+        <span>Send as embed</span>
+      </div>
+      <div id="embedOptions" style="display:none;">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="title" placeholder="Message title...">
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <input type="color" id="color" value="#9b59b6" style="width:60px;height:36px;">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="message" placeholder="Your message..." style="min-height:120px;"></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="sendDMs()" id="sendBtn">Send DMs</button>
+      
+      <div class="result" id="result"></div>
+    </div>
+  </main>
+
+  <script>
+    let currentGuildId = null;
+
+    async function loadGuilds() {
+      const res = await fetch('/admin/api/discord/guilds');
+      const guilds = await res.json();
+      const select = document.getElementById('guildSelect');
+      guilds.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name;
+        select.appendChild(opt);
+      });
+      if (guilds.length > 0) {
+        currentGuildId = guilds[0].id;
+        loadRoles();
+      }
+    }
+
+    async function loadRoles() {
+      const res = await fetch(`/admin/api/discord/guilds/${currentGuildId}/roles`);
+      const roles = await res.json();
+      document.getElementById('roleId').innerHTML = roles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    }
+
+    async function sendDMs() {
+      const roleId = document.getElementById('roleId').value;
+      const message = document.getElementById('message').value.trim();
+      if (!message) { alert('Please enter a message'); return; }
+
+      document.getElementById('sendBtn').disabled = true;
+      document.getElementById('sendBtn').textContent = 'Sending...';
+
+      try {
+        const res = await fetch('/admin/api/dm/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guildId: currentGuildId,
+            roleId,
+            message,
+            useEmbed: document.getElementById('useEmbed').checked,
+            title: document.getElementById('title').value,
+            color: document.getElementById('color').value
+          })
+        });
+        const result = await res.json();
+        const resultDiv = document.getElementById('result');
+        resultDiv.style.display = 'block';
+        if (res.ok) {
+          resultDiv.innerHTML = `<strong>Done!</strong><br>Sent: ${result.sent} | Failed: ${result.failed} | Total: ${result.total}`;
+          resultDiv.style.borderLeft = '3px solid #43b581';
+        } else {
+          resultDiv.innerHTML = `<strong>Error:</strong> ${result.error}`;
+          resultDiv.style.borderLeft = '3px solid #f04747';
+        }
+      } catch (err) {
+        alert('Error sending DMs');
+      }
+      document.getElementById('sendBtn').disabled = false;
+      document.getElementById('sendBtn').textContent = 'Send DMs';
+    }
+
+    document.getElementById('useEmbed').addEventListener('change', (e) => {
+      document.getElementById('embedOptions').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      currentGuildId = e.target.value;
+      loadRoles();
+    });
+
+    loadGuilds();
+  </script>
+</body>
+</html>

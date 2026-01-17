@@ -38,6 +38,12 @@
       <li><a href="/admin/welcome"><span class="icon">👋</span> Welcome</a></li>
       <li><a href="/admin/keywords"><span class="icon">🔑</span> Keywords</a></li>
       <li><a href="/admin/giveaways" class="active"><span class="icon">🎁</span> Giveaways</a></li>
+      <li><a href="/admin/announcements"><span class="icon">📢</span> Announcements</a></li>
+      <li><a href="/admin/scheduled"><span class="icon">⏰</span> Scheduled</a></li>
+      <li><a href="/admin/sticky"><span class="icon">📌</span> Sticky</a></li>
+      <li><a href="/admin/dm-sender"><span class="icon">✉️</span> DM Sender</a></li>
+      <li><a href="/admin/job-config"><span class="icon">💼</span> Job Config</a></li>
+      <li><a href="/admin/bot-settings"><span class="icon">🤖</span> Bot Settings</a></li>
       <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
       <li><a href="/admin/stats"><span class="icon">📈</span> Staff Stats</a></li>
       <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
@@ -45,9 +51,12 @@
   </aside>
 
   <main class="main-content">
-    <div class="page-header">
-      <h2>Giveaway Management</h2>
-      <p>View and manage all giveaways in your server</p>
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <h2>Giveaway Management</h2>
+        <p>View and manage all giveaways in your server</p>
+      </div>
+      <a href="/admin/giveaways/create" class="btn btn-primary">+ Create Giveaway</a>
     </div>
 
     <div class="form-section" style="padding:16px;background:var(--card-bg);border-radius:8px;border:1px solid var(--border-color);margin-bottom:20px;">
