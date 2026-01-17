@@ -57,10 +57,13 @@ export async function execute(ban, client) {
       .replace('{reason}', reason)
       .replace('{caseId}', caseId);
     
+    const colorHex = (template.color || '#e74c3c').replace('#', '');
+    const colorInt = parseInt(colorHex, 16);
+    
     const embed = new EmbedBuilder()
       .setTitle(embedTitle)
       .setDescription(embedDescription)
-      .setColor(template.color || '#e74c3c')
+      .setColor(colorInt)
       .setThumbnail(guild.iconURL({ dynamic: true }))
       .setTimestamp()
       .setFooter({ text: `Case ID: ${caseId}` });

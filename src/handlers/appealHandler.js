@@ -164,6 +164,22 @@ export async function handleAppealModal(interaction) {
     const config = getAppealsConfig(guildId);
     const banRecord = getBanRecord(guildId, interaction.user.id);
     
+    if (!banRecord) {
+      await interaction.reply({
+        content: 'No ban record found for your account. This appeal link may be invalid or expired.',
+        ephemeral: true
+      });
+      return true;
+    }
+    
+    if (banRecord.caseId !== caseId) {
+      await interaction.reply({
+        content: 'This appeal link is invalid. The case ID does not match your ban record.',
+        ephemeral: true
+      });
+      return true;
+    }
+    
     const title = interaction.fields.getTextInputValue('appeal_title');
     const whatHappened = interaction.fields.getTextInputValue('appeal_what');
     const whyUnban = interaction.fields.getTextInputValue('appeal_why');
@@ -209,7 +225,7 @@ export async function handleAppealModal(interaction) {
           
           const embed = new EmbedBuilder()
             .setTitle(`📋 New Ban Appeal: ${title}`)
-            .setColor('#f39c12')
+            .setColor(0xf39c12)
             .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
             .addFields(
               { name: '👤 User', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
@@ -296,8 +312,18 @@ async function handleApproveAppeal(interaction) {
     }
     
     const config = getAppealsConfig(appeal.guildId);
-    if (config.staffRoleId && !interaction.member.roles.cache.has(config.staffRoleId)) {
-      await interaction.reply({ content: 'You do not have permission to review appeals.', ephemeral: true });
+    
+    if (!interaction.member) {
+      await interaction.reply({ content: 'This action can only be performed in a server.', ephemeral: true });
+      return;
+    }
+    
+    const hasPermission = interaction.member.permissions.has('ManageGuild') || 
+                          interaction.member.permissions.has('BanMembers') ||
+                          (config.staffRoleId && interaction.member.roles.cache.has(config.staffRoleId));
+    
+    if (!hasPermission) {
+      await interaction.reply({ content: 'You do not have permission to review appeals. You need Manage Server, Ban Members permission, or the designated staff role.', ephemeral: true });
       return;
     }
     
@@ -316,7 +342,7 @@ async function handleApproveAppeal(interaction) {
     addAppealHistory(appealId, 'approved', `Appeal approved by ${interaction.user.tag}`, interaction.user.id);
     
     const embed = EmbedBuilder.from(interaction.message.embeds[0])
-      .setColor('#2ecc71')
+      .setColor(0x2ecc71)
       .spliceFields(5, 1, { name: '📊 Status', value: '✅ APPROVED', inline: true })
       .addFields({ name: '👨‍⚖️ Reviewed By', value: `<@${interaction.user.id}>`, inline: true });
     
@@ -327,7 +353,7 @@ async function handleApproveAppeal(interaction) {
       const dmEmbed = new EmbedBuilder()
         .setTitle('✅ Ban Appeal Approved!')
         .setDescription(`Great news! Your ban appeal for **${guild.name}** has been approved.\n\nYou have been unbanned and can rejoin the server.`)
-        .setColor('#2ecc71')
+        .setColor(0x2ecc71)
         .setTimestamp();
       
       await user.send({ embeds: [dmEmbed] });
@@ -355,6 +381,28 @@ async function handleApproveAppeal(interaction) {
 async function showDenyReasonModal(interaction) {
   try {
     const appealId = interaction.customId.split(':')[2];
+    const appeal = getAppeal(appealId);
+    
+    if (!appeal) {
+      await interaction.reply({ content: 'Appeal not found.', ephemeral: true });
+      return;
+    }
+    
+    const config = getAppealsConfig(appeal.guildId);
+    
+    if (!interaction.member) {
+      await interaction.reply({ content: 'This action can only be performed in a server.', ephemeral: true });
+      return;
+    }
+    
+    const hasPermission = interaction.member.permissions.has('ManageGuild') || 
+                          interaction.member.permissions.has('BanMembers') ||
+                          (config.staffRoleId && interaction.member.roles.cache.has(config.staffRoleId));
+    
+    if (!hasPermission) {
+      await interaction.reply({ content: 'You do not have permission to review appeals.', ephemeral: true });
+      return;
+    }
     
     const modal = new ModalBuilder()
       .setCustomId(`appeal:denymodal:${appealId}`)
@@ -398,7 +446,7 @@ export async function handleDenyModal(interaction) {
       try {
         const staffMessage = await staffChannel.messages.fetch(appeal.staffMessageId);
         const embed = EmbedBuilder.from(staffMessage.embeds[0])
-          .setColor('#e74c3c')
+          .setColor(0xe74c3c)
           .spliceFields(5, 1, { name: '📊 Status', value: '❌ DENIED', inline: true })
           .addFields(
             { name: '👨‍⚖️ Reviewed By', value: `<@${interaction.user.id}>`, inline: true },
@@ -417,7 +465,7 @@ export async function handleDenyModal(interaction) {
         .setTitle('❌ Ban Appeal Denied')
         .setDescription(`Unfortunately, your ban appeal for **${guild.name}** has been denied.`)
         .addFields({ name: 'Reason', value: reason })
-        .setColor('#e74c3c')
+        .setColor(0xe74c3c)
         .setTimestamp();
       
       await user.send({ embeds: [dmEmbed] });
@@ -448,6 +496,28 @@ export async function handleDenyModal(interaction) {
 async function handleAskInfoAppeal(interaction) {
   try {
     const appealId = interaction.customId.split(':')[2];
+    const appeal = getAppeal(appealId);
+    
+    if (!appeal) {
+      await interaction.reply({ content: 'Appeal not found.', ephemeral: true });
+      return;
+    }
+    
+    const config = getAppealsConfig(appeal.guildId);
+    
+    if (!interaction.member) {
+      await interaction.reply({ content: 'This action can only be performed in a server.', ephemeral: true });
+      return;
+    }
+    
+    const hasPermission = interaction.member.permissions.has('ManageGuild') || 
+                          interaction.member.permissions.has('BanMembers') ||
+                          (config.staffRoleId && interaction.member.roles.cache.has(config.staffRoleId));
+    
+    if (!hasPermission) {
+      await interaction.reply({ content: 'You do not have permission to review appeals.', ephemeral: true });
+      return;
+    }
     
     const modal = new ModalBuilder()
       .setCustomId(`appeal:askinfomodal:${appealId}`)
@@ -496,7 +566,7 @@ export async function handleAskInfoModal(interaction) {
           { name: 'Staff Message', value: message },
           { name: 'Appeal ID', value: appealId }
         )
-        .setColor('#3498db')
+        .setColor(0x3498db)
         .setFooter({ text: 'Please reply to this DM with the requested information.' })
         .setTimestamp();
       
@@ -525,6 +595,21 @@ async function handleViewHistory(interaction) {
       return;
     }
     
+    if (!interaction.member) {
+      await interaction.reply({ content: 'This action can only be performed in a server.', ephemeral: true });
+      return;
+    }
+    
+    const config = getAppealsConfig(appeal.guildId);
+    const hasPermission = interaction.member.permissions.has('ManageGuild') || 
+                          interaction.member.permissions.has('BanMembers') ||
+                          (config.staffRoleId && interaction.member.roles.cache.has(config.staffRoleId));
+    
+    if (!hasPermission) {
+      await interaction.reply({ content: 'You do not have permission to view appeal history.', ephemeral: true });
+      return;
+    }
+    
     const history = appeal.history || [];
     
     let historyText = history.map(h => {
@@ -537,7 +622,7 @@ async function handleViewHistory(interaction) {
     const embed = new EmbedBuilder()
       .setTitle(`📜 Appeal History: ${appealId}`)
       .setDescription(historyText.substring(0, 4000))
-      .setColor('#9b59b6')
+      .setColor(0x9b59b6)
       .setTimestamp();
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
