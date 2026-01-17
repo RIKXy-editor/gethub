@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Ticket Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>🎫 Ticket Admin</h1>
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/settings" class="active"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/stats"><span class="icon">📈</span> Staff Stats</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Settings</h2>
+      <p>Configure subscription plans and payment methods</p>
+    </div>
+
+    <div class="guild-selector">
+      <label style="margin-right:10px;">Select Server:</label>
+      <select id="guildSelect" class="form-control" style="width:auto;display:inline-block;"></select>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+      <div class="card">
+        <div class="card-header">
+          <h3>📦 Subscription Plans</h3>
+          <button class="btn btn-primary btn-sm" onclick="showAddPlanModal()">+ Add Plan</button>
+        </div>
+        <div class="card-body" id="plansList">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>💳 Payment Methods</h3>
+        </div>
+        <div class="card-body" id="paymentsList">
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="planModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="planModalTitle">Add Plan</h3>
+        <button class="modal-close" onclick="closePlanModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Plan Name</label>
+          <input type="text" class="form-control" id="planName" placeholder="1 Month">
+        </div>
+        <div class="form-group">
+          <label>Price INR</label>
+          <input type="text" class="form-control" id="planPriceINR" placeholder="₹595">
+        </div>
+        <div class="form-group">
+          <label>Price USD</label>
+          <input type="text" class="form-control" id="planPriceUSD" placeholder="$8">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePlanModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePlan()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="paymentModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Payment Method</h3>
+        <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="paymentKey">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" class="form-control" id="paymentTitle" placeholder="Payment Title">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea class="form-control" id="paymentDescription" placeholder="Payment instructions..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Embed Color (hex)</label>
+          <input type="text" class="form-control" id="paymentColor" placeholder="#dc2626">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePayment()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let currentGuildId = null;
+    let plans = [];
+    let payments = {};
+    let editingPlanIndex = -1;
+    
+    const defaultPayments = {
+      upi: { name: 'UPI', embed: { title: '💳 UPI Payment', description: 'Send payment to:', color: '#5865F2' } },
+      card: { name: 'Card', embed: { title: '💳 Card Payment', description: 'Pay via card:', color: '#5865F2' } },
+      paypal: { name: 'PayPal', embed: { title: '💳 PayPal Payment', description: 'Send payment to:', color: '#0070ba' } },
+      crypto: { name: 'Crypto', embed: { title: '💳 Crypto Payment', description: 'Send to wallet:', color: '#f7931a' } }
+    };
+    
+    async function loadGuilds() {
+      try {
+        const res = await fetch('/admin/api/guilds');
+        const guilds = await res.json();
+        const select = document.getElementById('guildSelect');
+        
+        if (guilds.length === 0) {
+          select.innerHTML = '<option value="">No servers configured</option>';
+          return;
+        }
+        
+        select.innerHTML = guilds.map(g => `<option value="${g.id}">${g.id}</option>`).join('');
+        currentGuildId = guilds[0].id;
+        loadData();
+      } catch (err) {
+        console.error('Error loading guilds:', err);
+      }
+    }
+    
+    async function loadData() {
+      if (!currentGuildId) return;
+      
+      try {
+        const plansRes = await fetch(`/admin/api/plans/${currentGuildId}`);
+        plans = await plansRes.json();
+        renderPlans();
+        
+        const paymentsRes = await fetch(`/admin/api/payments/${currentGuildId}`);
+        payments = await paymentsRes.json();
+        if (Object.keys(payments).length === 0) {
+          payments = defaultPayments;
+        }
+        renderPayments();
+      } catch (err) {
+        console.error('Error loading data:', err);
+      }
+    }
+    
+    function renderPlans() {
+      const container = document.getElementById('plansList');
+      if (plans.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📦</div><h3>No plans yet</h3><p>Add your first subscription plan</p></div>';
+        return;
+      }
+      
+      container.innerHTML = plans.map((p, i) => `
+        <div class="plan-item">
+          <div>
+            <strong>${p.name}</strong>
+            <div style="color:var(--text-secondary);font-size:0.9rem;">${p.priceINR} / ${p.priceUSD}</div>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-secondary btn-sm" onclick="editPlan(${i})">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deletePlan(${i})">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function renderPayments() {
+      const container = document.getElementById('paymentsList');
+      container.innerHTML = Object.entries(payments).map(([key, p]) => `
+        <div class="payment-item">
+          <div>
+            <strong>${p.name}</strong>
+            <div style="color:var(--text-secondary);font-size:0.9rem;">${p.embed?.title || 'No title'}</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="editPayment('${key}')">Edit</button>
+        </div>
+      `).join('');
+    }
+    
+    function showAddPlanModal() {
+      editingPlanIndex = -1;
+      document.getElementById('planModalTitle').textContent = 'Add Plan';
+      document.getElementById('planName').value = '';
+      document.getElementById('planPriceINR').value = '';
+      document.getElementById('planPriceUSD').value = '';
+      document.getElementById('planModal').classList.add('active');
+    }
+    
+    function editPlan(index) {
+      editingPlanIndex = index;
+      const plan = plans[index];
+      document.getElementById('planModalTitle').textContent = 'Edit Plan';
+      document.getElementById('planName').value = plan.name;
+      document.getElementById('planPriceINR').value = plan.priceINR;
+      document.getElementById('planPriceUSD').value = plan.priceUSD;
+      document.getElementById('planModal').classList.add('active');
+    }
+    
+    function closePlanModal() {
+      document.getElementById('planModal').classList.remove('active');
+    }
+    
+    async function savePlan() {
+      const plan = {
+        name: document.getElementById('planName').value,
+        priceINR: document.getElementById('planPriceINR').value,
+        priceUSD: document.getElementById('planPriceUSD').value
+      };
+      
+      if (!plan.name || !plan.priceINR || !plan.priceUSD) {
+        showToast('Please fill all fields', 'error');
+        return;
+      }
+      
+      if (editingPlanIndex >= 0) {
+        plans[editingPlanIndex] = plan;
+      } else {
+        plans.push(plan);
+      }
+      
+      try {
+        const res = await fetch(`/admin/api/plans/${currentGuildId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plans })
+        });
+        
+        if (res.ok) {
+          showToast('Plan saved', 'success');
+          closePlanModal();
+          renderPlans();
+        } else {
+          showToast('Failed to save', 'error');
+        }
+      } catch (err) {
+        showToast('Error saving', 'error');
+      }
+    }
+    
+    async function deletePlan(index) {
+      if (!confirm('Delete this plan?')) return;
+      
+      plans.splice(index, 1);
+      
+      try {
+        const res = await fetch(`/admin/api/plans/${currentGuildId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plans })
+        });
+        
+        if (res.ok) {
+          showToast('Plan deleted', 'success');
+          renderPlans();
+        }
+      } catch (err) {
+        showToast('Error deleting', 'error');
+      }
+    }
+    
+    function editPayment(key) {
+      const payment = payments[key];
+      document.getElementById('paymentKey').value = key;
+      document.getElementById('paymentTitle').value = payment.embed?.title || '';
+      document.getElementById('paymentDescription').value = payment.embed?.description || '';
+      document.getElementById('paymentColor').value = payment.embed?.color || '';
+      document.getElementById('paymentModal').classList.add('active');
+    }
+    
+    function closePaymentModal() {
+      document.getElementById('paymentModal').classList.remove('active');
+    }
+    
+    async function savePayment() {
+      const key = document.getElementById('paymentKey').value;
+      payments[key].embed = {
+        title: document.getElementById('paymentTitle').value,
+        description: document.getElementById('paymentDescription').value,
+        color: document.getElementById('paymentColor').value
+      };
+      
+      try {
+        const res = await fetch(`/admin/api/payments/${currentGuildId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ methods: payments })
+        });
+        
+        if (res.ok) {
+          showToast('Payment method saved', 'success');
+          closePaymentModal();
+          renderPayments();
+        } else {
+          showToast('Failed to save', 'error');
+        }
+      } catch (err) {
+        showToast('Error saving', 'error');
+      }
+    }
+    
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+    
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      currentGuildId = e.target.value;
+      loadData();
+    });
+    
+    loadGuilds();
+  </script>
+</body>
+</html>

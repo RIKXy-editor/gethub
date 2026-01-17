@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tickets - Ticket Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>🎫 Ticket Admin</h1>
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets" class="active"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/stats"><span class="icon">📈</span> Staff Stats</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>All Tickets</h2>
+      <p>Manage all support tickets</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Tickets</h3>
+        <div style="display:flex;gap:10px;">
+          <select id="statusFilter" class="form-control" style="width:auto;">
+            <option value="all">All Status</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Ticket #</th>
+              <th>Opened By</th>
+              <th>Status</th>
+              <th>Plan</th>
+              <th>Payment</th>
+              <th>Claimed By</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsList">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="ticketModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Ticket Details</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="ticketDetails">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let allTickets = [];
+    
+    async function loadTickets() {
+      try {
+        const res = await fetch('/admin/api/tickets');
+        allTickets = await res.json();
+        renderTickets();
+      } catch (err) {
+        console.error('Error loading tickets:', err);
+      }
+    }
+    
+    function renderTickets() {
+      const filter = document.getElementById('statusFilter').value;
+      let tickets = allTickets;
+      
+      if (filter !== 'all') {
+        tickets = tickets.filter(t => t.status === filter);
+      }
+      
+      tickets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      
+      const tbody = document.getElementById('ticketsList');
+      if (tickets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-secondary)">No tickets found</td></tr>';
+      } else {
+        tbody.innerHTML = tickets.map(t => `
+          <tr>
+            <td>#${t.ticketNumber || 'N/A'}</td>
+            <td>${t.openerTag || 'Unknown'}</td>
+            <td><span class="badge ${t.status === 'open' ? 'badge-success' : 'badge-danger'}">${t.status || 'unknown'}</span></td>
+            <td>${t.selectedPlan || '-'}</td>
+            <td>${t.selectedPayment || '-'}</td>
+            <td>${t.claimedBy ? `<@${t.claimedBy}>` : '-'}</td>
+            <td>${t.createdAt ? new Date(t.createdAt).toLocaleDateString() : 'N/A'}</td>
+            <td class="action-buttons">
+              <button class="btn btn-secondary btn-sm" onclick="viewTicket('${t.guildId}', '${t.channelId}')">View</button>
+              ${t.status === 'open' ? `<button class="btn btn-primary btn-sm" onclick="closeTicket('${t.guildId}', '${t.channelId}')">Close</button>` : ''}
+              <button class="btn btn-danger btn-sm" onclick="deleteTicket('${t.guildId}', '${t.channelId}')">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+    }
+    
+    function viewTicket(guildId, channelId) {
+      const ticket = allTickets.find(t => t.guildId === guildId && t.channelId === channelId);
+      if (!ticket) return;
+      
+      document.getElementById('ticketDetails').innerHTML = `
+        <div class="form-group">
+          <label>Ticket Number</label>
+          <input class="form-control" value="#${ticket.ticketNumber || 'N/A'}" readonly>
+        </div>
+        <div class="form-group">
+          <label>Opened By</label>
+          <input class="form-control" value="${ticket.openerTag || 'Unknown'}" readonly>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <input class="form-control" value="${ticket.status || 'unknown'}" readonly>
+        </div>
+        <div class="form-group">
+          <label>Selected Plan</label>
+          <input class="form-control" value="${ticket.selectedPlan || 'None'}" readonly>
+        </div>
+        <div class="form-group">
+          <label>Payment Method</label>
+          <input class="form-control" value="${ticket.selectedPayment || 'None'}" readonly>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input class="form-control" value="${ticket.email || 'Not provided'}" readonly>
+        </div>
+        <div class="form-group">
+          <label>Created</label>
+          <input class="form-control" value="${ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : 'N/A'}" readonly>
+        </div>
+        ${ticket.closedAt ? `
+        <div class="form-group">
+          <label>Closed</label>
+          <input class="form-control" value="${new Date(ticket.closedAt).toLocaleString()}" readonly>
+        </div>
+        ` : ''}
+      `;
+      
+      document.getElementById('ticketModal').classList.add('active');
+    }
+    
+    function closeModal() {
+      document.getElementById('ticketModal').classList.remove('active');
+    }
+    
+    async function closeTicket(guildId, channelId) {
+      if (!confirm('Are you sure you want to close this ticket?')) return;
+      
+      try {
+        const res = await fetch(`/admin/api/tickets/${guildId}/${channelId}/close`, { method: 'PUT' });
+        if (res.ok) {
+          showToast('Ticket closed successfully', 'success');
+          loadTickets();
+        } else {
+          showToast('Failed to close ticket', 'error');
+        }
+      } catch (err) {
+        showToast('Error closing ticket', 'error');
+      }
+    }
+    
+    async function deleteTicket(guildId, channelId) {
+      if (!confirm('Are you sure you want to delete this ticket? This cannot be undone.')) return;
+      
+      try {
+        const res = await fetch(`/admin/api/tickets/${guildId}/${channelId}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Ticket deleted successfully', 'success');
+          loadTickets();
+        } else {
+          showToast('Failed to delete ticket', 'error');
+        }
+      } catch (err) {
+        showToast('Error deleting ticket', 'error');
+      }
+    }
+    
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+    
+    document.getElementById('statusFilter').addEventListener('change', renderTickets);
+    loadTickets();
+  </script>
+</body>
+</html>

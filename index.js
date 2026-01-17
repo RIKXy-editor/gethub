@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, Partials, REST, Routes, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
 import express from 'express';
+import session from 'express-session';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +8,7 @@ import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
 import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
 import { handleTicketInteraction, handleRating } from './src/commands/ticket.js';
+import adminRoutes from './src/admin/routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -166,16 +168,27 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-async function startHealthServer() {
+async function startServer() {
   const app = express();
-  const healthPort = process.env.PORT || 3000;
+  const port = 5000;
+  
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'ticket-admin-secret-key-change-me',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+  }));
+  
+  app.use('/admin/css', express.static(path.join(__dirname, 'src/admin/public/css')));
+  app.use('/admin/js', express.static(path.join(__dirname, 'src/admin/public/js')));
+  app.use('/admin', adminRoutes);
   
   app.get('/', (req, res) => {
-    res.send('Bot is alive');
+    res.redirect('/admin');
   });
   
-  app.listen(healthPort, '0.0.0.0', () => {
-    console.log(`Health check server running on port ${healthPort}`);
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Admin dashboard running on port ${port}`);
   });
 }
 
@@ -183,7 +196,7 @@ async function start() {
   await loadCommands();
   await loadEvents();
   await deployCommands();
-  startHealthServer();
+  startServer();
   await client.login(process.env.DISCORD_TOKEN);
 }
 

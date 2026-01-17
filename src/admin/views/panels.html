@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panels - Ticket Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>🎫 Ticket Admin</h1>
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="/admin"><span class="icon">📊</span> Dashboard</a></li>
+      <li><a href="/admin/tickets"><span class="icon">🎫</span> Tickets</a></li>
+      <li><a href="/admin/panels" class="active"><span class="icon">📋</span> Panels</a></li>
+      <li><a href="/admin/settings"><span class="icon">⚙️</span> Settings</a></li>
+      <li><a href="/admin/stats"><span class="icon">📈</span> Staff Stats</a></li>
+      <li><a href="/admin/logout"><span class="icon">🚪</span> Logout</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Ticket Panels</h2>
+      <p>Configure and customize your ticket panel embeds</p>
+    </div>
+
+    <div class="guild-selector">
+      <label style="margin-right:10px;">Select Server:</label>
+      <select id="guildSelect" class="form-control" style="width:auto;display:inline-block;"></select>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+      <div class="card">
+        <div class="card-header">
+          <h3>📋 Panel Embed</h3>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Panel Title</label>
+            <input type="text" class="form-control" id="panelTitle" placeholder="🎫 Support Tickets">
+          </div>
+          <div class="form-group">
+            <label>Panel Description</label>
+            <textarea class="form-control" id="panelDescription" placeholder="Click the button below to create a ticket"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Panel Color (hex)</label>
+            <input type="text" class="form-control" id="panelColor" placeholder="#dc2626">
+          </div>
+          <div class="form-group">
+            <label>Button Label</label>
+            <input type="text" class="form-control" id="buttonLabel" placeholder="Open Ticket">
+          </div>
+          <div class="form-group">
+            <label>Button Color</label>
+            <select class="form-control" id="buttonColor">
+              <option value="Primary">Blue</option>
+              <option value="Success">Green</option>
+              <option value="Danger">Red</option>
+              <option value="Secondary">Gray</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="savePanelSettings()">Save Panel Settings</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>🎫 Ticket Opening Embed</h3>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Ticket Title</label>
+            <input type="text" class="form-control" id="ticketTitle" placeholder="🎫 Support Ticket">
+          </div>
+          <div class="form-group">
+            <label>Ticket Description</label>
+            <textarea class="form-control" id="ticketDescription" placeholder="Welcome {user}!\n\nPlease select your subscription plan below."></textarea>
+          </div>
+          <p style="color:var(--text-secondary);font-size:0.85rem;margin-top:10px;">Use {user} to mention the ticket opener</p>
+          <button class="btn btn-primary" onclick="saveTicketSettings()">Save Ticket Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="card-header">
+        <h3>⚙️ Panel Configuration</h3>
+      </div>
+      <div class="card-body">
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="form-group">
+            <label>Category ID</label>
+            <input type="text" class="form-control" id="categoryId" placeholder="Discord Category ID">
+          </div>
+          <div class="form-group">
+            <label>Support Role ID</label>
+            <input type="text" class="form-control" id="supportRoleId" placeholder="Discord Role ID">
+          </div>
+          <div class="form-group">
+            <label>Logs Channel ID</label>
+            <input type="text" class="form-control" id="logsChannelId" placeholder="Discord Channel ID">
+          </div>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="form-group">
+            <label>Cooldown (seconds)</label>
+            <input type="number" class="form-control" id="cooldownSeconds" placeholder="60">
+          </div>
+          <div class="form-group">
+            <label>Max Tickets Per User</label>
+            <input type="number" class="form-control" id="maxTicketsPerUser" placeholder="1">
+          </div>
+          <div class="form-group">
+            <label>Ratings Enabled</label>
+            <select class="form-control" id="ratingsEnabled">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let currentGuildId = null;
+    
+    async function loadGuilds() {
+      try {
+        const res = await fetch('/admin/api/guilds');
+        const guilds = await res.json();
+        const select = document.getElementById('guildSelect');
+        
+        if (guilds.length === 0) {
+          select.innerHTML = '<option value="">No servers configured</option>';
+          return;
+        }
+        
+        select.innerHTML = guilds.map(g => `<option value="${g.id}">${g.id}</option>`).join('');
+        currentGuildId = guilds[0].id;
+        loadConfig();
+      } catch (err) {
+        console.error('Error loading guilds:', err);
+      }
+    }
+    
+    async function loadConfig() {
+      if (!currentGuildId) return;
+      
+      try {
+        const res = await fetch(`/admin/api/config/${currentGuildId}`);
+        const config = await res.json();
+        
+        document.getElementById('panelTitle').value = config.panelEmbed?.title || '';
+        document.getElementById('panelDescription').value = config.panelEmbed?.description || '';
+        document.getElementById('panelColor').value = config.panelEmbed?.color || '';
+        document.getElementById('buttonLabel').value = config.buttonLabel || '';
+        document.getElementById('buttonColor').value = config.buttonColor || 'Primary';
+        
+        document.getElementById('ticketTitle').value = config.ticketEmbed?.title || '';
+        document.getElementById('ticketDescription').value = config.ticketEmbed?.description || '';
+        
+        document.getElementById('categoryId').value = config.categoryId || '';
+        document.getElementById('supportRoleId').value = config.supportRoleId || '';
+        document.getElementById('logsChannelId').value = config.logsChannelId || '';
+        document.getElementById('cooldownSeconds').value = config.cooldownSeconds || 60;
+        document.getElementById('maxTicketsPerUser').value = config.maxTicketsPerUser || 1;
+        document.getElementById('ratingsEnabled').value = config.ratingsEnabled !== false ? 'true' : 'false';
+      } catch (err) {
+        console.error('Error loading config:', err);
+      }
+    }
+    
+    async function savePanelSettings() {
+      const data = {
+        panelEmbed: {
+          title: document.getElementById('panelTitle').value,
+          description: document.getElementById('panelDescription').value,
+          color: document.getElementById('panelColor').value
+        },
+        buttonLabel: document.getElementById('buttonLabel').value,
+        buttonColor: document.getElementById('buttonColor').value
+      };
+      
+      await saveToServer(data, 'Panel settings saved');
+    }
+    
+    async function saveTicketSettings() {
+      const data = {
+        ticketEmbed: {
+          title: document.getElementById('ticketTitle').value,
+          description: document.getElementById('ticketDescription').value
+        }
+      };
+      
+      await saveToServer(data, 'Ticket settings saved');
+    }
+    
+    async function saveConfig() {
+      const data = {
+        categoryId: document.getElementById('categoryId').value,
+        supportRoleId: document.getElementById('supportRoleId').value,
+        logsChannelId: document.getElementById('logsChannelId').value,
+        cooldownSeconds: parseInt(document.getElementById('cooldownSeconds').value) || 60,
+        maxTicketsPerUser: parseInt(document.getElementById('maxTicketsPerUser').value) || 1,
+        ratingsEnabled: document.getElementById('ratingsEnabled').value === 'true'
+      };
+      
+      await saveToServer(data, 'Configuration saved');
+    }
+    
+    async function saveToServer(data, successMsg) {
+      if (!currentGuildId) return;
+      
+      try {
+        const res = await fetch(`/admin/api/config/${currentGuildId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+          showToast(successMsg, 'success');
+        } else {
+          showToast('Failed to save', 'error');
+        }
+      } catch (err) {
+        showToast('Error saving', 'error');
+      }
+    }
+    
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+    
+    document.getElementById('guildSelect').addEventListener('change', (e) => {
+      currentGuildId = e.target.value;
+      loadConfig();
+    });
+    
+    loadGuilds();
+  </script>
+</body>
+</html>
