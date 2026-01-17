@@ -92,6 +92,19 @@
 
     <div class="card" style="margin-top:20px;">
       <div class="card-header">
+        <h3>🚀 Post Panel to Channel</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>Select Channel</label>
+          <select class="form-control" id="postChannelId"></select>
+        </div>
+        <button class="btn btn-primary" onclick="postPanel()" style="width:100%;">Post Ticket Panel to Channel</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="card-header">
         <h3>⚙️ Panel Configuration</h3>
       </div>
       <div class="card-body">
@@ -150,6 +163,7 @@
         select.innerHTML = guilds.map(g => `<option value="${g.id}">${g.id}</option>`).join('');
         currentGuildId = guilds[0].id;
         loadConfig();
+        loadChannels();
       } catch (err) {
         console.error('Error loading guilds:', err);
       }
@@ -247,9 +261,50 @@
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
     
+    async function loadChannels() {
+      if (!currentGuildId) return;
+      try {
+        const res = await fetch(`/admin/api/discord/guilds/${currentGuildId}/channels`);
+        const channels = await res.json();
+        const select = document.getElementById('postChannelId');
+        select.innerHTML = '<option value="">Select a channel...</option>' + 
+          channels.map(ch => `<option value="${ch.id}">#${ch.name}</option>`).join('');
+      } catch (err) {
+        console.error('Error loading channels:', err);
+      }
+    }
+
+    async function postPanel() {
+      const channelId = document.getElementById('postChannelId').value;
+      if (!channelId) {
+        showToast('Please select a channel', 'error');
+        return;
+      }
+      if (!currentGuildId) {
+        showToast('Please select a server', 'error');
+        return;
+      }
+      try {
+        const res = await fetch(`/admin/api/panels/${currentGuildId}/post`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channelId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Panel posted successfully!', 'success');
+        } else {
+          showToast(data.error || 'Failed to post panel', 'error');
+        }
+      } catch (err) {
+        showToast('Error posting panel', 'error');
+      }
+    }
+    
     document.getElementById('guildSelect').addEventListener('change', (e) => {
       currentGuildId = e.target.value;
       loadConfig();
+      loadChannels();
     });
     
     loadGuilds();

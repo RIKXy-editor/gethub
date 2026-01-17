@@ -197,6 +197,45 @@ export function createAdminRoutes(discordClient) {
     res.json({ success: true });
   });
 
+  router.post('/api/panels/:guildId/post', requireAuth, express.json(), async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const { channelId } = req.body;
+      if (!channelId) {
+        return res.status(400).json({ error: 'Channel ID is required' });
+      }
+      const configs = loadData('ticketConfig', {});
+      const config = configs[guildId] || {};
+      const channel = await discordClient.channels.fetch(channelId);
+      if (!channel) {
+        return res.status(404).json({ error: 'Channel not found' });
+      }
+      const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+      const embed = new EmbedBuilder()
+        .setTitle(config.panelEmbed?.title || '🎫 Support Tickets')
+        .setDescription(config.panelEmbed?.description || 'Click the button below to create a support ticket.')
+        .setColor(config.panelEmbed?.color ? parseInt(config.panelEmbed.color.replace('#', ''), 16) : 0xdc2626);
+      const buttonStyle = {
+        'Primary': ButtonStyle.Primary,
+        'Success': ButtonStyle.Success,
+        'Danger': ButtonStyle.Danger,
+        'Secondary': ButtonStyle.Secondary
+      }[config.buttonColor] || ButtonStyle.Primary;
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_ticket')
+          .setLabel(config.buttonLabel || 'Open Ticket')
+          .setStyle(buttonStyle)
+          .setEmoji('🎫')
+      );
+      await channel.send({ embeds: [embed], components: [row] });
+      res.json({ success: true, message: 'Panel posted successfully' });
+    } catch (error) {
+      console.error('Error posting panel:', error);
+      res.status(500).json({ error: error.message || 'Failed to post panel' });
+    }
+  });
+
   router.get('/api/discord/guilds', requireAuth, async (req, res) => {
     try {
       const guilds = discordClient.guilds.cache.map(guild => ({
