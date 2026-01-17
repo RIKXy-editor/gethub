@@ -8,7 +8,7 @@ import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
 import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
 import { handleTicketInteraction, handleRating } from './src/commands/ticket.js';
-import adminRoutes from './src/admin/routes.js';
+import { createAdminRoutes } from './src/admin/routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -181,7 +181,7 @@ async function startServer() {
   
   app.use('/admin/css', express.static(path.join(__dirname, 'src/admin/public/css')));
   app.use('/admin/js', express.static(path.join(__dirname, 'src/admin/public/js')));
-  app.use('/admin', adminRoutes);
+  app.use('/admin', createAdminRoutes(client));
   
   app.get('/', (req, res) => {
     res.redirect('/admin');
