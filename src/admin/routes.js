@@ -41,10 +41,6 @@ function requireApiAuth(req, res, next) {
 export function createAdminRoutes(discordClient) {
   const router = express.Router();
 
-  router.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'login.html'));
-  });
-
   router.post('/login', express.json(), (req, res) => {
     if (!ADMIN_PASSWORD) {
       return res.status(500).json({ success: false, error: 'Admin password not configured' });
@@ -58,77 +54,8 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/admin/login');
-  });
-
-  router.get('/', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
-  });
-
-  router.get('/tickets', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'tickets.html'));
-  });
-
-  router.get('/panels', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'panels.html'));
-  });
-
-  router.get('/settings', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'settings.html'));
-  });
-
-  router.get('/stats', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'stats.html'));
-  });
-
-  router.get('/embed-builder', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'embed-builder.html'));
-  });
-
-  router.get('/welcome', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'welcome.html'));
-  });
-
-  router.get('/keywords', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'keywords.html'));
-  });
-
-  router.get('/giveaways', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'giveaways.html'));
-  });
-
-  router.get('/giveaways/create', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'giveaway-create.html'));
-  });
-
-  router.get('/announcements', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'announcements.html'));
-  });
-
-  router.get('/scheduled', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'scheduled.html'));
-  });
-
-  router.get('/sticky', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'sticky.html'));
-  });
-
-  router.get('/dm-sender', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'dm-sender.html'));
-  });
-
-  router.get('/job-config', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'job-config.html'));
-  });
-
-  router.get('/bot-settings', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'bot-settings.html'));
-  });
-
-  router.get('/sticky-clients', requireAuth, (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'sticky-clients.html'));
+  router.get('/', (req, res) => {
+    res.json({ message: 'API running. Use the Next.js dashboard on port 3000.' });
   });
 
   router.get('/api/tickets', requireApiAuth, (req, res) => {

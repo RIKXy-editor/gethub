@@ -188,12 +188,10 @@ async function startServer() {
     cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000, sameSite: 'lax' }
   }));
   
-  app.use('/admin/css', express.static(path.join(__dirname, 'src/admin/public/css')));
-  app.use('/admin/js', express.static(path.join(__dirname, 'src/admin/public/js')));
   app.use('/admin', createAdminRoutes(client));
   
   app.get('/', (req, res) => {
-    res.redirect('/admin');
+    res.json({ status: 'Bot API running', dashboard: 'Use port 3000 for the admin dashboard' });
   });
   
   app.listen(port, '0.0.0.0', () => {
