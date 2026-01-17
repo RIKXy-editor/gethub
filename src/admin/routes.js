@@ -1,8 +1,18 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ChannelType } from 'discord.js';
-import { loadData, saveData } from '../utils/storage.js';
+import { ChannelType, EmbedBuilder } from 'discord.js';
+import { 
+  loadData, 
+  saveData,
+  getAppealsConfig,
+  setAppealsConfig,
+  getAppealsByGuild,
+  getAppeal,
+  updateAppeal,
+  addAppealHistory,
+  getAllBans
+} from '../utils/storage.js';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -1040,6 +1050,202 @@ export function createAdminRoutes(discordClient) {
       console.error('Error fetching roles:', err);
       res.status(500).json({ error: 'Failed to fetch roles' });
     }
+  });
+
+  // ========== BAN APPEALS API ==========
+  
+  router.get('/api/appeals/config/:guildId', requireApiAuth, (req, res) => {
+    const { guildId } = req.params;
+    const config = getAppealsConfig(guildId);
+    res.json(config);
+  });
+
+  router.put('/api/appeals/config/:guildId', requireApiAuth, express.json(), (req, res) => {
+    const { guildId } = req.params;
+    setAppealsConfig(guildId, req.body);
+    res.json({ success: true });
+  });
+
+  router.get('/api/appeals/:guildId', requireApiAuth, (req, res) => {
+    const { guildId } = req.params;
+    const { status, search } = req.query;
+    
+    let appeals = getAppealsByGuild(guildId);
+    
+    if (status && status !== 'ALL') {
+      appeals = appeals.filter(a => a.status === status);
+    }
+    
+    if (search) {
+      const searchLower = search.toLowerCase();
+      appeals = appeals.filter(a => 
+        a.userTag?.toLowerCase().includes(searchLower) ||
+        a.userId?.includes(search) ||
+        a.appealId?.toLowerCase().includes(searchLower) ||
+        a.caseId?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    appeals.sort((a, b) => b.createdAt - a.createdAt);
+    
+    res.json(appeals);
+  });
+
+  router.get('/api/appeals/:guildId/:appealId', requireApiAuth, (req, res) => {
+    const { appealId } = req.params;
+    const appeal = getAppeal(appealId);
+    if (!appeal) {
+      return res.status(404).json({ error: 'Appeal not found' });
+    }
+    
+    res.json(appeal);
+  });
+
+  router.post('/api/appeals/:guildId/:appealId/approve', requireApiAuth, express.json(), async (req, res) => {
+    try {
+      const { guildId, appealId } = req.params;
+      
+      const appeal = getAppeal(appealId);
+      if (!appeal) {
+        return res.status(404).json({ error: 'Appeal not found' });
+      }
+      
+      if (appeal.status !== 'PENDING') {
+        return res.status(400).json({ error: 'Appeal already processed' });
+      }
+      
+      const guild = discordClient.guilds.cache.get(guildId);
+      if (!guild) {
+        return res.status(404).json({ error: 'Guild not found' });
+      }
+      
+      try {
+        await guild.members.unban(appeal.userId, 'Appeal approved via dashboard');
+      } catch (unbanError) {
+        return res.status(400).json({ error: `Failed to unban: ${unbanError.message}` });
+      }
+      
+      updateAppeal(appealId, { status: 'APPROVED' });
+      addAppealHistory(appealId, 'approved', 'Appeal approved via dashboard', null);
+      
+      try {
+        const user = await discordClient.users.fetch(appeal.userId);
+        const { EmbedBuilder } = await import('discord.js');
+        const dmEmbed = new EmbedBuilder()
+          .setTitle('✅ Ban Appeal Approved!')
+          .setDescription(`Great news! Your ban appeal for **${guild.name}** has been approved.\n\nYou have been unbanned and can rejoin the server.`)
+          .setColor(0x2ecc71)
+          .setTimestamp();
+        await user.send({ embeds: [dmEmbed] });
+      } catch {}
+      
+      const logs = loadData('auditLogs', {});
+      if (!logs[guildId]) logs[guildId] = [];
+      logs[guildId].unshift({
+        action: 'APPEAL_APPROVED_DASHBOARD',
+        target: appeal.userTag,
+        targetId: appeal.userId,
+        appealId,
+        caseId: appeal.caseId,
+        timestamp: Date.now()
+      });
+      saveData('auditLogs', logs);
+      
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error approving appeal:', err);
+      res.status(500).json({ error: 'Failed to approve appeal' });
+    }
+  });
+
+  router.post('/api/appeals/:guildId/:appealId/deny', requireApiAuth, express.json(), async (req, res) => {
+    try {
+      const { guildId, appealId } = req.params;
+      const { reason } = req.body;
+      
+      const appeal = getAppeal(appealId);
+      if (!appeal) {
+        return res.status(404).json({ error: 'Appeal not found' });
+      }
+      
+      if (appeal.status !== 'PENDING') {
+        return res.status(400).json({ error: 'Appeal already processed' });
+      }
+      
+      updateAppeal(appealId, { status: 'DENIED', denyReason: reason || 'No reason provided' });
+      addAppealHistory(appealId, 'denied', `Appeal denied via dashboard: ${reason || 'No reason provided'}`, null);
+      
+      try {
+        const user = await discordClient.users.fetch(appeal.userId);
+        const guild = discordClient.guilds.cache.get(guildId);
+        const dmEmbed = new EmbedBuilder()
+          .setTitle('❌ Ban Appeal Denied')
+          .setDescription(`Unfortunately, your ban appeal for **${guild?.name || 'the server'}** has been denied.`)
+          .addFields({ name: 'Reason', value: reason || 'No reason provided' })
+          .setColor(0xe74c3c)
+          .setTimestamp();
+        await user.send({ embeds: [dmEmbed] });
+      } catch {}
+      
+      const logs = loadData('auditLogs', {});
+      if (!logs[guildId]) logs[guildId] = [];
+      logs[guildId].unshift({
+        action: 'APPEAL_DENIED_DASHBOARD',
+        target: appeal.userTag,
+        targetId: appeal.userId,
+        appealId,
+        caseId: appeal.caseId,
+        reason: reason || 'No reason provided',
+        timestamp: Date.now()
+      });
+      saveData('auditLogs', logs);
+      
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error denying appeal:', err);
+      res.status(500).json({ error: 'Failed to deny appeal' });
+    }
+  });
+
+  router.post('/api/appeals/:guildId/:appealId/message', requireApiAuth, express.json(), async (req, res) => {
+    try {
+      const { appealId } = req.params;
+      const { message } = req.body;
+      
+      const appeal = getAppeal(appealId);
+      if (!appeal) {
+        return res.status(404).json({ error: 'Appeal not found' });
+      }
+      
+      addAppealHistory(appealId, 'message_sent', `Dashboard message: ${message}`, null);
+      
+      try {
+        const user = await discordClient.users.fetch(appeal.userId);
+        const dmEmbed = new EmbedBuilder()
+          .setTitle('💬 Message from Staff')
+          .setDescription(message)
+          .addFields({ name: 'Appeal ID', value: appealId })
+          .setColor(0x3498db)
+          .setTimestamp();
+        await user.send({ embeds: [dmEmbed] });
+        res.json({ success: true });
+      } catch (dmError) {
+        res.status(400).json({ error: 'Could not DM user. They may have DMs disabled.' });
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      res.status(500).json({ error: 'Failed to send message' });
+    }
+  });
+
+  router.get('/api/bans/:guildId', requireApiAuth, (req, res) => {
+    const { guildId } = req.params;
+    const bans = getAllBans(guildId);
+    const bansArray = Object.entries(bans).map(([userId, data]) => ({
+      userId,
+      ...data
+    }));
+    res.json(bansArray);
   });
 
   return router;

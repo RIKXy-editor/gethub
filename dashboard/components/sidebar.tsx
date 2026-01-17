@@ -15,6 +15,7 @@ import {
   LogOut,
   Moon,
   Sun,
+  Shield,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const navigation = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Panel Builder", href: "/dashboard/panels", icon: Ticket },
   { name: "Categories", href: "/dashboard/categories", icon: FolderKanban },
+  { name: "Ban Appeals", href: "/dashboard/appeals", icon: Shield },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
   { name: "Transcripts", href: "/dashboard/transcripts", icon: FileText },
   { name: "Ratings", href: "/dashboard/ratings", icon: Star },
