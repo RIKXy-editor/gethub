@@ -40,6 +40,13 @@ export interface TicketConfig {
   categories?: Category[];
   ratingEnabled?: boolean;
   ratingMessage?: string;
+  transcriptSettings?: {
+    enabled: boolean;
+    htmlFormat: boolean;
+    textFormat: boolean;
+    sendToLogs: boolean;
+    dmOpener: boolean;
+  };
 }
 
 export interface SubscriptionPlan {
@@ -76,7 +83,7 @@ export interface TicketStats {
   avgRating: number;
   ticketsPerDay: { date: string; count: number }[];
   topCategories: { name: string; count: number }[];
-  staffLeaderboard: { userId: string; username: string; claimed: number; avgRating: number }[];
+  staffLeaderboard: { userId: string; username: string; claimed: number; avgRating: number; avgResponseTime?: number }[];
 }
 
 export interface AuditLog {
