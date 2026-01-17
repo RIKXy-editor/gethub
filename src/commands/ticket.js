@@ -7,15 +7,16 @@ function getTicketConfig(guildId) {
   return configs[guildId] || {
     categoryId: null,
     logsChannelId: null,
+    supportRoleId: null,
     transcriptDm: true,
     maxTicketsPerUser: 1,
     cooldownSeconds: 60,
-    categories: [],
+    buttonLabel: '📩 Open Ticket',
     panelEmbed: {
       title: '🎫 Support Tickets',
-      description: 'Need help? Select a category below to create a support ticket.\n\nOur team will assist you as soon as possible.',
+      description: 'Need help? Click the button below to open a support ticket.\n\nOur team will assist you as soon as possible.',
       color: '#5865F2',
-      footer: 'Select a category from the dropdown to open a ticket',
+      footer: null,
       thumbnail: null,
       image: null
     },
@@ -75,10 +76,10 @@ function setUserCooldown(guildId, userId) {
   saveData('ticketCooldowns', cooldowns);
 }
 
-function getUserOpenTickets(guildId, userId, category) {
+function getUserOpenTickets(guildId, userId) {
   const tickets = getTickets(guildId);
   return Object.values(tickets).filter(t => 
-    t.openerId === userId && t.category === category && t.status !== 'closed'
+    t.openerId === userId && t.status !== 'closed'
   ).length;
 }
 
@@ -90,141 +91,80 @@ export const data = new SlashCommandBuilder()
   .setName('ticket')
   .setDescription('Ticket system management')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  .addSubcommand(sub => sub.setName('setup').setDescription('Configure the ticket system'))
   .addSubcommand(sub => sub.setName('panel').setDescription('Post the ticket panel in a channel')
     .addChannelOption(opt => opt.setName('channel').setDescription('Channel to post panel').addChannelTypes(ChannelType.GuildText).setRequired(true)))
-  .addSubcommand(sub => sub.setName('setup').setDescription('Configure the ticket system'))
-  .addSubcommand(sub => sub.setName('setlogs').setDescription('Set the ticket logs channel')
-    .addChannelOption(opt => opt.setName('channel').setDescription('Logs channel').addChannelTypes(ChannelType.GuildText).setRequired(true)))
-  .addSubcommand(sub => sub.setName('setcategory').setDescription('Set Discord category for ticket channels')
-    .addChannelOption(opt => opt.setName('category').setDescription('Category channel').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
-  .addSubcommand(sub => sub.setName('addtype').setDescription('Add a ticket type/category')
-    .addStringOption(opt => opt.setName('name').setDescription('Category name').setRequired(true))
-    .addRoleOption(opt => opt.setName('role').setDescription('Support role for this category').setRequired(true))
-    .addStringOption(opt => opt.setName('emoji').setDescription('Emoji for this category').setRequired(false)))
-  .addSubcommand(sub => sub.setName('removetype').setDescription('Remove a ticket type')
-    .addStringOption(opt => opt.setName('name').setDescription('Category name to remove').setRequired(true)))
-  .addSubcommand(sub => sub.setName('listtypes').setDescription('List all ticket types'))
-  .addSubcommand(sub => sub.setName('stats').setDescription('View staff ticket statistics'))
-  .addSubcommand(sub => sub.setName('paneledit').setDescription('Edit the ticket panel embed'))
-  .addSubcommand(sub => sub.setName('panelupdate').setDescription('Update the existing panel with new settings'));
+  .addSubcommand(sub => sub.setName('stats').setDescription('View staff ticket statistics'));
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   const guildId = interaction.guild.id;
   const config = getTicketConfig(guildId);
 
+  if (subcommand === 'setup') {
+    const panelEmbed = config.panelEmbed || {};
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🎫 Ticket System Setup')
+      .setDescription('Configure your ticket system using the buttons below.')
+      .addFields(
+        { name: '📁 Ticket Category', value: config.categoryId ? `<#${config.categoryId}>` : '❌ Not set', inline: true },
+        { name: '👥 Support Role', value: config.supportRoleId ? `<@&${config.supportRoleId}>` : '❌ Not set', inline: true },
+        { name: '📋 Logs Channel', value: config.logsChannelId ? `<#${config.logsChannelId}>` : 'Not set', inline: true },
+        { name: '📩 DM Transcripts', value: config.transcriptDm ? 'Enabled' : 'Disabled', inline: true },
+        { name: '🎟️ Max Tickets/User', value: String(config.maxTicketsPerUser), inline: true },
+        { name: '⏱️ Cooldown', value: `${config.cooldownSeconds}s`, inline: true },
+        { name: '🔘 Button Label', value: config.buttonLabel || '📩 Open Ticket', inline: true }
+      )
+      .setColor('#5865F2');
+
+    const buttons1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:setup_category').setLabel('Set Category').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:setup_role').setLabel('Set Support Role').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket:setup_logs').setLabel('Set Logs').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:setup_limits').setLabel('Set Limits').setStyle(ButtonStyle.Secondary)
+    );
+
+    const buttons2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket:setup_toggle_dm').setLabel('Toggle DM Transcript').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:setup_button').setLabel('Edit Button Label').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('ticket:setup_embed').setLabel('Edit Panel Embed').setStyle(ButtonStyle.Primary)
+    );
+
+    await interaction.reply({ embeds: [embed], components: [buttons1, buttons2], ephemeral: true });
+  }
+
   if (subcommand === 'panel') {
     const channel = interaction.options.getChannel('channel');
     
-    if (config.categories.length === 0) {
-      return await interaction.reply({ content: '❌ No ticket categories configured. Use `/ticket addtype` first.', ephemeral: true });
+    if (!config.supportRoleId) {
+      return await interaction.reply({ content: '❌ Please set a support role first using `/ticket setup`', ephemeral: true });
+    }
+    
+    if (!config.categoryId) {
+      return await interaction.reply({ content: '❌ Please set a ticket category first using `/ticket setup`', ephemeral: true });
     }
 
     const panelEmbed = config.panelEmbed || {};
     const embed = new EmbedBuilder()
       .setTitle(panelEmbed.title || '🎫 Support Tickets')
-      .setDescription(panelEmbed.description || 'Need help? Select a category below to create a support ticket.')
+      .setDescription(panelEmbed.description || 'Need help? Click the button below to open a support ticket.')
       .setColor(panelEmbed.color || '#5865F2');
     
     if (panelEmbed.footer) embed.setFooter({ text: panelEmbed.footer });
     if (panelEmbed.thumbnail) embed.setThumbnail(panelEmbed.thumbnail);
     if (panelEmbed.image) embed.setImage(panelEmbed.image);
 
-    const selectOptions = config.categories.map(cat => ({
-      label: cat.name,
-      value: cat.name.toLowerCase().replace(/\s+/g, '-'),
-      emoji: cat.emoji || '📩',
-      description: `Open a ${cat.name} ticket`
-    }));
-
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('ticket:select_category')
-      .setPlaceholder('Select ticket category...')
-      .addOptions(selectOptions);
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('ticket:open')
+        .setLabel(config.buttonLabel || '📩 Open Ticket')
+        .setStyle(ButtonStyle.Primary)
+    );
 
     const panelMsg = await channel.send({ embeds: [embed], components: [row] });
     setTicketConfig(guildId, { panelMessageId: panelMsg.id, panelChannelId: channel.id });
     await interaction.reply({ content: `✅ Ticket panel posted in ${channel}`, ephemeral: true });
-  }
-
-  if (subcommand === 'setup') {
-    const embed = new EmbedBuilder()
-      .setTitle('🎫 Ticket System Setup')
-      .setDescription('Current configuration:')
-      .addFields(
-        { name: '📁 Ticket Category', value: config.categoryId ? `<#${config.categoryId}>` : 'Not set', inline: true },
-        { name: '📋 Logs Channel', value: config.logsChannelId ? `<#${config.logsChannelId}>` : 'Not set', inline: true },
-        { name: '📩 DM Transcripts', value: config.transcriptDm ? 'Enabled' : 'Disabled', inline: true },
-        { name: '🎟️ Max Tickets/User', value: String(config.maxTicketsPerUser), inline: true },
-        { name: '⏱️ Cooldown', value: `${config.cooldownSeconds}s`, inline: true },
-        { name: '📑 Categories', value: config.categories.length > 0 ? config.categories.map(c => `${c.emoji || '📩'} ${c.name}`).join('\n') : 'None', inline: true }
-      )
-      .setColor('#5865F2');
-
-    const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ticket:setup_category').setLabel('Set Category').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('ticket:setup_logs').setLabel('Set Logs').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('ticket:setup_toggle_dm').setLabel('Toggle DM').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('ticket:setup_limits').setLabel('Set Limits').setStyle(ButtonStyle.Secondary)
-    );
-
-    await interaction.reply({ embeds: [embed], components: [buttons], ephemeral: true });
-  }
-
-  if (subcommand === 'setlogs') {
-    const channel = interaction.options.getChannel('channel');
-    setTicketConfig(guildId, { logsChannelId: channel.id });
-    await interaction.reply({ content: `✅ Ticket logs channel set to ${channel}`, ephemeral: true });
-  }
-
-  if (subcommand === 'setcategory') {
-    const category = interaction.options.getChannel('category');
-    setTicketConfig(guildId, { categoryId: category.id });
-    await interaction.reply({ content: `✅ Ticket channels will be created in ${category.name}`, ephemeral: true });
-  }
-
-  if (subcommand === 'addtype') {
-    const name = interaction.options.getString('name');
-    const role = interaction.options.getRole('role');
-    const emoji = interaction.options.getString('emoji') || '📩';
-    
-    const categories = [...config.categories];
-    const existing = categories.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
-    
-    if (existing >= 0) {
-      categories[existing] = { name, roleId: role.id, emoji };
-    } else {
-      categories.push({ name, roleId: role.id, emoji });
-    }
-    
-    setTicketConfig(guildId, { categories });
-    await interaction.reply({ content: `✅ Ticket category "${emoji} ${name}" added with support role ${role}`, ephemeral: true });
-  }
-
-  if (subcommand === 'removetype') {
-    const name = interaction.options.getString('name');
-    const categories = config.categories.filter(c => c.name.toLowerCase() !== name.toLowerCase());
-    
-    if (categories.length === config.categories.length) {
-      return await interaction.reply({ content: `❌ Category "${name}" not found.`, ephemeral: true });
-    }
-    
-    setTicketConfig(guildId, { categories });
-    await interaction.reply({ content: `✅ Ticket category "${name}" removed.`, ephemeral: true });
-  }
-
-  if (subcommand === 'listtypes') {
-    if (config.categories.length === 0) {
-      return await interaction.reply({ content: '📑 No ticket categories configured.', ephemeral: true });
-    }
-    
-    const list = config.categories.map((c, i) => 
-      `${i + 1}. ${c.emoji || '📩'} **${c.name}** - <@&${c.roleId}>`
-    ).join('\n');
-    
-    await interaction.reply({ content: `📑 **Ticket Categories:**\n\n${list}`, ephemeral: true });
   }
 
   if (subcommand === 'stats') {
@@ -252,78 +192,6 @@ export async function execute(interaction) {
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
-
-  if (subcommand === 'paneledit') {
-    const panelEmbed = config.panelEmbed || {};
-    
-    const previewEmbed = new EmbedBuilder()
-      .setTitle(panelEmbed.title || '🎫 Support Tickets')
-      .setDescription(panelEmbed.description || 'Need help? Select a category below...')
-      .setColor(panelEmbed.color || '#5865F2');
-    
-    if (panelEmbed.footer) previewEmbed.setFooter({ text: panelEmbed.footer });
-    if (panelEmbed.thumbnail) previewEmbed.setThumbnail(panelEmbed.thumbnail);
-    if (panelEmbed.image) previewEmbed.setImage(panelEmbed.image);
-
-    const buttons1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ticket:panel_title').setLabel('Edit Title').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('ticket:panel_desc').setLabel('Edit Description').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('ticket:panel_color').setLabel('Edit Color').setStyle(ButtonStyle.Primary)
-    );
-    
-    const buttons2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ticket:panel_footer').setLabel('Edit Footer').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('ticket:panel_thumb').setLabel('Set Thumbnail').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('ticket:panel_image').setLabel('Set Image').setStyle(ButtonStyle.Secondary)
-    );
-
-    await interaction.reply({ 
-      content: '**Panel Embed Preview:**\nUse the buttons below to customize your ticket panel.',
-      embeds: [previewEmbed], 
-      components: [buttons1, buttons2], 
-      ephemeral: true 
-    });
-  }
-
-  if (subcommand === 'panelupdate') {
-    if (!config.panelMessageId || !config.panelChannelId) {
-      return await interaction.reply({ content: '❌ No panel found. Use `/ticket panel` to post one first.', ephemeral: true });
-    }
-
-    try {
-      const channel = await interaction.guild.channels.fetch(config.panelChannelId);
-      const message = await channel.messages.fetch(config.panelMessageId);
-      
-      const panelEmbed = config.panelEmbed || {};
-      const embed = new EmbedBuilder()
-        .setTitle(panelEmbed.title || '🎫 Support Tickets')
-        .setDescription(panelEmbed.description || 'Need help? Select a category below...')
-        .setColor(panelEmbed.color || '#5865F2');
-      
-      if (panelEmbed.footer) embed.setFooter({ text: panelEmbed.footer });
-      if (panelEmbed.thumbnail) embed.setThumbnail(panelEmbed.thumbnail);
-      if (panelEmbed.image) embed.setImage(panelEmbed.image);
-
-      const selectOptions = config.categories.map(cat => ({
-        label: cat.name,
-        value: cat.name.toLowerCase().replace(/\s+/g, '-'),
-        emoji: cat.emoji || '📩',
-        description: `Open a ${cat.name} ticket`
-      }));
-
-      const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('ticket:select_category')
-        .setPlaceholder('Select ticket category...')
-        .addOptions(selectOptions);
-
-      const row = new ActionRowBuilder().addComponents(selectMenu);
-
-      await message.edit({ embeds: [embed], components: [row] });
-      await interaction.reply({ content: '✅ Panel updated successfully!', ephemeral: true });
-    } catch (err) {
-      await interaction.reply({ content: '❌ Failed to update panel. The message may have been deleted. Use `/ticket panel` to post a new one.', ephemeral: true });
-    }
-  }
 }
 
 export async function handleTicketInteraction(interaction) {
@@ -331,14 +199,7 @@ export async function handleTicketInteraction(interaction) {
   const guildId = interaction.guild.id;
   const config = getTicketConfig(guildId);
 
-  if (customId === 'ticket:select_category' && interaction.isStringSelectMenu()) {
-    const categoryValue = interaction.values[0];
-    const category = config.categories.find(c => c.name.toLowerCase().replace(/\s+/g, '-') === categoryValue);
-    
-    if (!category) {
-      return await interaction.reply({ content: '❌ Invalid category selected.', ephemeral: true });
-    }
-
+  if (customId === 'ticket:open') {
     const cooldownExpiry = getUserCooldown(guildId, interaction.user.id);
     const timeLeft = Math.ceil((cooldownExpiry + (config.cooldownSeconds * 1000) - Date.now()) / 1000);
     
@@ -346,12 +207,12 @@ export async function handleTicketInteraction(interaction) {
       return await interaction.reply({ content: `⏱️ Please wait ${timeLeft} seconds before creating another ticket.`, ephemeral: true });
     }
 
-    const openTickets = getUserOpenTickets(guildId, interaction.user.id, category.name);
+    const openTickets = getUserOpenTickets(guildId, interaction.user.id);
     if (openTickets >= config.maxTicketsPerUser) {
-      return await interaction.reply({ content: `❌ You already have ${openTickets} open ticket(s) in this category.`, ephemeral: true });
+      return await interaction.reply({ content: `❌ You already have ${openTickets} open ticket(s). Please close existing tickets first.`, ephemeral: true });
     }
 
-    if (!config.categoryId) {
+    if (!config.categoryId || !config.supportRoleId) {
       return await interaction.reply({ content: '❌ Ticket system not configured. Please contact an admin.', ephemeral: true });
     }
 
@@ -368,7 +229,7 @@ export async function handleTicketInteraction(interaction) {
         permissionOverwrites: [
           { id: interaction.guild.id, deny: ['ViewChannel'] },
           { id: interaction.user.id, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
-          { id: category.roleId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] }
+          { id: config.supportRoleId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] }
         ]
       });
 
@@ -376,7 +237,6 @@ export async function handleTicketInteraction(interaction) {
         openerId: interaction.user.id,
         openerTag: interaction.user.tag,
         channelId: ticketChannel.id,
-        category: category.name,
         createdAt: Date.now(),
         claimedBy: null,
         status: 'open'
@@ -386,10 +246,9 @@ export async function handleTicketInteraction(interaction) {
       setUserCooldown(guildId, interaction.user.id);
 
       const controlEmbed = new EmbedBuilder()
-        .setTitle(`🎫 ${category.name} Ticket`)
+        .setTitle('🎫 Support Ticket')
         .setDescription(`Welcome ${interaction.user}!\n\nPlease describe your issue and our support team will assist you shortly.`)
         .addFields(
-          { name: 'Category', value: category.name, inline: true },
           { name: 'Opened by', value: interaction.user.tag, inline: true },
           { name: 'Status', value: '🟢 Open', inline: true }
         )
@@ -408,7 +267,7 @@ export async function handleTicketInteraction(interaction) {
         new ButtonBuilder().setCustomId('ticket:transcript').setLabel('Transcript').setStyle(ButtonStyle.Secondary).setEmoji('📜')
       );
 
-      await ticketChannel.send({ content: `${interaction.user} <@&${category.roleId}>`, embeds: [controlEmbed], components: [buttons1, buttons2] });
+      await ticketChannel.send({ content: `${interaction.user} <@&${config.supportRoleId}>`, embeds: [controlEmbed], components: [buttons1, buttons2] });
 
       if (config.logsChannelId) {
         const logsChannel = await interaction.guild.channels.fetch(config.logsChannelId).catch(() => null);
@@ -417,7 +276,6 @@ export async function handleTicketInteraction(interaction) {
             .setTitle('🎫 Ticket Created')
             .addFields(
               { name: 'User', value: `${interaction.user.tag} (${interaction.user.id})`, inline: true },
-              { name: 'Category', value: category.name, inline: true },
               { name: 'Channel', value: `<#${ticketChannel.id}>`, inline: true }
             )
             .setColor('#00ff00')
