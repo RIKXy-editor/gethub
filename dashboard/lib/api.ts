@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/admin";
+const API_BASE = "/admin";
 
 const api = axios.create({
   baseURL: API_BASE,
