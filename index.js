@@ -170,7 +170,7 @@ client.on('interactionCreate', async interaction => {
 
 async function startServer() {
   const app = express();
-  const port = 5000;
+  const port = process.env.PORT || 5000;
   
   app.use(session({
     secret: process.env.SESSION_SECRET || 'ticket-admin-secret-key-change-me',
