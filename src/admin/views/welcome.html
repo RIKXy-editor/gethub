@@ -149,6 +149,7 @@
     </div>
   </main>
 
+  <script src="/admin/js/unsaved.js"></script>
   <script>
     let currentGuildId = null;
     let config = {};
@@ -218,6 +219,7 @@
       document.getElementById('channelId').value = config.channelId || '';
       toggleImageUrl();
       updatePreview();
+      setTimeout(() => UnsavedChanges.refresh && UnsavedChanges.refresh(), 100);
     }
 
     async function saveConfig() {
@@ -241,6 +243,7 @@
       });
       if (res.ok) {
         alert('Configuration saved!');
+        UnsavedChanges.markSaved();
       } else {
         alert('Failed to save configuration');
       }
@@ -277,6 +280,7 @@
       document.getElementById(id).addEventListener('change', updatePreview);
     });
 
+    UnsavedChanges.init(saveConfig);
     loadGuilds();
   </script>
 </body>

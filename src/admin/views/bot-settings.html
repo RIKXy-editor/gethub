@@ -91,6 +91,7 @@
     <button class="btn btn-primary" onclick="saveSettings()" style="width:100%;max-width:400px;">Save Settings</button>
   </main>
 
+  <script src="/admin/js/unsaved.js"></script>
   <script>
     let statusMessages = [];
 
@@ -101,6 +102,7 @@
       document.getElementById('activityType').value = settings.activityType || 'Playing';
       renderStatusList();
       updatePreview();
+      setTimeout(() => UnsavedChanges.refresh && UnsavedChanges.refresh(), 100);
     }
 
     function renderStatusList() {
@@ -150,6 +152,7 @@
       });
       if (res.ok) {
         alert('Settings saved! Bot status will update shortly.');
+        UnsavedChanges.markSaved();
       } else {
         alert('Failed to save settings');
       }
@@ -160,6 +163,7 @@
       if (e.key === 'Enter') addStatus();
     });
 
+    UnsavedChanges.init(saveSettings);
     loadSettings();
   </script>
 </body>

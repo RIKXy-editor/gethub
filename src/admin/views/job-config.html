@@ -79,6 +79,7 @@
     </div>
   </main>
 
+  <script src="/admin/js/unsaved.js"></script>
   <script>
     let currentGuildId = null;
 
@@ -120,6 +121,7 @@
       document.getElementById('roleId').value = config.roleId || '';
       document.getElementById('cooldown').value = Math.floor((config.cooldown || 86400000) / 3600000);
       document.getElementById('bannerText').value = config.bannerText || '';
+      setTimeout(() => UnsavedChanges.refresh && UnsavedChanges.refresh(), 100);
     }
 
     async function saveConfig() {
@@ -137,6 +139,7 @@
       });
       if (res.ok) {
         alert('Configuration saved!');
+        UnsavedChanges.markSaved();
       } else {
         alert('Failed to save');
       }
@@ -149,6 +152,7 @@
       loadConfig();
     });
 
+    UnsavedChanges.init(saveConfig);
     loadGuilds();
   </script>
 </body>

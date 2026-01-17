@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panels - Ticket Admin</title>
   <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .plan-item { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .plan-item .plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .plan-item .plan-header h4 { margin: 0; color: var(--accent-color); }
+    .plan-item .plan-fields { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 12px; }
+    .plan-item .form-control { background: var(--card-bg); }
+    .remove-plan { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 18px; }
+  </style>
 </head>
 <body>
   <aside class="sidebar">
@@ -111,6 +119,18 @@
 
     <div class="card" style="margin-top:20px;">
       <div class="card-header">
+        <h3>💎 Subscription Plans</h3>
+      </div>
+      <div class="card-body">
+        <p style="color:var(--text-secondary);margin-bottom:16px;">Configure subscription plans that users can select when opening tickets</p>
+        <div id="plansContainer"></div>
+        <button class="btn btn-secondary" onclick="addPlan()" style="margin-top:12px;">+ Add Plan</button>
+        <button class="btn btn-primary" onclick="savePlans()" style="margin-top:12px;margin-left:8px;">Save Plans</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="card-header">
         <h3>⚙️ Panel Configuration</h3>
       </div>
       <div class="card-body">
@@ -151,13 +171,14 @@
   </main>
 
   <div class="toast" id="toast"></div>
-
+  <script src="/admin/js/unsaved.js"></script>
   <script>
     let currentGuildId = null;
+    let subscriptionPlans = [];
     
     async function loadGuilds() {
       try {
-        const res = await fetch('/admin/api/guilds');
+        const res = await fetch('/admin/api/discord/guilds');
         const guilds = await res.json();
         const select = document.getElementById('guildSelect');
         
@@ -166,10 +187,11 @@
           return;
         }
         
-        select.innerHTML = guilds.map(g => `<option value="${g.id}">${g.id}</option>`).join('');
+        select.innerHTML = guilds.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
         currentGuildId = guilds[0].id;
         loadConfig();
         loadChannels();
+        loadPlans();
       } catch (err) {
         console.error('Error loading guilds:', err);
       }
@@ -197,6 +219,7 @@
         document.getElementById('cooldownSeconds').value = config.cooldownSeconds || 60;
         document.getElementById('maxTicketsPerUser').value = config.maxTicketsPerUser || 1;
         document.getElementById('ratingsEnabled').value = config.ratingsEnabled !== false ? 'true' : 'false';
+        setTimeout(() => UnsavedChanges.refresh && UnsavedChanges.refresh(), 100);
       } catch (err) {
         console.error('Error loading config:', err);
       }
@@ -311,8 +334,109 @@
       currentGuildId = e.target.value;
       loadConfig();
       loadChannels();
+      loadPlans();
     });
     
+    async function loadPlans() {
+      if (!currentGuildId) return;
+      try {
+        const res = await fetch(`/admin/api/plans/${currentGuildId}`);
+        subscriptionPlans = await res.json();
+        renderPlans();
+        setTimeout(() => UnsavedChanges.refresh && UnsavedChanges.refresh(), 100);
+      } catch (err) {
+        console.error('Error loading plans:', err);
+        subscriptionPlans = [];
+        renderPlans();
+      }
+    }
+    
+    function renderPlans() {
+      const container = document.getElementById('plansContainer');
+      if (subscriptionPlans.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-secondary);">No plans configured. Add your first subscription plan.</p>';
+        return;
+      }
+      container.innerHTML = subscriptionPlans.map((plan, i) => `
+        <div class="plan-item">
+          <div class="plan-header">
+            <h4>Plan ${i + 1}</h4>
+            <button class="remove-plan" onclick="removePlan(${i})">&times;</button>
+          </div>
+          <div class="plan-fields">
+            <div class="form-group">
+              <label>Plan Name</label>
+              <input type="text" class="form-control plan-name" data-index="${i}" value="${plan.name || ''}" placeholder="e.g. Basic">
+            </div>
+            <div class="form-group">
+              <label>Price</label>
+              <input type="text" class="form-control plan-price" data-index="${i}" value="${plan.price || ''}" placeholder="e.g. $9.99/mo">
+            </div>
+            <div class="form-group">
+              <label>Features (comma separated)</label>
+              <input type="text" class="form-control plan-features" data-index="${i}" value="${(plan.features || []).join(', ')}" placeholder="Feature 1, Feature 2">
+            </div>
+          </div>
+        </div>
+      `).join('');
+      
+      container.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updatePlanFromInput);
+      });
+    }
+    
+    function updatePlanFromInput(e) {
+      const index = parseInt(e.target.dataset.index);
+      if (e.target.classList.contains('plan-name')) {
+        subscriptionPlans[index].name = e.target.value;
+      } else if (e.target.classList.contains('plan-price')) {
+        subscriptionPlans[index].price = e.target.value;
+      } else if (e.target.classList.contains('plan-features')) {
+        subscriptionPlans[index].features = e.target.value.split(',').map(f => f.trim()).filter(f => f);
+      }
+      UnsavedChanges.markDirty();
+    }
+    
+    function addPlan() {
+      subscriptionPlans.push({ name: '', price: '', features: [] });
+      renderPlans();
+      UnsavedChanges.markDirty();
+    }
+    
+    function removePlan(index) {
+      subscriptionPlans.splice(index, 1);
+      renderPlans();
+      UnsavedChanges.markDirty();
+    }
+    
+    async function savePlans() {
+      if (!currentGuildId) return;
+      try {
+        const res = await fetch(`/admin/api/plans/${currentGuildId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plans: subscriptionPlans })
+        });
+        if (res.ok) {
+          showToast('Subscription plans saved!', 'success');
+          UnsavedChanges.markSaved();
+        } else {
+          showToast('Failed to save plans', 'error');
+        }
+      } catch (err) {
+        showToast('Error saving plans', 'error');
+      }
+    }
+    
+    async function saveAllChanges() {
+      await savePanelSettings();
+      await saveTicketSettings();
+      await saveConfig();
+      await savePlans();
+      UnsavedChanges.markSaved();
+    }
+    
+    UnsavedChanges.init(saveAllChanges);
     loadGuilds();
   </script>
 </body>

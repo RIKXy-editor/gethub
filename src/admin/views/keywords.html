@@ -87,6 +87,7 @@
     </div>
   </main>
 
+  <script src="/admin/js/unsaved.js"></script>
   <script>
     let currentGuildId = null;
     let keywords = [];
@@ -181,6 +182,7 @@
       loadKeywords();
     });
 
+    UnsavedChanges.init(() => {});
     loadGuilds();
   </script>
 </body>
