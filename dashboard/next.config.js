@@ -4,7 +4,7 @@ const nextConfig = {
   images: {
     domains: ['cdn.discordapp.com'],
   },
-  allowedDevOrigins: ['*'],
+  allowedDevOrigins: ['*.replit.dev', '*.spock.replit.dev', '*.kirk.replit.dev'],
   async rewrites() {
     if (process.env.NODE_ENV === 'production') {
       return [];
