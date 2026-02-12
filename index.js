@@ -6,6 +6,10 @@ import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
 import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
 import { handleAppealButton, handleAppealModal, handleDenyModal, handleAskInfoModal } from './src/handlers/appealHandler.js';
+import { routeTicketInteraction, handleEmailModal } from './src/services/ticketService.js';
+import { initializeDatabase, seedDefaultData } from './src/db/schema.js';
+import { createWebServer } from './src/web/server.js';
+import { startReminderScheduler } from './src/services/reminderService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +82,11 @@ async function deployCommands() {
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
     try {
+      if (interaction.customId.startsWith('ticket:')) {
+        await routeTicketInteraction(interaction);
+        return;
+      }
+
       if (interaction.customId.startsWith('appeal:')) {
         await handleAppealButton(interaction);
         return;
@@ -98,6 +107,11 @@ client.on('interactionCreate', async interaction => {
 
   if (interaction.isModalSubmit()) {
     try {
+      if (interaction.customId.startsWith('ticket:email_modal:')) {
+        await handleEmailModal(interaction);
+        return;
+      }
+
       if (interaction.customId.startsWith('appeal:')) {
         const appealHandled = await handleAppealModal(interaction);
         if (!appealHandled) {
@@ -160,12 +174,24 @@ client.on('interactionCreate', async interaction => {
 
 async function start() {
   try {
+    await initializeDatabase();
+
+    if (process.env.DISCORD_GUILD_ID) {
+      await seedDefaultData(process.env.DISCORD_GUILD_ID);
+    }
+
     await loadCommands();
     await loadEvents();
     await deployCommands();
 
+    const app = createWebServer(client);
+    app.listen(5000, '0.0.0.0', () => {
+      console.log('Dashboard running on http://0.0.0.0:5000');
+    });
+
     if (process.env.DISCORD_TOKEN) {
       await client.login(process.env.DISCORD_TOKEN);
+      startReminderScheduler(client);
     } else {
       console.warn('DISCORD_TOKEN not set - bot will not connect to Discord');
     }

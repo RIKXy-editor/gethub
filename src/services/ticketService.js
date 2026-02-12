@@ -1,0 +1,506 @@
+import {
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  StringSelectMenuBuilder, ChannelType, PermissionFlagsBits,
+  ModalBuilder, TextInputBuilder, TextInputStyle
+} from 'discord.js';
+import { Panel, Plan, PaymentMethod, Ticket, Subscription, Reminder, Payment, Log, Guild } from '../db/models.js';
+
+const BUTTON_STYLES = {
+  Primary: ButtonStyle.Primary,
+  Secondary: ButtonStyle.Secondary,
+  Success: ButtonStyle.Success,
+  Danger: ButtonStyle.Danger
+};
+
+function getButtonStyle(style) {
+  return BUTTON_STYLES[style] || ButtonStyle.Secondary;
+}
+
+export async function handleTicketButton(interaction) {
+  const panelId = interaction.customId.replace('ticket:open:', '');
+  const panel = await Panel.getById(panelId);
+  if (!panel || !panel.enabled) {
+    return interaction.reply({ content: 'This ticket panel is currently disabled.', ephemeral: true });
+  }
+
+  const guildId = interaction.guild.id;
+  const openTickets = await Ticket.getOpenByUser(guildId, interaction.user.id);
+  if (openTickets.length >= panel.max_tickets_per_user) {
+    return interaction.reply({ content: `You already have ${openTickets.length} open ticket(s). Please close existing tickets first.`, ephemeral: true });
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const categoryId = panel.category_id || null;
+    const guild = await Guild.get(guildId);
+    const staffRoleId = panel.staff_role_id || (guild?.staff_role_ids?.[0]) || null;
+
+    const permissionOverwrites = [
+      { id: guildId, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+      { id: interaction.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageMessages] }
+    ];
+
+    if (staffRoleId) {
+      permissionOverwrites.push({
+        id: staffRoleId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages]
+      });
+    }
+
+    const channel = await interaction.guild.channels.create({
+      name: `ticket-${interaction.user.username}`,
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites
+    });
+
+    const ticket = await Ticket.create({
+      guild_id: guildId,
+      user_id: interaction.user.id,
+      channel_id: channel.id,
+      panel_id: panel.id
+    });
+
+    await Log.create(guildId, 'ticket_created', interaction.user.id, null, { ticket_id: ticket.id, channel_id: channel.id });
+
+    const plans = await Plan.getEnabled(guildId);
+    if (plans.length === 0) {
+      const embed = new EmbedBuilder()
+        .setTitle('Ticket Opened')
+        .setDescription('A staff member will be with you shortly.')
+        .setColor('#5865F2')
+        .setTimestamp();
+      await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed] });
+    } else {
+      await sendPlanSelection(channel, interaction.user.id, ticket.id, plans);
+    }
+
+    await interaction.editReply({ content: `Your ticket has been created: <#${channel.id}>` });
+  } catch (err) {
+    console.error('[TICKET] Error creating ticket:', err);
+    await interaction.editReply({ content: 'Failed to create ticket. Please try again.' });
+  }
+}
+
+async function sendPlanSelection(channel, userId, ticketId, plans) {
+  let description = 'Select your subscription duration below.\n\n';
+  for (const plan of plans) {
+    const rec = plan.recommended ? ' 🔥 **Recommended**' : '';
+    const discount = plan.discount_percent > 0 ? ` (${plan.discount_percent}% OFF)` : '';
+    description += `**${plan.name}** — ₹${plan.price}${discount}${rec}\n`;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('Choose Your Subscription Plan')
+    .setDescription(description)
+    .setColor('#5865F2')
+    .setTimestamp();
+
+  const rows = [];
+  let currentRow = new ActionRowBuilder();
+  let btnCount = 0;
+
+  for (const plan of plans) {
+    if (btnCount >= 5) {
+      rows.push(currentRow);
+      currentRow = new ActionRowBuilder();
+      btnCount = 0;
+    }
+    const btn = new ButtonBuilder()
+      .setCustomId(`ticket:plan:${ticketId}:${plan.id}`)
+      .setLabel(plan.name)
+      .setStyle(getButtonStyle(plan.button_color));
+    if (plan.button_emoji) btn.setEmoji(plan.button_emoji);
+    currentRow.addComponents(btn);
+    btnCount++;
+  }
+  if (btnCount > 0) rows.push(currentRow);
+
+  await channel.send({ content: `<@${userId}>`, embeds: [embed], components: rows });
+}
+
+export async function handlePlanSelect(interaction) {
+  const parts = interaction.customId.split(':');
+  const ticketId = parseInt(parts[2]);
+  const planId = parseInt(parts[3]);
+
+  const ticket = await Ticket.getById(ticketId);
+  if (!ticket || ticket.user_id !== interaction.user.id) {
+    return interaction.reply({ content: 'This is not your ticket.', ephemeral: true });
+  }
+
+  const plan = await Plan.getById(planId);
+  if (!plan) return interaction.reply({ content: 'Plan not found.', ephemeral: true });
+
+  await Ticket.update(ticketId, { plan_id: planId });
+  await interaction.update({ components: [] });
+
+  const methods = await PaymentMethod.getEnabled(ticket.guild_id);
+  if (methods.length === 0) {
+    return interaction.channel.send('No payment methods configured. Please contact an admin.');
+  }
+
+  let description = `**Selected Plan:** ${plan.name} — ₹${plan.price}\n\nChoose your preferred payment method:\n\n`;
+  for (const m of methods) {
+    const rec = m.recommended ? ' ⭐ **Recommended**' : '';
+    description += `${m.emoji || ''} **${m.label}**${rec}\n`;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('Select Payment Method')
+    .setDescription(description)
+    .setColor('#5865F2')
+    .setTimestamp();
+
+  const rows = [];
+  let currentRow = new ActionRowBuilder();
+  let btnCount = 0;
+
+  for (const m of methods) {
+    if (btnCount >= 5) {
+      rows.push(currentRow);
+      currentRow = new ActionRowBuilder();
+      btnCount = 0;
+    }
+    const btn = new ButtonBuilder()
+      .setCustomId(`ticket:pay:${ticketId}:${m.id}`)
+      .setLabel(m.label)
+      .setStyle(getButtonStyle(m.button_color));
+    if (m.emoji) btn.setEmoji(m.emoji);
+    currentRow.addComponents(btn);
+    btnCount++;
+  }
+  if (btnCount > 0) rows.push(currentRow);
+
+  await interaction.channel.send({ embeds: [embed], components: rows });
+}
+
+export async function handlePaymentSelect(interaction) {
+  const parts = interaction.customId.split(':');
+  const ticketId = parseInt(parts[2]);
+  const methodId = parseInt(parts[3]);
+
+  const ticket = await Ticket.getById(ticketId);
+  if (!ticket || ticket.user_id !== interaction.user.id) {
+    return interaction.reply({ content: 'This is not your ticket.', ephemeral: true });
+  }
+
+  const method = await PaymentMethod.getById(methodId);
+  if (!method) return interaction.reply({ content: 'Payment method not found.', ephemeral: true });
+
+  await Ticket.update(ticketId, { payment_method_id: methodId });
+  await interaction.update({ components: [] });
+
+  const plan = await Plan.getById(ticket.plan_id);
+
+  let description = method.instructions || 'Please complete the payment and click the button below.';
+  if (plan) description += `\n\n**Plan:** ${plan.name}\n**Amount:** ₹${plan.price}`;
+  if (method.payment_link) description += `\n**Payment Link:** ${method.payment_link}`;
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Payment via ${method.label}`)
+    .setDescription(description)
+    .setColor(method.embed_color || '#5865F2')
+    .setTimestamp();
+
+  if (method.qr_image_url) embed.setImage(method.qr_image_url);
+  if (method.embed_thumbnail) embed.setThumbnail(method.embed_thumbnail);
+  if (method.embed_image && !method.qr_image_url) embed.setImage(method.embed_image);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`ticket:paid:${ticketId}`)
+      .setLabel('I Have Completed Payment')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('✅')
+  );
+
+  await interaction.channel.send({ embeds: [embed], components: [row] });
+}
+
+export async function handlePaidButton(interaction) {
+  const ticketId = parseInt(interaction.customId.split(':')[2]);
+  const ticket = await Ticket.getById(ticketId);
+  if (!ticket) return interaction.reply({ content: 'Ticket not found.', ephemeral: true });
+
+  if (ticket.user_id !== interaction.user.id) {
+    return interaction.reply({ content: 'This is not your ticket.', ephemeral: true });
+  }
+
+  await interaction.update({ components: [] });
+
+  const plan = await Plan.getById(ticket.plan_id);
+  const method = await PaymentMethod.getById(ticket.payment_method_id);
+
+  const embed = new EmbedBuilder()
+    .setTitle('Payment Submitted')
+    .setDescription(`<@${interaction.user.id}> has indicated they completed payment.\n\n**Plan:** ${plan?.name || 'N/A'}\n**Method:** ${method?.label || 'N/A'}\n**Amount:** ₹${plan?.price || '0'}\n\nAn admin will verify and confirm your payment.`)
+    .setColor('#FFA500')
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`ticket:confirm:${ticketId}`)
+      .setLabel('Confirm Payment')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('✅'),
+    new ButtonBuilder()
+      .setCustomId(`ticket:deny_pay:${ticketId}`)
+      .setLabel('Deny Payment')
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji('❌')
+  );
+
+  await interaction.channel.send({ embeds: [embed], components: [row] });
+}
+
+export async function handleConfirmPayment(interaction) {
+  const ticketId = parseInt(interaction.customId.split(':')[2]);
+  const ticket = await Ticket.getById(ticketId);
+  if (!ticket) return interaction.reply({ content: 'Ticket not found.', ephemeral: true });
+
+  const isAdmin = await checkStaffPermission(interaction);
+  if (!isAdmin) {
+    return interaction.reply({ content: 'Only staff members can confirm payments.', ephemeral: true });
+  }
+
+  await Ticket.update(ticketId, {
+    payment_confirmed: true,
+    payment_confirmed_by: interaction.user.id,
+    payment_confirmed_at: new Date().toISOString()
+  });
+
+  await Log.create(ticket.guild_id, 'payment_confirmed', interaction.user.id, ticket.user_id, { ticket_id: ticketId });
+
+  await interaction.update({ components: [] });
+
+  const embed = new EmbedBuilder()
+    .setTitle('✅ Payment Confirmed')
+    .setDescription(`Payment has been confirmed by <@${interaction.user.id}>.\n\nPlease submit your email carefully for your subscription delivery.`)
+    .setColor('#00FF00')
+    .setFooter({ text: '⚠️ Please enter your email carefully. Wrong email means wrong subscription delivery.' })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`ticket:email_btn:${ticketId}`)
+      .setLabel('Enter Subscription Email')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('📧')
+  );
+
+  await interaction.channel.send({ content: `<@${ticket.user_id}>`, embeds: [embed], components: [row] });
+}
+
+export async function handleDenyPayment(interaction) {
+  const ticketId = parseInt(interaction.customId.split(':')[2]);
+  const isAdmin = await checkStaffPermission(interaction);
+  if (!isAdmin) {
+    return interaction.reply({ content: 'Only staff members can deny payments.', ephemeral: true });
+  }
+
+  await interaction.update({ components: [] });
+
+  const embed = new EmbedBuilder()
+    .setTitle('❌ Payment Denied')
+    .setDescription(`Payment was denied by <@${interaction.user.id}>. Please contact a staff member for more information.`)
+    .setColor('#FF0000')
+    .setTimestamp();
+
+  await interaction.channel.send({ embeds: [embed] });
+}
+
+export async function handleEmailButton(interaction) {
+  const ticketId = parseInt(interaction.customId.split(':')[2]);
+  const ticket = await Ticket.getById(ticketId);
+  if (!ticket || ticket.user_id !== interaction.user.id) {
+    return interaction.reply({ content: 'This is not your ticket.', ephemeral: true });
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`ticket:email_modal:${ticketId}`)
+    .setTitle('Enter Subscription Email');
+
+  const emailInput = new TextInputBuilder()
+    .setCustomId('email')
+    .setLabel('Your Email Address')
+    .setPlaceholder('example@email.com')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMinLength(5)
+    .setMaxLength(100);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(emailInput));
+  await interaction.showModal(modal);
+}
+
+export async function handleEmailModal(interaction) {
+  const ticketId = parseInt(interaction.customId.split(':')[2]);
+  const email = interaction.fields.getTextInputValue('email').trim();
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return interaction.reply({ content: 'Please enter a valid email address.', ephemeral: true });
+  }
+
+  const ticket = await Ticket.getById(ticketId);
+  if (!ticket) return interaction.reply({ content: 'Ticket not found.', ephemeral: true });
+
+  await Ticket.update(ticketId, { email });
+  const plan = await Plan.getById(ticket.plan_id);
+  const method = await PaymentMethod.getById(ticket.payment_method_id);
+
+  const startDate = new Date();
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + (plan?.duration_days || 30));
+
+  const subscription = await Subscription.create({
+    guild_id: ticket.guild_id,
+    user_id: ticket.user_id,
+    ticket_id: ticket.id,
+    plan_id: plan?.id,
+    email,
+    plan_name: plan?.name || 'Unknown',
+    price: plan?.price || 0,
+    currency: plan?.currency || 'INR',
+    start_date: startDate.toISOString(),
+    end_date: endDate.toISOString(),
+    payment_method: method?.label || 'Unknown',
+    status: 'active'
+  });
+
+  await Payment.create({
+    guild_id: ticket.guild_id,
+    ticket_id: ticket.id,
+    subscription_id: subscription.id,
+    user_id: ticket.user_id,
+    amount: plan?.price || 0,
+    currency: plan?.currency || 'INR',
+    payment_method: method?.label,
+    status: 'confirmed'
+  });
+
+  const guild = await Guild.get(ticket.guild_id);
+  const reminderDays = guild?.reminder_days || [3, 2, 1];
+  const reminders = [];
+  for (const daysBefore of reminderDays) {
+    const reminderDate = new Date(endDate);
+    reminderDate.setDate(reminderDate.getDate() - daysBefore);
+    if (reminderDate > startDate) {
+      reminders.push({
+        subscription_id: subscription.id,
+        user_id: ticket.user_id,
+        guild_id: ticket.guild_id,
+        reminder_date: reminderDate.toISOString().split('T')[0],
+        days_before: daysBefore
+      });
+    }
+  }
+  if (reminders.length > 0) await Reminder.createBulk(reminders);
+
+  await Log.create(ticket.guild_id, 'subscription_created', ticket.user_id, null, {
+    subscription_id: subscription.id, plan: plan?.name, email, end_date: endDate.toISOString()
+  });
+
+  await interaction.update({ components: [] });
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎉 Subscription Activated!')
+    .setDescription([
+      `**Email:** ${email}`,
+      `**Plan:** ${plan?.name || 'N/A'}`,
+      `**Price:** ₹${plan?.price || '0'}`,
+      `**Start Date:** ${startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+      `**End Date:** ${endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+      `**Payment Method:** ${method?.label || 'N/A'}`,
+      '',
+      'You will receive DM reminders before your subscription expires.'
+    ].join('\n'))
+    .setColor('#00FF00')
+    .setTimestamp();
+
+  const closeRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`ticket:close:${ticketId}`)
+      .setLabel('Close Ticket')
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji('🔒')
+  );
+
+  await interaction.channel.send({ embeds: [embed], components: [closeRow] });
+}
+
+export async function handleCloseTicket(interaction) {
+  const ticketId = parseInt(interaction.customId.split(':')[2]);
+  const isAdmin = await checkStaffPermission(interaction);
+  if (!isAdmin) {
+    return interaction.reply({ content: 'Only staff members can close tickets.', ephemeral: true });
+  }
+
+  await interaction.update({ components: [] });
+  await Ticket.close(ticketId, interaction.user.id);
+  await Log.create(interaction.guild.id, 'ticket_closed', interaction.user.id, null, { ticket_id: ticketId });
+
+  const embed = new EmbedBuilder()
+    .setTitle('🔒 Ticket Closed')
+    .setDescription(`This ticket has been closed by <@${interaction.user.id}>.`)
+    .setColor('#FF0000')
+    .setTimestamp();
+
+  await interaction.channel.send({ embeds: [embed] });
+
+  setTimeout(async () => {
+    try {
+      await interaction.channel.delete();
+    } catch (e) {
+      console.error('[TICKET] Failed to delete channel:', e.message);
+    }
+  }, 5000);
+}
+
+export async function handleClaimTicket(interaction) {
+  const ticketId = parseInt(interaction.customId.split(':')[2]);
+  const isAdmin = await checkStaffPermission(interaction);
+  if (!isAdmin) {
+    return interaction.reply({ content: 'Only staff members can claim tickets.', ephemeral: true });
+  }
+
+  await Ticket.update(ticketId, { claimed_by: interaction.user.id });
+  await interaction.reply({ content: `Ticket claimed by <@${interaction.user.id}>.` });
+}
+
+async function checkStaffPermission(interaction) {
+  if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+  if (interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
+
+  const guild = await Guild.get(interaction.guild.id);
+  if (guild?.staff_role_ids?.length > 0) {
+    return guild.staff_role_ids.some(roleId => interaction.member.roles.cache.has(roleId));
+  }
+
+  const ticket = await Ticket.getByChannel(interaction.channel.id);
+  if (ticket) {
+    const panel = await Panel.getById(ticket.panel_id);
+    if (panel?.staff_role_id && interaction.member.roles.cache.has(panel.staff_role_id)) return true;
+  }
+
+  return false;
+}
+
+export async function routeTicketInteraction(interaction) {
+  const id = interaction.customId;
+
+  if (id.startsWith('ticket:open:')) return handleTicketButton(interaction);
+  if (id.startsWith('ticket:plan:')) return handlePlanSelect(interaction);
+  if (id.startsWith('ticket:pay:')) return handlePaymentSelect(interaction);
+  if (id.startsWith('ticket:paid:')) return handlePaidButton(interaction);
+  if (id.startsWith('ticket:confirm:')) return handleConfirmPayment(interaction);
+  if (id.startsWith('ticket:deny_pay:')) return handleDenyPayment(interaction);
+  if (id.startsWith('ticket:email_btn:')) return handleEmailButton(interaction);
+  if (id.startsWith('ticket:close:')) return handleCloseTicket(interaction);
+  if (id.startsWith('ticket:claim:')) return handleClaimTicket(interaction);
+
+  return null;
+}

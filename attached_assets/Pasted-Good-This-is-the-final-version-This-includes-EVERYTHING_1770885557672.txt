@@ -1,0 +1,366 @@
+Good. This is the final version.
+This includes EVERYTHING you asked across the whole conversation.
+
+Copy this entire block into Replit AI Pro.
+
+⸻
+
+I already have a running Discord bot built with Node.js and discord.js v14.
+
+Do NOT rebuild my bot.
+Do NOT modify unrelated systems.
+Integrate a fully advanced, production-level Ticket + Subscription SaaS System into my existing bot.
+
+Everything must be database-driven.
+Everything must survive redeploy.
+Every single setting must be controlled from the dashboard.
+Nothing should require slash commands for setup.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CORE STACK REQUIREMENTS
+
+Use:
+	•	Node.js
+	•	discord.js v14
+	•	Express backend
+	•	SQLite (or PostgreSQL if better supported)
+	•	Proper MVC structure
+	•	node-cron for reminder scheduler
+	•	Discord OAuth2 login for dashboard
+	•	Role-based access control
+
+Create modular structure:
+
+/ticket-system
+/dashboard
+/database
+/models
+/services
+/routes
+/utils
+
+Clean, scalable, production-ready.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SYSTEM PURPOSE
+
+This is NOT just a ticket bot.
+
+This is a complete subscription sales funnel inside Discord, fully controlled by a web dashboard.
+
+Flow:
+
+User creates ticket
+→ Selects plan
+→ Selects payment method
+→ Confirms payment
+→ Submits email
+→ Admin confirms
+→ Subscription activates
+→ Reminder automation runs
+→ Dashboard tracks everything
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TICKET PERMISSIONS (STRICT)
+
+Users:
+	•	Can create ticket
+	•	Can message inside ticket
+	•	Cannot close ticket
+	•	Cannot claim ticket
+	•	Cannot rename
+	•	Cannot change priority
+
+Only Admin/Support roles (configurable in dashboard):
+	•	Can close ticket
+	•	Can claim ticket
+	•	Can confirm payment
+	•	Can manage ticket lifecycle
+
+This must be strictly enforced.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PLAN SELECTION SYSTEM
+
+When ticket opens:
+
+Bot sends embed:
+
+Title: Choose Your Subscription Plan
+Description: Select your subscription duration.
+
+Buttons generated dynamically from database.
+
+Default plans:
+	•	1 Month
+	•	3 Months
+	•	6 Months
+	•	1 Year
+
+From dashboard I must control:
+	•	Plan name
+	•	Duration (in days)
+	•	Price
+	•	Discount
+	•	Enable/disable
+	•	Recommended toggle
+	•	Button emoji (custom Discord emoji supported)
+	•	Button color
+	•	Display order
+
+If recommended:
+Show 🔥 Recommended inside embed.
+
+No hardcoded plans.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PAYMENT METHOD SYSTEM
+
+After plan selection:
+
+Bot sends embed:
+
+Title: Select Payment Method
+
+Payment buttons generated from database.
+
+Examples:
+	•	UPI (Recommended)
+	•	PayPal
+	•	Bitcoin
+	•	Card
+
+From dashboard I must control:
+	•	Enable/disable payment method
+	•	Button label
+	•	Emoji (including Discord custom emoji)
+	•	Button color
+	•	Recommended toggle
+	•	Payment instructions message
+	•	Payment link
+	•	QR image URL
+	•	Custom embed content
+	•	Image / thumbnail
+
+No hardcoded payment methods.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PAYMENT CONFIRMATION FLOW
+
+After showing payment instructions:
+
+Button:
+“I Have Completed Payment”
+
+Only Admin can mark payment as confirmed.
+
+After Admin confirmation:
+	•	Subscription start date = confirmation timestamp
+	•	Subscription end date = start + plan duration
+	•	Save subscription in database
+
+Then send:
+
+Embed:
+Title: Payment Confirmed
+Description: Please submit your email carefully for your subscription.
+
+Button:
+Enter Subscription Email
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EMAIL COLLECTION
+
+When clicked:
+
+Open Discord modal.
+
+Modal Title: Enter Subscription Email
+
+Required email field.
+
+Warning text:
+Please enter your email carefully. Wrong email means wrong subscription delivery.
+
+Validate email format.
+
+Store in database:
+	•	User ID
+	•	Email
+	•	Plan ID
+	•	Payment method
+	•	Start date
+	•	End date
+	•	Ticket ID
+	•	Status
+
+Admins must see email in:
+	•	Dashboard subscription panel
+	•	Ticket logs
+	•	User profile page
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+AUTOMATED REMINDER SYSTEM
+
+Reminder logic depends on plan duration.
+
+Example:
+
+If 1 Month plan starts Jan 1
+End date = Feb 1
+
+Bot must send DMs:
+	•	Jan 29 (3 days before expiry)
+	•	Jan 30 (2 days before expiry)
+	•	Jan 31 (1 day before expiry)
+
+Same logic applies to 3 months, 6 months, 1 year.
+
+Reminder days count must be configurable from dashboard (default 3).
+
+DM Embed:
+
+Title: Subscription Ending Soon
+
+If 3 days left:
+Your subscription is ending in 3 days.
+
+If 2 days left:
+Your subscription is ending in 2 days.
+
+If 1 day left:
+Your subscription is ending tomorrow.
+
+On final reminder:
+Add:
+🎉 Renew now and get 10% OFF on your next subscription!
+
+Below embed add green button:
+
+Label: Resubscribe Now
+URL: https://discord.com/channels/1153309880644554804/1415963231108861952
+
+Requirements:
+	•	Must survive redeploy
+	•	Must not duplicate DMs
+	•	Must track sent reminders in database
+	•	Must stop after expiry
+	•	Must use cron scheduler
+	•	Must allow admin to manually trigger reminder
+	•	Must show reminder history in dashboard
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ADVANCED DASHBOARD REQUIREMENTS
+
+Dashboard must have modern UI.
+
+Use:
+	•	Clean modern design
+	•	Full rich text editor support
+	•	Allow bold, italic, markdown
+	•	Support Discord emojis
+	•	Support custom Discord emojis
+	•	Allow image upload
+	•	Allow thumbnail upload
+	•	Allow embed color picker
+	•	Live embed preview before publishing
+
+Dashboard must allow:
+
+TICKET MANAGEMENT
+	•	Create/edit/delete ticket panels
+	•	Post ticket panel directly to Discord channel from dashboard
+	•	Select target guild
+	•	Select channel
+	•	Edit embed content fully
+	•	Control all button settings
+	•	Enable/disable features live
+
+PLAN MANAGEMENT
+	•	Create/edit/delete plans
+	•	Change duration
+	•	Change price
+	•	Change discount
+	•	Set recommended
+	•	Change button style
+
+PAYMENT MANAGEMENT
+	•	Add/remove methods
+	•	Edit instructions
+	•	Upload QR image
+	•	Change link
+	•	Toggle recommended
+
+SUBSCRIPTION MANAGEMENT
+	•	View all users
+	•	View active subscriptions
+	•	View expired subscriptions
+	•	View upcoming expiries
+	•	See exact reminder dates per user
+	•	See subscription start & end date
+	•	Extend subscription
+	•	Cancel subscription
+	•	Mark payment manually
+	•	Export CSV
+
+ANALYTICS
+	•	Active subscriptions count
+	•	Revenue stats
+	•	Plan popularity
+	•	Expiring soon count
+	•	Reminder logs
+
+All dashboard changes must apply instantly without redeploy.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DATABASE TABLES REQUIRED
+	•	guilds
+	•	ticket_panels
+	•	tickets
+	•	plans
+	•	payment_methods
+	•	subscriptions
+	•	reminders
+	•	users
+	•	payments
+	•	logs
+
+Proper relations and indexing required.
+
+No in-memory storage allowed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SECURITY
+	•	Discord OAuth2 authentication
+	•	Role-based access control
+	•	Validate all inputs
+	•	Prevent duplicate subscription creation
+	•	Prevent duplicate reminder sending
+	•	Log all admin actions
+	•	Use environment variables
+	•	Proper error handling
+	•	Async/await only
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FINAL REQUIREMENTS
+	•	No hardcoded values
+	•	No placeholder logic
+	•	Fully modular
+	•	Clean architecture
+	•	Production ready
+	•	Scalable
+	•	Integrated into existing bot
+
+Build this as a SaaS-level system, not a basic Discord ticket bot
