@@ -150,22 +150,24 @@ export async function handlePlanSelect(interaction) {
   const ticketId = parseInt(parts[2]);
   const planId = parseInt(parts[3]);
 
+  let deferred = false;
   try {
-    try {
-      await interaction.deferUpdate();
-    } catch (deferErr) {
-      console.log('[TICKET] deferUpdate failed (already acked), continuing...', deferErr.code);
-    }
+    await interaction.deferUpdate();
+    deferred = true;
+  } catch (deferErr) {
+    console.log('[TICKET] deferUpdate failed, code:', deferErr.code);
+  }
 
+  try {
     const ticket = await Ticket.getById(ticketId);
     if (!ticket || ticket.user_id !== interaction.user.id) {
-      try { await interaction.followUp({ content: 'This is not your ticket.', ephemeral: true }); } catch (e) {}
+      if (deferred) { try { await interaction.followUp({ content: 'This is not your ticket.', ephemeral: true }); } catch (e) {} }
       return;
     }
 
     const plan = await Plan.getById(planId);
     if (!plan) {
-      try { await interaction.followUp({ content: 'Plan not found.', ephemeral: true }); } catch (e) {}
+      if (deferred) { try { await interaction.followUp({ content: 'Plan not found.', ephemeral: true }); } catch (e) {} }
       return;
     }
 
@@ -177,21 +179,32 @@ export async function handlePlanSelect(interaction) {
       console.log('[TICKET] Could not remove plan buttons:', editErr.message);
     }
 
-    const methods = await PaymentMethod.getEnabled(ticket.guild_id);
-    if (methods.length === 0) {
-      return interaction.channel.send('No payment methods configured. Please contact an admin.');
+    const channel = interaction.channel || await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
+    if (!channel) {
+      console.error('[TICKET] Cannot find channel for plan select, channelId:', interaction.channelId);
+      return;
     }
 
-    const pricingList = await PlanPricing.getByPlan(planId);
-    const pricingMap = {};
-    for (const pp of pricingList) {
-      pricingMap[pp.payment_method_id] = pp;
+    const methods = await PaymentMethod.getEnabled(ticket.guild_id);
+    if (methods.length === 0) {
+      await channel.send('No payment methods configured. Please contact an admin.');
+      return;
+    }
+
+    let pricingMap = {};
+    try {
+      const pricingList = await PlanPricing.getByPlan(planId);
+      for (const pp of pricingList) {
+        pricingMap[pp.payment_method_id] = pp;
+      }
+    } catch (pricingErr) {
+      console.log('[TICKET] Could not load plan pricing, using defaults:', pricingErr.message);
     }
 
     let description = `**Selected Plan:** ${plan.name}\n\nChoose your preferred payment method:\n\n`;
     for (const m of methods) {
       const rec = m.recommended ? ' ⭐ **Recommended**' : '';
-      const methodPrice = pricingMap[m.id]?.price ?? plan.price;
+      const methodPrice = pricingMap[m.id]?.price ?? plan.price ?? 0;
       const currency = pricingMap[m.id]?.currency || plan.currency || 'INR';
       const symbol = currency === 'USD' ? '$' : '₹';
       description += `${m.emoji || ''} **${m.label}** — ${symbol}${parseFloat(methodPrice).toLocaleString()}${rec}\n`;
@@ -223,12 +236,12 @@ export async function handlePlanSelect(interaction) {
     }
     if (btnCount > 0) rows.push(currentRow);
 
-    await interaction.channel.send({ embeds: [embed], components: rows });
+    await channel.send({ embeds: [embed], components: rows });
   } catch (err) {
-    console.error('[TICKET] Error handling plan select:', err);
-    try {
-      await interaction.followUp({ content: 'Something went wrong while selecting the plan. Please try again.', ephemeral: true });
-    } catch (e) {}
+    console.error('[TICKET] Error handling plan select:', err.message, err.stack);
+    if (deferred) {
+      try { await interaction.followUp({ content: 'Something went wrong while selecting the plan. Please try again.', ephemeral: true }); } catch (e) {}
+    }
   }
 }
 
