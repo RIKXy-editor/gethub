@@ -4,8 +4,6 @@ import { ActivityType, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'disc
 import { getScheduledMessages, getJobConfig, setJobConfig, getJobBannerText } from '../utils/storage.js';
 import { GUILD_ID } from '../utils/constants.js';
 import { startGiveawayAutoEnd } from './giveawayManager.js';
-import { restorePanels } from '../utils/panelRestore.js';
-import { startReminderScheduler } from '../utils/reminderScheduler.js';
 
 const baseStatuses = [
   { name: 'Managing Editors Club', type: ActivityType.Playing },
@@ -15,7 +13,7 @@ const baseStatuses = [
   { name: 'Color Grading', type: ActivityType.Playing },
   { name: 'Audio Mixing', type: ActivityType.Playing },
   { name: 'Exporting Videos', type: ActivityType.Playing },
-  { name: 'Managing Tickets', type: ActivityType.Watching }
+  { name: 'Managing Server', type: ActivityType.Watching }
 ];
 
 let currentStatusIndex = 0;
@@ -101,10 +99,6 @@ export async function execute(client) {
   startGiveawayAutoEnd(client);
   console.log('Giveaway auto-end started!');
 
-  console.log('Restoring ticket panels from database...');
-  await restorePanels(client);
-  console.log('Starting subscription reminder scheduler...');
-  startReminderScheduler(client);
 }
 
 async function maintainJobPostingButton(client) {
