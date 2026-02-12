@@ -19,6 +19,7 @@ export async function initializeDatabase() {
         logs_channel_id TEXT,
         staff_role_ids TEXT[] DEFAULT '{}',
         reminder_days INTEGER[] DEFAULT '{3,2,1}',
+        resubscribe_channel_id TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -185,6 +186,8 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_plans_guild ON plans(guild_id);
       CREATE INDEX IF NOT EXISTS idx_payment_methods_guild ON payment_methods(guild_id);
       CREATE INDEX IF NOT EXISTS idx_panels_guild ON ticket_panels(guild_id);
+
+      ALTER TABLE guilds ADD COLUMN IF NOT EXISTS resubscribe_channel_id TEXT;
 
       CREATE TABLE IF NOT EXISTS welcome_config (
         guild_id VARCHAR(255) PRIMARY KEY,

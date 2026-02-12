@@ -1,10 +1,6 @@
 import cron from 'node-cron';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { Reminder, Subscription } from '../db/models.js';
-
-const RESUBSCRIBE_CHANNEL = '1415963231108861952';
-const RESUBSCRIBE_GUILD = '1153309880644554804';
-const RESUBSCRIBE_URL = `https://discord.com/channels/${RESUBSCRIBE_GUILD}/${RESUBSCRIBE_CHANNEL}`;
+import { Reminder, Subscription, Guild } from '../db/models.js';
 
 export function startReminderScheduler(client) {
   console.log('[REMINDERS] Cron scheduler started.');
@@ -55,14 +51,22 @@ async function checkReminders(client) {
           .setColor(isFinalDay ? '#FF0000' : '#FFA500')
           .setTimestamp();
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setLabel('Resubscribe Now')
-            .setStyle(ButtonStyle.Link)
-            .setURL(RESUBSCRIBE_URL)
-        );
+        const guildData = await Guild.get(reminder.guild_id);
+        const resubChannelId = guildData?.resubscribe_channel_id;
+        const components = [];
+        if (resubChannelId) {
+          const resubUrl = `https://discord.com/channels/${reminder.guild_id}/${resubChannelId}`;
+          components.push(
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setLabel('Resubscribe Now')
+                .setStyle(ButtonStyle.Link)
+                .setURL(resubUrl)
+            )
+          );
+        }
 
-        await user.send({ embeds: [embed], components: [row] }).catch(err => {
+        await user.send({ embeds: [embed], components }).catch(err => {
           console.log(`[REMINDERS] Could not DM ${reminder.user_id}: ${err.message}`);
           Reminder.markError(reminder.id, err.message);
         });

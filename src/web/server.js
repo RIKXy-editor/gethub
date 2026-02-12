@@ -15,7 +15,7 @@ export function createWebServer(client) {
   app.use(express.urlencoded({ extended: true }));
 
   app.use(session({
-    secret: process.env.SESSION_SECRET || 'editors-club-dashboard-secret-' + Date.now(),
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
