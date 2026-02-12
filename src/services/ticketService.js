@@ -147,18 +147,31 @@ export async function handlePlanSelect(interaction) {
   const planId = parseInt(parts[3]);
 
   try {
-    await interaction.deferUpdate();
+    try {
+      await interaction.deferUpdate();
+    } catch (deferErr) {
+      console.log('[TICKET] deferUpdate failed (already acked), continuing...', deferErr.code);
+    }
 
     const ticket = await Ticket.getById(ticketId);
     if (!ticket || ticket.user_id !== interaction.user.id) {
-      return interaction.followUp({ content: 'This is not your ticket.', ephemeral: true });
+      try { await interaction.followUp({ content: 'This is not your ticket.', ephemeral: true }); } catch (e) {}
+      return;
     }
 
     const plan = await Plan.getById(planId);
-    if (!plan) return interaction.followUp({ content: 'Plan not found.', ephemeral: true });
+    if (!plan) {
+      try { await interaction.followUp({ content: 'Plan not found.', ephemeral: true }); } catch (e) {}
+      return;
+    }
 
     await Ticket.update(ticketId, { plan_id: planId });
-    await interaction.editReply({ components: [] });
+
+    try {
+      await interaction.message.edit({ components: [] });
+    } catch (editErr) {
+      console.log('[TICKET] Could not remove plan buttons:', editErr.message);
+    }
 
     const methods = await PaymentMethod.getEnabled(ticket.guild_id);
     if (methods.length === 0) {
@@ -212,18 +225,22 @@ export async function handlePaymentSelect(interaction) {
   const methodId = parseInt(parts[3]);
 
   try {
-    await interaction.deferUpdate();
+    try { await interaction.deferUpdate(); } catch (e) {}
 
     const ticket = await Ticket.getById(ticketId);
     if (!ticket || ticket.user_id !== interaction.user.id) {
-      return interaction.followUp({ content: 'This is not your ticket.', ephemeral: true });
+      try { await interaction.followUp({ content: 'This is not your ticket.', ephemeral: true }); } catch (e) {}
+      return;
     }
 
     const method = await PaymentMethod.getById(methodId);
-    if (!method) return interaction.followUp({ content: 'Payment method not found.', ephemeral: true });
+    if (!method) {
+      try { await interaction.followUp({ content: 'Payment method not found.', ephemeral: true }); } catch (e) {}
+      return;
+    }
 
     await Ticket.update(ticketId, { payment_method_id: methodId });
-    await interaction.editReply({ components: [] });
+    try { await interaction.message.edit({ components: [] }); } catch (e) {}
 
     const plan = await Plan.getById(ticket.plan_id);
 
@@ -262,16 +279,20 @@ export async function handlePaidButton(interaction) {
   const ticketId = parseInt(interaction.customId.split(':')[2]);
 
   try {
-    await interaction.deferUpdate();
+    try { await interaction.deferUpdate(); } catch (e) {}
 
     const ticket = await Ticket.getById(ticketId);
-    if (!ticket) return interaction.followUp({ content: 'Ticket not found.', ephemeral: true });
-
-    if (ticket.user_id !== interaction.user.id) {
-      return interaction.followUp({ content: 'This is not your ticket.', ephemeral: true });
+    if (!ticket) {
+      try { await interaction.followUp({ content: 'Ticket not found.', ephemeral: true }); } catch (e) {}
+      return;
     }
 
-    await interaction.editReply({ components: [] });
+    if (ticket.user_id !== interaction.user.id) {
+      try { await interaction.followUp({ content: 'This is not your ticket.', ephemeral: true }); } catch (e) {}
+      return;
+    }
+
+    try { await interaction.message.edit({ components: [] }); } catch (e) {}
 
     const plan = await Plan.getById(ticket.plan_id);
     const method = await PaymentMethod.getById(ticket.payment_method_id);
@@ -312,15 +333,18 @@ export async function handleConfirmPayment(interaction) {
   const ticketId = parseInt(interaction.customId.split(':')[2]);
 
   try {
-    const ticket = await Ticket.getById(ticketId);
-    if (!ticket) return interaction.reply({ content: 'Ticket not found.', ephemeral: true });
-
     const isAdmin = await checkStaffPermission(interaction);
     if (!isAdmin) {
       return interaction.reply({ content: 'Only staff members can confirm payments.', ephemeral: true });
     }
 
-    await interaction.deferUpdate();
+    try { await interaction.deferUpdate(); } catch (e) {}
+
+    const ticket = await Ticket.getById(ticketId);
+    if (!ticket) {
+      try { await interaction.followUp({ content: 'Ticket not found.', ephemeral: true }); } catch (e) {}
+      return;
+    }
 
     await Ticket.update(ticketId, {
       payment_confirmed: true,
@@ -330,7 +354,7 @@ export async function handleConfirmPayment(interaction) {
 
     await Log.create(ticket.guild_id, 'payment_confirmed', interaction.user.id, ticket.user_id, { ticket_id: ticketId });
 
-    await interaction.editReply({ components: [] });
+    try { await interaction.message.edit({ components: [] }); } catch (e) {}
 
     const embed = new EmbedBuilder()
       .setTitle('✅ Payment Confirmed')
@@ -364,8 +388,8 @@ export async function handleDenyPayment(interaction) {
   }
 
   try {
-    await interaction.deferUpdate();
-    await interaction.editReply({ components: [] });
+    try { await interaction.deferUpdate(); } catch (e) {}
+    try { await interaction.message.edit({ components: [] }); } catch (e) {}
 
     const embed = new EmbedBuilder()
       .setTitle('❌ Payment Denied')
@@ -380,27 +404,31 @@ export async function handleDenyPayment(interaction) {
 }
 
 export async function handleEmailButton(interaction) {
-  const ticketId = parseInt(interaction.customId.split(':')[2]);
-  const ticket = await Ticket.getById(ticketId);
-  if (!ticket || ticket.user_id !== interaction.user.id) {
-    return interaction.reply({ content: 'This is not your ticket.', ephemeral: true });
+  try {
+    const ticketId = parseInt(interaction.customId.split(':')[2]);
+    const ticket = await Ticket.getById(ticketId);
+    if (!ticket || ticket.user_id !== interaction.user.id) {
+      return interaction.reply({ content: 'This is not your ticket.', ephemeral: true });
+    }
+
+    const modal = new ModalBuilder()
+      .setCustomId(`ticket:email_modal:${ticketId}`)
+      .setTitle('Enter Subscription Email');
+
+    const emailInput = new TextInputBuilder()
+      .setCustomId('email')
+      .setLabel('Your Email Address')
+      .setPlaceholder('example@email.com')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMinLength(5)
+      .setMaxLength(100);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(emailInput));
+    await interaction.showModal(modal);
+  } catch (err) {
+    console.error('[TICKET] Error showing email modal:', err);
   }
-
-  const modal = new ModalBuilder()
-    .setCustomId(`ticket:email_modal:${ticketId}`)
-    .setTitle('Enter Subscription Email');
-
-  const emailInput = new TextInputBuilder()
-    .setCustomId('email')
-    .setLabel('Your Email Address')
-    .setPlaceholder('example@email.com')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMinLength(5)
-    .setMaxLength(100);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(emailInput));
-  await interaction.showModal(modal);
 }
 
 export async function handleEmailModal(interaction) {
@@ -516,8 +544,8 @@ export async function handleCloseTicket(interaction) {
   }
 
   try {
-    await interaction.deferUpdate();
-    await interaction.editReply({ components: [] });
+    try { await interaction.deferUpdate(); } catch (e) {}
+    try { await interaction.message.edit({ components: [] }); } catch (e) {}
     await Ticket.close(ticketId, interaction.user.id);
     await Log.create(interaction.guild.id, 'ticket_closed', interaction.user.id, null, { ticket_id: ticketId });
 
@@ -549,7 +577,7 @@ export async function handleClaimTicket(interaction) {
   }
 
   try {
-    await interaction.deferReply();
+    try { await interaction.deferUpdate(); } catch (e) {}
     await Ticket.update(ticketId, { claimed_by: interaction.user.id });
 
     const embed = new EmbedBuilder()
@@ -558,7 +586,7 @@ export async function handleClaimTicket(interaction) {
       .setColor('#5865F2')
       .setTimestamp();
 
-    await interaction.editReply({ embeds: [embed] });
+    await interaction.channel.send({ embeds: [embed] });
   } catch (err) {
     console.error('[TICKET] Error claiming ticket:', err);
     try {
