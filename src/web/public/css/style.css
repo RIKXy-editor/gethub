@@ -487,17 +487,18 @@ textarea { resize: vertical; min-height: 80px; }
 }
 
 .emoji-picker-popup {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  position: fixed;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
-  z-index: 1100;
+  z-index: 2000;
   width: 320px;
-  max-height: 300px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  max-height: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .emoji-search {
@@ -541,8 +542,10 @@ textarea { resize: vertical; min-height: 80px; }
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 2px;
-  max-height: 200px;
+  max-height: 220px;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .emoji-item {

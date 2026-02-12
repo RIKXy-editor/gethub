@@ -668,84 +668,112 @@ function mdEditorInput(taId) {
   updatePreview();
 }
 
-function toggleEmojiPicker(taId) {
+function toggleEmojiPicker(taId, event) {
   const existing = document.querySelector('.emoji-picker-popup');
   if (existing) { existing.remove(); return; }
 
   const ta = document.getElementById(taId);
-  const wrapper = ta.closest('.md-editor').querySelector('.emoji-picker-wrapper');
+  if (!ta) return;
+  const editorEl = ta.closest('.md-editor');
+  if (!editorEl) return;
+  const emojiBtn = editorEl.querySelector('.emoji-picker-wrapper .md-btn');
+  if (!emojiBtn) return;
+
   const popup = document.createElement('div');
   popup.className = 'emoji-picker-popup';
+
+  const rect = emojiBtn.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow > 360) {
+    popup.style.top = rect.bottom + 4 + 'px';
+  } else {
+    popup.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  }
+  const rightEdge = rect.right;
+  if (rightEdge > 320) {
+    popup.style.right = (window.innerWidth - rect.right) + 'px';
+  } else {
+    popup.style.left = rect.left + 'px';
+  }
 
   const categories = Object.keys(EMOJI_DATA);
   let currentCat = categories[0];
 
   function renderPicker() {
     const catBtns = categories.map(c =>
-      `<button type="button" class="emoji-cat-btn ${c === currentCat ? 'active' : ''}" onclick="switchEmojiCat('${taId}','${c}')">${EMOJI_DATA[c][0]}</button>`
+      `<button type="button" class="emoji-cat-btn ${c === currentCat ? 'active' : ''}" data-cat="${c}">${EMOJI_DATA[c][0]}</button>`
     ).join('');
 
     const emojis = EMOJI_DATA[currentCat].map(e =>
-      `<button type="button" class="emoji-item" onclick="insertEmoji('${taId}','${e}')">${e}</button>`
+      `<button type="button" class="emoji-item" data-emoji="${e}">${e}</button>`
     ).join('');
 
     popup.innerHTML = `
-      <input type="text" class="emoji-search" placeholder="Search emojis..." oninput="searchEmojis('${taId}', this.value)">
+      <input type="text" class="emoji-search" placeholder="Search by category (smileys, gestures, symbols...)">
       <div class="emoji-categories">${catBtns}</div>
       <div class="emoji-grid" id="emojiGrid">${emojis}</div>
     `;
+
+    popup.querySelectorAll('.emoji-cat-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentCat = btn.dataset.cat;
+        renderPicker();
+      });
+    });
+
+    popup.querySelectorAll('.emoji-item').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        insertEmoji(taId, btn.dataset.emoji);
+      });
+    });
+
+    const searchInput = popup.querySelector('.emoji-search');
+    searchInput.addEventListener('input', (e) => {
+      e.stopPropagation();
+      const query = searchInput.value.toLowerCase().trim();
+      const grid = popup.querySelector('#emojiGrid');
+      if (!grid) return;
+      if (!query) {
+        grid.innerHTML = EMOJI_DATA[currentCat].map(em =>
+          `<button type="button" class="emoji-item" data-emoji="${em}">${em}</button>`
+        ).join('');
+      } else {
+        const matches = [];
+        for (const [cat, emojis] of Object.entries(EMOJI_DATA)) {
+          if (cat.toLowerCase().includes(query)) {
+            matches.push(...emojis);
+          }
+        }
+        const result = matches.length > 0 ? matches : Object.values(EMOJI_DATA).flat();
+        grid.innerHTML = result.map(em =>
+          `<button type="button" class="emoji-item" data-emoji="${em}">${em}</button>`
+        ).join('');
+      }
+      grid.querySelectorAll('.emoji-item').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          insertEmoji(taId, btn.dataset.emoji);
+        });
+      });
+    });
   }
 
   renderPicker();
-  wrapper.appendChild(popup);
-  popup.querySelector('.emoji-search').focus();
+  document.body.appendChild(popup);
 
-  popup._renderCat = function(cat) {
-    currentCat = cat;
-    renderPicker();
-  };
+  setTimeout(() => popup.querySelector('.emoji-search')?.focus(), 50);
 
   setTimeout(() => {
-    document.addEventListener('click', function closePicker(e) {
-      if (!popup.contains(e.target) && !e.target.closest('.emoji-picker-wrapper .md-btn')) {
+    function closePicker(e) {
+      if (!popup.contains(e.target) && e.target !== emojiBtn && !emojiBtn.contains(e.target)) {
         popup.remove();
-        document.removeEventListener('click', closePicker);
+        document.removeEventListener('mousedown', closePicker);
       }
-    });
-  }, 0);
-}
-
-function switchEmojiCat(taId, cat) {
-  const popup = document.querySelector('.emoji-picker-popup');
-  if (popup && popup._renderCat) popup._renderCat(cat);
-}
-
-function searchEmojis(taId, query) {
-  const grid = document.getElementById('emojiGrid');
-  if (!grid) return;
-  if (!query) {
-    const activeCat = document.querySelector('.emoji-cat-btn.active');
-    const btns = document.querySelectorAll('.emoji-cat-btn');
-    let catName = Object.keys(EMOJI_DATA)[0];
-    btns.forEach((btn, i) => { if (btn === activeCat) catName = Object.keys(EMOJI_DATA)[i]; });
-    grid.innerHTML = EMOJI_DATA[catName].map(e =>
-      `<button type="button" class="emoji-item" onclick="insertEmoji('${taId}','${e}')">${e}</button>`
-    ).join('');
-    return;
-  }
-  const q = query.toLowerCase();
-  const matches = [];
-  for (const [cat, emojis] of Object.entries(EMOJI_DATA)) {
-    if (cat.toLowerCase().includes(q)) {
-      matches.push(...emojis);
-    } else {
-      matches.push(...emojis.filter(e => e.includes(q)));
     }
-  }
-  const all = matches.length > 0 ? matches : Object.values(EMOJI_DATA).flat();
-  grid.innerHTML = all.map(e =>
-    `<button type="button" class="emoji-item" onclick="insertEmoji('${taId}','${e}')">${e}</button>`
-  ).join('');
+    document.addEventListener('mousedown', closePicker);
+  }, 10);
 }
 
 function insertEmoji(taId, emoji) {
