@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
 import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
-import { handleTicketInteraction, handleRating } from './src/commands/ticket.js';
+import { routeTicketInteraction, handleEmailModal } from './src/services/ticketService.js';
 import { handleAppealButton, handleAppealModal, handleDenyModal, handleAskInfoModal } from './src/handlers/appealHandler.js';
 import { createAdminRoutes } from './src/admin/routes.js';
 
@@ -81,28 +81,11 @@ async function deployCommands() {
 }
 
 client.on('interactionCreate', async interaction => {
-  // Handle string select menus (ticket category selection)
-  if (interaction.isStringSelectMenu()) {
-    try {
-      if (interaction.customId.startsWith('ticket:')) {
-        await handleTicketInteraction(interaction);
-      }
-    } catch (error) {
-      console.error('Error handling select menu:', error);
-    }
-    return;
-  }
-
   // Handle buttons
   if (interaction.isButton()) {
     try {
-      // Handle ticket buttons
       if (interaction.customId.startsWith('ticket:')) {
-        if (interaction.customId.startsWith('ticket:rate:')) {
-          await handleRating(interaction);
-        } else {
-          await handleTicketInteraction(interaction);
-        }
+        await routeTicketInteraction(interaction);
         return;
       }
       
@@ -138,6 +121,11 @@ client.on('interactionCreate', async interaction => {
             await handleAskInfoModal(interaction);
           }
         }
+        return;
+      }
+      
+      if (interaction.customId.startsWith('ticket:email_modal:')) {
+        await handleEmailModal(interaction);
         return;
       }
       
