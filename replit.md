@@ -1,154 +1,141 @@
-# Editors Club Discord Bot
+# Editors Club Discord Bot - Admin Control System
 
 ## Project Overview
 
-Private Discord bot for Editors Club server with a Ticket & Subscription SaaS system and web dashboard. Bot manages Discord slash commands, ticket flows, subscriptions, automated reminders, and provides a web-based admin dashboard with Discord OAuth2 authentication.
+Private Discord bot for Editors Club server with **complete admin website control**. Website is the single source of truth for all bot configuration.
 
 ## Current Status
 
-**Bot Running:**
-- Discord Bot (`npm start`) - 27 commands, 7 events, executor pattern
-- Web Dashboard on port 5000 with Discord OAuth2 login
-- PostgreSQL database for all ticket/subscription data
-- Automated reminder scheduler (node-cron, hourly checks)
+**Both Workflows Running:**
+- ✅ **Discord Bot** (`npm start`) - 14 commands, 4 events, executor pattern
+- ✅ **Admin Dashboard** (`npm run dashboard`) - Full control panel on port 5000
 
 ## Architecture
 
-**Discord Bot + Express Web Server**
-- Discord.js v14 bot with slash commands
-- Express 5 web server on port 5000
-- PostgreSQL (Neon-backed) for persistent data
-- JSON files for legacy features (giveaways, sticky, etc.)
-- Discord OAuth2 for dashboard authentication
+**Website → Config → Bot**
 
-## Bot Features
+1. Admin logs into dashboard (password-protected)
+2. Admin toggles features/commands in dark red/black UI
+3. Admin clicks "SAVE"
+4. Changes written to `data/admin-config.json`
+5. Bot reads config and enforces rules immediately
+6. No restart needed
 
-### Commands (27 total)
-- `/active` - Activity tracking
+## Bot Features (All Controllable from Website)
+
+### Commands (14 total)
 - `/announce` - Post announcements
-- `/antiraid` - Anti-raid protection
-- `/appeals` - Ban appeal system
-- `/avatar` - Display user avatar/banner
-- `/botset` - Change bot profile
-- `/clear` - Delete messages
-- `/copy` - Clone channel
 - `/dm` - Send direct messages
-- `/embade` - Build custom embeds
-- `/feed` - Review/feedback requests
 - `/gcreate` - Create giveaways
 - `/gend` - End giveaways
-- `/glist` - List giveaways
-- `/greroll` - Reroll winners
-- `/jobconfig` - Job posting config
-- `/keyword` - Auto-warning keywords
-- `/lockdown` - Lock/unlock channels
-- `/messages` - Message stats
+- `/glist` - List active giveaways
+- `/greroll` - Reroll giveaway winners
+- `/jobconfig` - Configure job posting
+- `/remind` - Send ticket reminders
 - `/schedule` - Schedule messages
-- `/security` - Security settings
-- `/serverstats` - Server statistics
-- `/setjobbanner` - Job banner text
-- `/sticky` - Sticky messages
-- `/unsticky` - Remove sticky
-- `/userinfo` - User information
-- `/welcome` - Welcome system
+- `/setjobbanner` - Set job banner text
+- `/setwelcome` - Set welcome message
+- `/sticky` - Create sticky message
+- `/unsticky` - Remove sticky message
+- `/welcomer` - Trigger welcome system
 
-### Ticket & Subscription System
-1. **Ticket Panels** - Configurable panels with buttons in Discord channels
-2. **Plan Selection** - Database-driven subscription plans (1/3/6/12 months)
-3. **Payment Methods** - Configurable payment methods (UPI/PayPal/Crypto/Card)
-4. **Payment Flow** - User selects plan → payment method → "I Have Paid" → admin confirms
-5. **Email Collection** - Modal after payment confirmation to collect user email
-6. **Subscription Creation** - Auto-creates subscription with start/end dates
-7. **Automated Reminders** - node-cron hourly checks, DMs at 3/2/1 days before expiry
-8. **10% Discount Offer** - Final day reminder includes discount incentive
-9. **Resubscribe Link** - DB-configurable resubscribe channel per guild
+### Features (9 total)
+1. **Welcomer** - Welcome new members
+2. **Announcements** - Post announcements to channel
+3. **Tickets** - Ticket reminder system
+4. **Job Posting** - Job listing management
+5. **Giveaways** - Server giveaways
+6. **Scheduled Messages** - Message scheduling
+7. **Sticky Messages** - Pinned messages system
+8. **Leveling** (disabled by default) - Activity tracking
+9. **Moderation** - Admin tools
 
-### Other Features
-1. **Welcomer** - Welcome new members with customizable embeds
-2. **Announcements** - Post announcements to channels
-3. **Job Posting** - Job listing management with sticky banner
-4. **Giveaways** - Server giveaways with entry, winner selection, reroll
-5. **Scheduled Messages** - Message scheduling system
-6. **Sticky Messages** - Pinned messages system
-7. **Ban Appeals** - Appeal system with DMs and staff review
-8. **Moderation** - Clear, lockdown, channel copy, anti-raid
-9. **Keyword Warnings** - Auto-detect and warn on keywords
+## Admin Dashboard
 
-## Web Dashboard
+**URL:** Your Replit project link (/admin)
 
-### Login
-- Discord OAuth2 authentication (requires DISCORD_CLIENT_SECRET)
-- Only server administrators can access
+**Login:**
+- Set via environment variable: `ADMIN_PASSWORD=your_password`
 
-### Dashboard Sections
-- **Overview** - Stats cards, recent activity
-- **Panels** - CRUD for ticket panels
-- **Plans** - CRUD for subscription plans
-- **Payment Methods** - CRUD for payment methods
-- **Subscriptions** - View/manage active subscriptions
-- **Tickets** - View/manage tickets
-- **Reminders** - View reminder history
-- **Settings** - Guild configuration (staff roles, reminder days, resubscribe channel)
-- **Logs** - Activity/audit logs
+**Sections:**
+1. **📊 Dashboard** - Overview of bot status and statistics
+2. **🎫 Tickets** - View and manage all tickets
+3. **📋 Panels** - Create and configure ticket panels
+4. **🎨 Embed Builder** - Build custom embeds with live preview, save templates, send to channels
+5. **👋 Welcome** - Configure welcome messages, channel, auto-role, DM options
+6. **🔑 Keywords** - Manage auto-warning keyword system
+7. **🎁 Giveaways** - View/end/delete giveaways with full winner selection
+8. **⚙️ Settings** - Bot configuration and payment methods
+9. **📈 Staff Stats** - View staff performance metrics
 
-## Data Storage
+**Theme:** Dark modern design with purple accents
 
-### PostgreSQL (Primary - Ticket/Subscription System)
-- `guilds` - Guild configuration (staff roles, reminder days, resubscribe channel)
-- `ticket_panels` - Panel configurations
-- `plans` - Subscription plans
-- `payment_methods` - Payment method configs
-- `users` - User records
-- `tickets` - Ticket records with full state
-- `subscriptions` - Active/expired subscriptions
-- `reminders` - Scheduled reminder records
-- `payments` - Payment records
-- `logs` - Audit/activity logs
-- `welcome_config` - Welcome system config
-- `keyword_settings` / `keywords` - Keyword warning config
+## Configuration Structure
 
-### JSON Files (`data/*.json`)
-- `giveaways.json` - Giveaway data
-- `scheduled-messages.json` - Scheduled messages
-- `sticky-messages.json` - Sticky message data
-- `job-config.json` - Job posting config
-- `appeals-config.json` - Appeals configuration
+**File:** `data/admin-config.json`
 
-## Key Files
-- `index.js` - Bot entry point, DB init, interaction router, web server startup
-- `src/db/schema.js` - PostgreSQL schema definition and seeding
-- `src/db/models.js` - Database access layer (Guild, Panel, Plan, PaymentMethod, Ticket, Subscription, Reminder, etc.)
-- `src/services/ticketService.js` - Discord ticket interaction handlers
-- `src/services/reminderService.js` - Automated reminder scheduler
-- `src/web/server.js` - Express web server setup
-- `src/web/routes/api.js` - Dashboard REST API routes
-- `src/web/routes/auth.js` - Discord OAuth2 authentication routes
-- `src/web/public/dashboard.html` - Dashboard frontend
-- `src/web/public/js/dashboard.js` - Dashboard frontend JavaScript
-- `src/web/public/index.html` - Login page
-- `src/utils/storage.js` - JSON file storage utilities
-- `src/events/ready.js` - Bot startup, status rotation, schedulers
-
-## Environment Variables
-- `DISCORD_TOKEN` - Bot token (required)
-- `DISCORD_CLIENT_ID` - Bot application ID (required)
-- `DISCORD_GUILD_ID` - Server ID (required)
-- `DISCORD_CLIENT_SECRET` - OAuth2 client secret (required for dashboard)
-- `SESSION_SECRET` - Express session secret (required)
-- `DATABASE_URL` - PostgreSQL URL (required)
+Single source of truth containing:
+- Bot enable/disable status
+- Maintenance mode toggle
+- All 9 feature states and parameters
+- All 14 command states
 
 ## User Preferences
-- **Control Style:** Discord slash commands + web dashboard for admin
-- **Storage:** PostgreSQL for ticket/subscription data, JSON for legacy features
-- **Design:** Dark theme, modern UI
-- **Architecture:** All config database-driven, no hardcoded values
 
-## Recent Changes (Feb 2026)
-1. Built comprehensive Ticket & Subscription SaaS system
-2. Added PostgreSQL schema with 10+ tables (including plan_pricing for per-method pricing)
-3. Built Express web dashboard with Discord OAuth2
-4. Implemented full ticket flow (plan → payment → confirm → email → subscription)
-5. Added node-cron automated reminder system (3/2/1 days before expiry)
-6. Dashboard with full CRUD for panels, plans, payment methods, subscriptions
-7. Resubscribe channel is DB-configurable per guild (no hardcoded values)
-8. Per-payment-method pricing: Different prices per plan for each payment method (e.g., UPI vs PayPal)
+- **Workflow:** Both dashboard + bot running simultaneously
+- **Control Style:** Website-only (no Discord commands for configuration)
+- **Philosophy:** Website decides, bot executes
+
+## Recent Changes
+
+1. **Complete Admin Control System** - Full dashboard for managing all features and commands
+2. **Dark Red/Black UI** - Professional admin theme with #cc0000 red accents
+3. **Bot Executor Pattern** - Bot only runs what config allows
+4. **Single Source of Truth** - All settings in admin-config.json
+5. **Zero-Downtime Updates** - Config changes apply instantly without restart
+
+## Key Files
+
+- `server.js` - Express backend for dashboard
+- `public/admin.html` - Admin control panel UI
+- `data/admin-config.json` - Configuration (single source of truth)
+- `src/utils/botExecutor.js` - Bot config checking functions
+- `src/middleware/commandCheck.js` - Command execution guard
+
+## Security
+
+✅ Password-protected login
+✅ Session tokens (24-hour expiration)
+✅ Admin-only access
+✅ Config stored locally on Replit
+
+## Bot Integration
+
+To make commands respect the config:
+
+```javascript
+import { handleCommandExecution } from '../middleware/commandCheck.js';
+
+export async function execute(interaction) {
+  const check = await handleCommandExecution(interaction, 'command_name');
+  if (!check.allowed) return;
+  
+  // Rest of command logic
+}
+```
+
+## Deployment
+
+Uses Replit's built-in hosting. No external services required.
+
+## Next Steps
+
+1. ✅ Admin dashboard live and ready
+2. ✅ Both workflows running
+3. 📝 Integrate command checks into all 14 commands (optional enhancement)
+4. 🔐 Change default password immediately
+
+## Resources
+
+- See `ADMIN_PANEL.md` for complete dashboard documentation
+- See `DASHBOARD.md` for legacy feature config info (deprecated)
