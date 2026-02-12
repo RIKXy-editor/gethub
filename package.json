@@ -5,16 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "build": "cd dashboard && npm install && npm run build",
-    "postinstall": "cd dashboard && npm install"
+    "start": "node index.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
+    "better-sqlite3": "^12.6.2",
     "discord.js": "^14.14.1",
-    "express": "^4.18.2",
-    "express-session": "^1.18.2",
-    "next": "^14.2.35",
     "pg": "^8.11.3"
   }
 }

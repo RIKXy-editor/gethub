@@ -1,141 +1,132 @@
-# Editors Club Discord Bot - Admin Control System
+# Editors Club Discord Bot
 
 ## Project Overview
 
-Private Discord bot for Editors Club server with **complete admin website control**. Website is the single source of truth for all bot configuration.
+Private Discord bot for Editors Club server. Pure Discord bot with no web dashboard - all configuration is done via Discord slash commands.
 
 ## Current Status
 
-**Both Workflows Running:**
-- ✅ **Discord Bot** (`npm start`) - 14 commands, 4 events, executor pattern
-- ✅ **Admin Dashboard** (`npm run dashboard`) - Full control panel on port 5000
+**Bot Running:**
+- Discord Bot (`npm start`) - 29 commands, 7 events, executor pattern
+- SQLite persistent storage for ticket panels and subscriptions
+- Automated subscription reminder system
 
 ## Architecture
 
-**Website → Config → Bot**
+**Discord-Only Bot (No Web Server)**
 
-1. Admin logs into dashboard (password-protected)
-2. Admin toggles features/commands in dark red/black UI
-3. Admin clicks "SAVE"
-4. Changes written to `data/admin-config.json`
-5. Bot reads config and enforces rules immediately
-6. No restart needed
+1. Admin uses `/ticket setup` to configure the ticket system
+2. Admin uses `/ticket panel` to post ticket panels
+3. Panel settings are persisted in SQLite (survives redeploy)
+4. Subscription data stored in SQLite with automated reminders
 
-## Bot Features (All Controllable from Website)
+## Bot Features
 
-### Commands (14 total)
+### Commands (29 total)
+- `/active` - Activity tracking
 - `/announce` - Post announcements
+- `/antiraid` - Anti-raid protection
+- `/appeals` - Ban appeal system
+- `/avatar` - Display user avatar/banner
+- `/botset` - Change bot profile
+- `/clear` - Delete messages
+- `/copy` - Clone channel
 - `/dm` - Send direct messages
+- `/embade` - Build custom embeds
+- `/feed` - Review/feedback requests
 - `/gcreate` - Create giveaways
 - `/gend` - End giveaways
-- `/glist` - List active giveaways
-- `/greroll` - Reroll giveaway winners
-- `/jobconfig` - Configure job posting
-- `/remind` - Send ticket reminders
+- `/glist` - List giveaways
+- `/greroll` - Reroll winners
+- `/jobconfig` - Job posting config
+- `/keyword` - Auto-warning keywords
+- `/lockdown` - Lock/unlock channels
+- `/messages` - Message stats
+- `/remind` - Ticket reminders
 - `/schedule` - Schedule messages
-- `/setjobbanner` - Set job banner text
-- `/setwelcome` - Set welcome message
-- `/sticky` - Create sticky message
-- `/unsticky` - Remove sticky message
-- `/welcomer` - Trigger welcome system
+- `/security` - Security settings
+- `/serverstats` - Server statistics
+- `/setjobbanner` - Job banner text
+- `/sticky` - Sticky messages
+- `/ticket` - Ticket system (setup/panel/stats)
+- `/unsticky` - Remove sticky
+- `/userinfo` - User information
+- `/welcome` - Welcome system
 
-### Features (9 total)
-1. **Welcomer** - Welcome new members
-2. **Announcements** - Post announcements to channel
-3. **Tickets** - Ticket reminder system
-4. **Job Posting** - Job listing management
-5. **Giveaways** - Server giveaways
-6. **Scheduled Messages** - Message scheduling
-7. **Sticky Messages** - Pinned messages system
-8. **Leveling** (disabled by default) - Activity tracking
-9. **Moderation** - Admin tools
+### Features
+1. **Ticket System** - Full subscription ticket flow with payment, email submission via modal, plan selection
+2. **Subscription Reminders** - Automated DMs 3 days before subscription expiry with 10% OFF on final day
+3. **Welcomer** - Welcome new members with customizable embeds
+4. **Announcements** - Post announcements to channels
+5. **Job Posting** - Job listing management with sticky banner
+6. **Giveaways** - Server giveaways with entry, winner selection, reroll
+7. **Scheduled Messages** - Message scheduling system
+8. **Sticky Messages** - Pinned messages system
+9. **Ban Appeals** - Appeal system with DMs and staff review
+10. **Moderation** - Clear, lockdown, channel copy, anti-raid
+11. **Keyword Warnings** - Auto-detect and warn on keywords
 
-## Admin Dashboard
+## Data Storage
 
-**URL:** Your Replit project link (/admin)
+### SQLite Database (`data/bot.db`)
+- `ticket_panels` - Panel configuration persisted across redeploys
+- `subscriptions` - User subscription records (plan, email, dates)
+- `subscription_reminders` - Scheduled reminder dates for each subscription
+- `email_submissions` - Email records linked to tickets
 
-**Login:**
-- Set via environment variable: `ADMIN_PASSWORD=your_password`
+### JSON Files (`data/*.json`)
+- `ticketConfig.json` - Ticket system configuration
+- `tickets.json` - Active ticket data
+- `giveaways.json` - Giveaway data
+- `scheduled-messages.json` - Scheduled messages
+- `sticky-messages.json` - Sticky message data
+- `job-config.json` - Job posting config
+- `appeals-config.json` - Appeals configuration
+- Other config files
 
-**Sections:**
-1. **📊 Dashboard** - Overview of bot status and statistics
-2. **🎫 Tickets** - View and manage all tickets
-3. **📋 Panels** - Create and configure ticket panels
-4. **🎨 Embed Builder** - Build custom embeds with live preview, save templates, send to channels
-5. **👋 Welcome** - Configure welcome messages, channel, auto-role, DM options
-6. **🔑 Keywords** - Manage auto-warning keyword system
-7. **🎁 Giveaways** - View/end/delete giveaways with full winner selection
-8. **⚙️ Settings** - Bot configuration and payment methods
-9. **📈 Staff Stats** - View staff performance metrics
+## Ticket Flow
+1. User clicks "Open Ticket" button on panel
+2. Selects subscription plan (1 Month, 3 Months, 6 Months, 1 Year)
+3. Selects payment method (UPI, Card, PayPal, Crypto)
+4. Clicks "I have Paid" button
+5. "Payment Confirmed" embed appears with green "Submit Email" button
+6. User clicks "Submit Email" → Discord modal opens
+7. User enters email carefully (warning about wrong email)
+8. Subscription created in SQLite with:
+   - User ID, email, plan, start/end dates
+   - 3 reminder dates created (3, 2, 1 days before expiry)
+9. Staff can claim, close, transcript, rate tickets
 
-**Theme:** Dark modern design with purple accents
-
-## Configuration Structure
-
-**File:** `data/admin-config.json`
-
-Single source of truth containing:
-- Bot enable/disable status
-- Maintenance mode toggle
-- All 9 feature states and parameters
-- All 14 command states
+## Subscription Reminder System
+- Checks every hour for pending reminders
+- Sends DM embed: "Subscription Ending Soon" with details
+- Green "Resubscribe Now" button linking to ticket channel
+- Final day reminder includes: "Get 10% OFF on any subscription from 3 months to 1 year"
+- Auto-expires subscriptions past end date
+- Survives bot redeploy (stored in SQLite)
 
 ## User Preferences
-
-- **Workflow:** Both dashboard + bot running simultaneously
-- **Control Style:** Website-only (no Discord commands for configuration)
-- **Philosophy:** Website decides, bot executes
-
-## Recent Changes
-
-1. **Complete Admin Control System** - Full dashboard for managing all features and commands
-2. **Dark Red/Black UI** - Professional admin theme with #cc0000 red accents
-3. **Bot Executor Pattern** - Bot only runs what config allows
-4. **Single Source of Truth** - All settings in admin-config.json
-5. **Zero-Downtime Updates** - Config changes apply instantly without restart
+- **Control Style:** Discord slash commands only (no web dashboard)
+- **Storage:** SQLite for persistent data, JSON for legacy config
 
 ## Key Files
+- `index.js` - Bot entry point, interaction router
+- `src/commands/ticket.js` - Full ticket system with email modal
+- `src/utils/database.js` - SQLite database schema and helpers
+- `src/utils/reminderScheduler.js` - Subscription reminder scheduler
+- `src/utils/panelRestore.js` - Panel restoration on startup
+- `src/utils/storage.js` - JSON file storage utilities
+- `src/events/ready.js` - Bot startup, status rotation, schedulers
 
-- `server.js` - Express backend for dashboard
-- `public/admin.html` - Admin control panel UI
-- `data/admin-config.json` - Configuration (single source of truth)
-- `src/utils/botExecutor.js` - Bot config checking functions
-- `src/middleware/commandCheck.js` - Command execution guard
+## Environment Variables
+- `DISCORD_TOKEN` - Bot token (required)
+- `DISCORD_CLIENT_ID` - Bot application ID (required)
+- `DISCORD_GUILD_ID` - Server ID (required)
+- `DATABASE_URL` - PostgreSQL URL (optional, for welcome/keywords)
 
-## Security
-
-✅ Password-protected login
-✅ Session tokens (24-hour expiration)
-✅ Admin-only access
-✅ Config stored locally on Replit
-
-## Bot Integration
-
-To make commands respect the config:
-
-```javascript
-import { handleCommandExecution } from '../middleware/commandCheck.js';
-
-export async function execute(interaction) {
-  const check = await handleCommandExecution(interaction, 'command_name');
-  if (!check.allowed) return;
-  
-  // Rest of command logic
-}
-```
-
-## Deployment
-
-Uses Replit's built-in hosting. No external services required.
-
-## Next Steps
-
-1. ✅ Admin dashboard live and ready
-2. ✅ Both workflows running
-3. 📝 Integrate command checks into all 14 commands (optional enhancement)
-4. 🔐 Change default password immediately
-
-## Resources
-
-- See `ADMIN_PANEL.md` for complete dashboard documentation
-- See `DASHBOARD.md` for legacy feature config info (deprecated)
+## Recent Changes (Feb 2026)
+1. Removed entire web dashboard (Express, Next.js, admin routes)
+2. Added SQLite persistent storage for ticket panels and subscriptions
+3. Added email submission via Discord modal (not chat input)
+4. Added subscription reminder system with automated DMs
+5. Cleaned unused dependencies (express, cors, next, express-session)

@@ -1,16 +1,12 @@
-import { Client, GatewayIntentBits, Partials, REST, Routes, ButtonBuilder, ActionRowBuilder, ButtonStyle } from 'discord.js';
-import express from 'express';
-import session from 'express-session';
-import cors from 'cors';
+import { Client, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { handleJobButton } from './src/handlers/buttonHandler.js';
 import { handleJobModal } from './src/handlers/modalHandler.js';
 import { handleModal as handleWelcomeModal } from './src/commands/welcome.js';
-import { handleTicketInteraction, handleRating } from './src/commands/ticket.js';
+import { handleTicketInteraction, handleRating, handleEmailModal } from './src/commands/ticket.js';
 import { handleAppealButton, handleAppealModal, handleDenyModal, handleAskInfoModal } from './src/handlers/appealHandler.js';
-import { createAdminRoutes } from './src/admin/routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,7 +77,6 @@ async function deployCommands() {
 }
 
 client.on('interactionCreate', async interaction => {
-  // Handle string select menus (ticket category selection)
   if (interaction.isStringSelectMenu()) {
     try {
       if (interaction.customId.startsWith('ticket:')) {
@@ -93,10 +88,8 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // Handle buttons
   if (interaction.isButton()) {
     try {
-      // Handle ticket buttons
       if (interaction.customId.startsWith('ticket:')) {
         if (interaction.customId.startsWith('ticket:rate:')) {
           await handleRating(interaction);
@@ -105,20 +98,18 @@ client.on('interactionCreate', async interaction => {
         }
         return;
       }
-      
-      // Handle appeal buttons
+
       if (interaction.customId.startsWith('appeal:')) {
         await handleAppealButton(interaction);
         return;
       }
-      
-      // Handle giveaway entry buttons
+
       if (interaction.customId.startsWith('giveaway_enter')) {
         const { handleGiveawayEntry } = await import('./src/handlers/buttonHandler.js');
         await handleGiveawayEntry(interaction);
         return;
       }
-      
+
       await handleJobButton(interaction);
     } catch (error) {
       console.error('Error handling button:', error);
@@ -126,10 +117,8 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // Handle modals
   if (interaction.isModalSubmit()) {
     try {
-      // Handle appeal modals first
       if (interaction.customId.startsWith('appeal:')) {
         const appealHandled = await handleAppealModal(interaction);
         if (!appealHandled) {
@@ -140,7 +129,12 @@ client.on('interactionCreate', async interaction => {
         }
         return;
       }
-      
+
+      if (interaction.customId.startsWith('ticket:email_modal:')) {
+        await handleEmailModal(interaction);
+        return;
+      }
+
       const welcomeHandled = await handleWelcomeModal(interaction);
       if (!welcomeHandled) {
         await handleJobModal(interaction);
@@ -151,7 +145,6 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // Handle commands
   if (!interaction.isChatInputCommand()) return;
 
   if (!interaction.guildId || interaction.guildId !== process.env.DISCORD_GUILD_ID) {
@@ -191,79 +184,12 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-async function startServer() {
-  const app = express();
-  const dev = process.env.NODE_ENV !== 'production';
-  const port = dev ? (process.env.API_PORT || 3001) : (process.env.PORT || 5000);
-  
-  app.use(cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token']
-  }));
-  
-  app.options('*', cors());
-  
-  app.use(express.json());
-  
-  if (process.env.NODE_ENV === 'production') {
-    app.set('trust proxy', 1);
-  }
-  
-  app.use(session({
-    secret: process.env.SESSION_SECRET || 'ticket-admin-secret-key-change-me',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-      secure: process.env.NODE_ENV === 'production', 
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, 
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-    }
-  }));
-  
-  app.use('/admin', (req, res, next) => {
-    console.log(`Admin route: ${req.method} ${req.path}`);
-    next();
-  }, createAdminRoutes(client));
-  
-  if (dev) {
-    app.get('/', (req, res) => {
-      res.json({ status: 'Bot API running', dashboard: 'Use the dashboard workflow on port 5000' });
-    });
-    
-    app.listen(port, '0.0.0.0', () => {
-      console.log(`Bot API running on port ${port}`);
-    });
-  } else {
-    const next = (await import('next')).default;
-    const nextApp = next({ 
-      dev: false, 
-      dir: path.join(__dirname, 'dashboard')
-    });
-    const handle = nextApp.getRequestHandler();
-    
-    await nextApp.prepare();
-    console.log('Next.js app prepared');
-    
-    app.all('*', (req, res) => {
-      return handle(req, res);
-    });
-    
-    app.listen(port, '0.0.0.0', () => {
-      console.log(`Server running on port ${port} (production mode)`);
-    });
-  }
-}
-
 async function start() {
   try {
     await loadCommands();
     await loadEvents();
     await deployCommands();
-    await startServer();
-    
+
     if (process.env.DISCORD_TOKEN) {
       await client.login(process.env.DISCORD_TOKEN);
     } else {

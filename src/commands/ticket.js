@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 
 async function promptForInput(interaction, prompt, options = {}) {
   const { timeout = 60000, validator = null, deletePrompt = true } = options;
@@ -42,6 +42,7 @@ async function promptForInput(interaction, prompt, options = {}) {
 }
 import { loadData, saveData } from '../utils/storage.js';
 import { generateTranscript } from '../utils/transcript.js';
+import { savePanel as savePanelToDb, saveSubscription, createReminders, saveEmailSubmission, getSubscriptionByTicket } from '../utils/database.js';
 
 function getTicketConfig(guildId) {
   const configs = loadData('ticketConfig', {});
@@ -243,6 +244,13 @@ export async function execute(interaction) {
 
     const panelMsg = await channel.send({ embeds: [embed], components: [row] });
     setTicketConfig(guildId, { panelMessageId: panelMsg.id, panelChannelId: channel.id });
+
+    try {
+      savePanelToDb(guildId, channel.id, panelMsg.id, config);
+    } catch (err) {
+      console.error('[TICKET] Failed to save panel to SQLite:', err.message);
+    }
+
     await interaction.reply({ content: `✅ Ticket panel posted in ${channel}`, ephemeral: true });
   }
 
@@ -703,30 +711,50 @@ export async function handleTicketInteraction(interaction) {
 
     await interaction.message.edit({ components: [] });
 
-    const result = await promptForInput(interaction, `📧 **Email Confirmation**\n${interaction.user}, please enter your email address for your subscription:`, {
-      validator: async (msg) => {
-        const email = msg.content.trim();
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-          return { valid: false, error: '❌ Please enter a valid email address.' };
-        }
-        return { valid: true, value: email };
-      }
-    });
+    ticket.paymentConfirmed = true;
+    saveTicket(guildId, interaction.channel.id, ticket);
+
+    const confirmEmbed = new EmbedBuilder()
+      .setTitle('✅ Payment Confirmed')
+      .setDescription('Please submit the email carefully for your subscription.')
+      .setColor('#00ff00')
+      .setTimestamp();
+
+    const emailButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`ticket:submit_email:${interaction.channel.id}`)
+        .setLabel('Submit Email')
+        .setStyle(ButtonStyle.Success)
+    );
+
+    await interaction.reply({ content: `${interaction.user}`, embeds: [confirmEmbed], components: [emailButton] });
+    await logTicketAction(interaction.guild, config, `Payment confirmed - Plan: ${ticket.selectedPlan}`, ticket, interaction.user);
+  }
+
+  if (customId.startsWith('ticket:submit_email:')) {
+    const ticket = getTicket(guildId, interaction.channel.id);
+    if (!ticket) return await interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
     
-    if (result.value) {
-      ticket.email = result.value;
-      saveTicket(guildId, interaction.channel.id, ticket);
-
-      const confirmEmbed = new EmbedBuilder()
-        .setTitle('✅ Payment Received')
-        .setDescription(`Thank you ${interaction.user}!\n\nYour subscription will be activated within **2 hours**.\n\n📧 Email: ${result.value}\n📦 Plan: ${ticket.selectedPlan || 'N/A'}`)
-        .setColor('#00ff00')
-        .setTimestamp();
-
-      await interaction.channel.send({ embeds: [confirmEmbed] });
-      await logTicketAction(interaction.guild, config, `Payment confirmed - Email: ${result.value}, Plan: ${ticket.selectedPlan}`, ticket, interaction.user);
+    if (interaction.user.id !== ticket.openerId) {
+      return await interaction.reply({ content: '❌ Only the ticket opener can submit the email.', ephemeral: true });
     }
+
+    const modal = new ModalBuilder()
+      .setCustomId(`ticket:email_modal:${interaction.channel.id}`)
+      .setTitle('Enter Subscription Email');
+
+    const emailInput = new TextInputBuilder()
+      .setCustomId('email_input')
+      .setLabel('⚠️ Wrong email = wrong subscription delivery')
+      .setPlaceholder('yourname@example.com')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMinLength(5)
+      .setMaxLength(320);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(emailInput));
+
+    await interaction.showModal(modal);
   }
 
   if (customId === 'ticket:doubt') {
@@ -1392,6 +1420,106 @@ export async function handleRating(interaction) {
   }
 
   await interaction.update({ content: 'Thank you for your feedback!', embeds: [], components: [] });
+  return true;
+}
+
+function getPlanDurationDays(planName) {
+  const lower = (planName || '').toLowerCase();
+  if (lower.includes('1 year') || lower.includes('12 month')) return 365;
+  if (lower.includes('6 month')) return 180;
+  if (lower.includes('3 month')) return 90;
+  if (lower.includes('1 month')) return 30;
+  return 30;
+}
+
+export async function handleEmailModal(interaction) {
+  if (!interaction.customId.startsWith('ticket:email_modal:')) return false;
+
+  const channelId = interaction.customId.split(':')[2];
+  const guildId = interaction.guild.id;
+  const ticket = getTicket(guildId, channelId);
+
+  if (!ticket) {
+    await interaction.reply({ content: '❌ Ticket not found.', ephemeral: true });
+    return true;
+  }
+
+  const email = interaction.fields.getTextInputValue('email_input').trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    await interaction.reply({ content: '❌ Please enter a valid email address. Try again by clicking the Submit Email button.', ephemeral: true });
+    return true;
+  }
+
+  ticket.email = email;
+  saveTicket(guildId, channelId, ticket);
+
+  const config = getTicketConfig(guildId);
+  const plans = config.subscriptionPlans || [];
+  const selectedPlan = plans.find(p => p.name === ticket.selectedPlan) || {};
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const durationDays = getPlanDurationDays(ticket.selectedPlan);
+  const endSec = nowSec + (durationDays * 24 * 60 * 60);
+
+  try {
+    saveEmailSubmission({
+      guildId,
+      userId: interaction.user.id,
+      ticketChannelId: channelId,
+      email,
+      planName: ticket.selectedPlan,
+      startDate: nowSec
+    });
+
+    const subId = saveSubscription({
+      guildId,
+      userId: interaction.user.id,
+      ticketId: String(ticket.ticketNumber),
+      ticketChannelId: channelId,
+      email,
+      planName: ticket.selectedPlan || 'Unknown',
+      planPriceINR: selectedPlan.priceINR || null,
+      planPriceUSD: selectedPlan.priceUSD || null,
+      startDate: nowSec,
+      endDate: endSec,
+      paymentMethod: ticket.selectedPayment || null,
+      status: 'active'
+    });
+
+    const reminderDates = [];
+    const endDate = new Date(endSec * 1000);
+    for (let i = 3; i >= 1; i--) {
+      const d = new Date(endDate);
+      d.setDate(d.getDate() - i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      reminderDates.push(dateStr);
+    }
+    createReminders(subId, reminderDates);
+
+    console.log(`[TICKET] Subscription #${subId} created for ${interaction.user.tag}, plan: ${ticket.selectedPlan}, end: ${endDate.toISOString()}, reminders: ${reminderDates.join(', ')}`);
+  } catch (err) {
+    console.error('[TICKET] Error saving subscription/email:', err);
+  }
+
+  const endDateObj = new Date(endSec * 1000);
+  const endDateStr = endDateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const successEmbed = new EmbedBuilder()
+    .setTitle('✅ Email Submitted Successfully')
+    .setDescription(`Thank you ${interaction.user}!\n\nYour subscription will be activated within **2 hours**.\n\n📧 **Email:** ${email}\n📦 **Plan:** ${ticket.selectedPlan || 'N/A'}\n📅 **Valid Until:** ${endDateStr}`)
+    .setColor('#00ff00')
+    .setTimestamp();
+
+  await interaction.reply({ embeds: [successEmbed] });
+
+  try {
+    await interaction.message.edit({ components: [] });
+  } catch {}
+
+  await logTicketAction(interaction.guild, config, `Email submitted: ${email}, Plan: ${ticket.selectedPlan}`, ticket, interaction.user);
+
   return true;
 }
 
