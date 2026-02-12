@@ -27,7 +27,12 @@
     if (err) {
       const el = document.getElementById('loginError');
       el.style.display = 'block';
-      el.textContent = err === 'wrong_password' ? 'Incorrect password. Try again.' : 'Login failed.';
+      const messages = {
+        wrong_password: 'Incorrect password. Try again.',
+        not_configured: 'Dashboard password not configured on server.',
+        session_error: 'Session error. Check server configuration.'
+      };
+      el.textContent = messages[err] || 'Login failed: ' + err;
     }
   </script>
 </body>
