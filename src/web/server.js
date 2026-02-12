@@ -16,14 +16,19 @@ export function createWebServer(client) {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  if (!process.env.SESSION_SECRET) {
+    console.warn('[WEB] SESSION_SECRET not set - using fallback (set this in production!)');
+  }
+
   app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'editors-club-fallback-secret',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true,
+      secure: process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT,
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'none'
+      sameSite: 'lax',
+      httpOnly: true
     }
   }));
 
