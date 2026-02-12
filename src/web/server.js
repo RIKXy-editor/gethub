@@ -52,7 +52,7 @@ export function createWebServer(client) {
 
   app.get('/dashboard{/*path}', (req, res) => {
     if (!req.session?.user) {
-      return res.redirect('/auth/login');
+      return res.redirect('/');
     }
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
   });

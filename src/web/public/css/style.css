@@ -379,6 +379,237 @@ textarea { resize: vertical; min-height: 80px; }
 .embed-preview .embed-title { font-weight: 700; margin-bottom: 8px; }
 .embed-preview .embed-desc { font-size: 14px; color: #dcddde; white-space: pre-wrap; }
 
+.md-editor {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-input);
+}
+
+.md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+
+.md-toolbar-group {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.md-toolbar-group + .md-toolbar-group {
+  margin-left: 4px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+
+.md-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.md-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.md-btn:active {
+  background: var(--accent);
+  color: white;
+}
+
+.md-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.md-btn[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: #111;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 400;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.md-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.md-textarea:focus {
+  background: #2a2a3d;
+}
+
+.md-char-count {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+}
+
+.emoji-picker-popup {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  z-index: 1100;
+  width: 320px;
+  max-height: 300px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.emoji-search {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.emoji-search:focus { border-color: var(--accent); }
+
+.emoji-categories {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+}
+
+.emoji-cat-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  min-width: 32px;
+}
+
+.emoji-cat-btn:hover, .emoji-cat-btn.active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.emoji-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 20px;
+  transition: background 0.1s;
+}
+
+.emoji-item:hover {
+  background: var(--bg-hover);
+  transform: scale(1.15);
+}
+
+.emoji-picker-wrapper {
+  position: relative;
+}
+
+.md-preview-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.embed-preview .embed-desc code {
+  background: rgba(0,0,0,0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.embed-preview .embed-desc pre {
+  background: rgba(0,0,0,0.3);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 4px 0;
+  overflow-x: auto;
+}
+
+.embed-preview .embed-desc pre code {
+  background: none;
+  padding: 0;
+}
+
+.embed-preview .embed-desc blockquote {
+  border-left: 3px solid var(--text-muted);
+  padding-left: 10px;
+  margin: 4px 0;
+  color: #b9bbbe;
+}
+
+.embed-preview .embed-desc ul, .embed-preview .embed-desc ol {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
 @media (max-width: 768px) {
   .sidebar { width: 60px; }
   .sidebar-header h2, .sidebar-header p, .sidebar-nav a span, .sidebar-user span { display: none; }

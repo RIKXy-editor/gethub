@@ -7,7 +7,7 @@ async function api(url, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
-  if (res.status === 401) { window.location = '/auth/login'; return null; }
+  if (res.status === 401) { window.location = '/'; return null; }
   return res.json();
 }
 
@@ -139,10 +139,11 @@ async function loadPanels() {
 
 function showPanelModal(panel = null) {
   const isEdit = !!panel;
+  const descValue = panel?.description || 'Click the button below to open a ticket.';
   showModal(`
     <h2>${isEdit ? 'Edit' : 'Create'} Ticket Panel</h2>
     <div class="form-group"><label>Title</label><input id="pTitle" value="${panel?.title || 'Support Tickets'}"></div>
-    <div class="form-group"><label>Description</label><textarea id="pDesc">${panel?.description || 'Click the button below to open a ticket.'}</textarea></div>
+    <div class="form-group"><label>Description</label>${createMdEditor('pDesc', descValue)}</div>
     <div class="form-row">
       <div class="form-group"><label>Channel</label>${channelSelect(panel?.channel_id)}</div>
       <div class="form-group"><label>Category</label>${categorySelect(panel?.category_id)}</div>
@@ -170,27 +171,32 @@ function showPanelModal(panel = null) {
     </div>
     <div class="form-group"><label>Footer Text</label><input id="pFooter" value="${panel?.footer_text || ''}"></div>
     <div class="form-group"><label>Enabled</label><label class="toggle"><input type="checkbox" id="pEnabled" ${panel?.enabled !== false ? 'checked' : ''}><span class="slider"></span></label></div>
-    <div class="embed-preview">
+    <div class="md-preview-label">LIVE PREVIEW</div>
+    <div class="embed-preview" id="embedPreview" style="border-left-color: ${panel?.color || '#5865F2'}">
       <div class="embed-title" id="previewTitle">${panel?.title || 'Support Tickets'}</div>
-      <div class="embed-desc" id="previewDesc">${panel?.description || 'Click the button below to open a ticket.'}</div>
+      <div class="embed-desc" id="previewDesc">${discordMdToHtml(descValue)}</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideModal()">Cancel</button>
       <button class="btn btn-primary" onclick="savePanel(${panel?.id || 'null'})">${isEdit ? 'Save' : 'Create'}</button>
     </div>
   `);
-  const titleEl = document.getElementById('pTitle');
-  const descEl = document.getElementById('pDesc');
-  titleEl.addEventListener('input', () => document.getElementById('previewTitle').textContent = titleEl.value);
-  descEl.addEventListener('input', () => document.getElementById('previewDesc').textContent = descEl.value);
-  document.getElementById('pColor').addEventListener('input', e => document.getElementById('pColorText').value = e.target.value);
-  document.getElementById('pColorText').addEventListener('input', e => document.getElementById('pColor').value = e.target.value);
+  document.getElementById('pTitle').addEventListener('input', () => updatePreview());
+  document.getElementById('pColor').addEventListener('input', e => {
+    document.getElementById('pColorText').value = e.target.value;
+    document.getElementById('embedPreview').style.borderLeftColor = e.target.value;
+  });
+  document.getElementById('pColorText').addEventListener('input', e => {
+    document.getElementById('pColor').value = e.target.value;
+    document.getElementById('embedPreview').style.borderLeftColor = e.target.value;
+  });
+  updatePreview();
 }
 
 async function savePanel(id) {
   const data = {
     title: document.getElementById('pTitle').value,
-    description: document.getElementById('pDesc').value,
+    description: document.getElementById('md-ta-pDesc').value,
     channel_id: document.querySelector('.channel-select').value,
     category_id: document.querySelector('.category-select').value || null,
     staff_role_id: document.querySelector('.role-select').value || null,
@@ -341,7 +347,7 @@ function showPaymentModal(method = null) {
         <select id="pmColor"><option ${method?.button_color === 'Primary' ? 'selected' : ''}>Primary</option><option ${method?.button_color === 'Secondary' ? 'selected' : ''}>Secondary</option><option ${method?.button_color === 'Success' ? 'selected' : ''}>Success</option><option ${method?.button_color === 'Danger' ? 'selected' : ''}>Danger</option></select>
       </div>
     </div>
-    <div class="form-group"><label>Payment Instructions</label><textarea id="pmInstructions">${method?.instructions || ''}</textarea></div>
+    <div class="form-group"><label>Payment Instructions</label>${createMdEditor('pmInstructions', method?.instructions || '')}</div>
     <div class="form-group"><label>Payment Link</label><input id="pmLink" value="${method?.payment_link || ''}"></div>
     <div class="form-group"><label>QR Image URL</label><input id="pmQR" value="${method?.qr_image_url || ''}"></div>
     <div class="form-row">
@@ -372,7 +378,7 @@ async function savePayment(id) {
     label: document.getElementById('pmLabel').value,
     emoji: document.getElementById('pmEmoji').value || null,
     button_color: document.getElementById('pmColor').value,
-    instructions: document.getElementById('pmInstructions').value || null,
+    instructions: document.getElementById('md-ta-pmInstructions').value || null,
     payment_link: document.getElementById('pmLink').value || null,
     qr_image_url: document.getElementById('pmQR').value || null,
     embed_color: document.getElementById('pmEmbedColorText').value,
@@ -537,6 +543,248 @@ async function loadLogs() {
       <td>${fmtDate(l.created_at)}</td>
     </tr>
   `).join('') || '<tr><td colspan="5" class="empty-state">No logs</td></tr>';
+}
+
+const EMOJI_DATA = {
+  'Smileys': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','😮‍💨','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'],
+  'Gestures': ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','💋'],
+  'Symbols': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🛗','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚼','⚧️','🚻','🚮','🎦','📶','🈁','🔣','ℹ️','🔤','🔡','🔠','🆖','🆗','🆙','🆒','🆕','🆓','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔢','#️⃣','*️⃣','⏏️','▶️','⏸️','⏯️','⏹️','⏺️','⏭️','⏮️','⏩','⏪','⏫','⏬','◀️','🔼','🔽','➡️','⬅️','⬆️','⬇️','↗️','↘️','↙️','↖️','↕️','↔️','↪️','↩️','⤴️','⤵️','🔀','🔁','🔂','🔄','🔃','🎵','🎶','➕','➖','➗','✖️','♾️','💲','💱','™️','©️','®️','👁️‍🗨️','🔚','🔙','🔛','🔝','🔜','〰️','➰','➿','✔️','☑️','🔘','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔺','🔻','🔸','🔹','🔶','🔷','🔳','🔲','▪️','▫️','◾','◽','◼️','◻️','🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜','🟫','🔈','🔇','🔉','🔊','🔔','🔕','📣','📢'],
+  'Objects': ['⌚','📱','📲','💻','⌨️','🖥️','🖨️','🖱️','🖲️','💽','💾','💿','📀','🧮','🎥','🎞️','📽️','🎬','📺','📷','📸','📹','📼','🔍','🔎','🕯️','💡','🔦','🏮','🪔','📔','📕','📖','📗','📘','📙','📚','📓','📒','📃','📜','📄','📰','🗞️','📑','🔖','🏷️','💰','🪙','💴','💵','💶','💷','💸','💳','🧾','💹','✉️','📧','📨','📩','📤','📥','📦','📫','📪','📬','📭','📮','🗳️','✏️','✒️','🖋️','🖊️','🖌️','🖍️','📝','💼','📁','📂','🗂️','📅','📆','🗒️','🗓️','📇','📈','📉','📊','📋','📌','📍','📎','🖇️','📏','📐','✂️','🗃️','🗄️','🗑️','🔒','🔓','🔏','🔐','🔑','🗝️','🔨','🪓','⛏️','⚒️','🛠️','🗡️','⚔️','🔫','🪃','🏹','🛡️','🪚','🔧','🪛','🔩','⚙️','🗜️','⚖️','🦯','🔗','⛓️','🪝','🧰','🧲','🪜','⚗️','🧪','🧫','🧬','🔬','🔭','📡','💉','🩸','💊','🩹','🩺','🚪','🛗','🪞','🪟','🛏️','🛋️','🪑','🚽','🪠','🚿','🛁','🪤','🪒','🧴','🧷','🧹','🧺','🧻','🪣','🧼','🪥','🧽','🧯','🛒','🚬','⚰️','🪦','⚱️','🗿','🪧','🏧'],
+  'Nature': ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🕸️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🦭','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔','🌵','🎄','🌲','🌳','🌴','🪵','🌱','🌿','☘️','🍀','🎍','🪴','🎋','🍃','🍂','🍁','🪺','🪹','🍄','🌾','💐','🌷','🌹','🥀','🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒','🌓','🌔','🌙','🌎','🌍','🌏','🪐','💫','⭐','🌟','✨','⚡','☄️','💥','🔥','🌪️','🌈','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💧','💦','🌊']
+};
+
+function createMdEditor(id, value, onInput) {
+  const editorId = `md-editor-${id}`;
+  const textareaId = `md-ta-${id}`;
+
+  return `
+    <div class="md-editor" id="${editorId}">
+      <div class="md-toolbar">
+        <div class="md-toolbar-group">
+          <button type="button" class="md-btn" title="Bold" onclick="mdWrap('${textareaId}','**','**')"><b>B</b></button>
+          <button type="button" class="md-btn" title="Italic" onclick="mdWrap('${textareaId}','*','*')"><i>I</i></button>
+          <button type="button" class="md-btn" title="Underline" onclick="mdWrap('${textareaId}','__','__')"><u>U</u></button>
+          <button type="button" class="md-btn" title="Strikethrough" onclick="mdWrap('${textareaId}','~~','~~')"><s>S</s></button>
+        </div>
+        <div class="md-toolbar-group">
+          <button type="button" class="md-btn" title="Inline Code" onclick="mdWrap('${textareaId}','\`','\`')" style="font-family:monospace">&lt;/&gt;</button>
+          <button type="button" class="md-btn" title="Code Block" onclick="mdWrap('${textareaId}','\`\`\`\\n','\\n\`\`\`')" style="font-family:monospace;font-size:11px">{ }</button>
+          <button type="button" class="md-btn" title="Spoiler" onclick="mdWrap('${textareaId}','||','||')">▪▪</button>
+        </div>
+        <div class="md-toolbar-group">
+          <button type="button" class="md-btn" title="Quote" onclick="mdPrefix('${textareaId}','> ')">❝</button>
+          <button type="button" class="md-btn" title="Bullet List" onclick="mdPrefix('${textareaId}','- ')">•</button>
+          <button type="button" class="md-btn" title="Numbered List" onclick="mdPrefix('${textareaId}','1. ')">1.</button>
+        </div>
+        <div class="md-toolbar-group">
+          <button type="button" class="md-btn" title="Heading 1" onclick="mdPrefix('${textareaId}','# ')">H1</button>
+          <button type="button" class="md-btn" title="Heading 2" onclick="mdPrefix('${textareaId}','## ')">H2</button>
+          <button type="button" class="md-btn" title="Heading 3" onclick="mdPrefix('${textareaId}','### ')">H3</button>
+        </div>
+        <div class="md-toolbar-group">
+          <button type="button" class="md-btn" title="Link" onclick="mdInsertLink('${textareaId}')">🔗</button>
+          <button type="button" class="md-btn" title="Masked Link" onclick="mdInsertMaskedLink('${textareaId}')">🌐</button>
+        </div>
+        <div class="md-toolbar-group emoji-picker-wrapper">
+          <button type="button" class="md-btn" title="Emoji" onclick="toggleEmojiPicker('${textareaId}')">😀</button>
+        </div>
+      </div>
+      <textarea class="md-textarea" id="${textareaId}" oninput="mdEditorInput('${textareaId}')">${escHtml(value || '')}</textarea>
+      <div class="md-char-count"><span id="${textareaId}-count">${(value || '').length}</span> / 4096</div>
+    </div>
+  `;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function mdWrap(taId, before, after) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const text = ta.value;
+  const selected = text.substring(start, end);
+  const replacement = before + (selected || 'text') + after;
+  ta.value = text.substring(0, start) + replacement + text.substring(end);
+  ta.focus();
+  const newPos = selected ? start + replacement.length : start + before.length;
+  const selEnd = selected ? newPos : newPos + 4;
+  ta.setSelectionRange(selected ? newPos : start + before.length, selected ? newPos : start + before.length + 4);
+  mdEditorInput(taId);
+}
+
+function mdPrefix(taId, prefix) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const text = ta.value;
+  const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+  const lineEnd = text.indexOf('\n', end);
+  const actualEnd = lineEnd === -1 ? text.length : lineEnd;
+  const selectedLines = text.substring(lineStart, actualEnd);
+  const prefixed = selectedLines.split('\n').map(line => prefix + line).join('\n');
+  ta.value = text.substring(0, lineStart) + prefixed + text.substring(actualEnd);
+  ta.focus();
+  mdEditorInput(taId);
+}
+
+function mdInsertLink(taId) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const url = prompt('Enter URL:');
+  if (!url) return;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const selected = ta.value.substring(start, end);
+  const linkText = selected || 'link text';
+  const insertion = `[${linkText}](${url})`;
+  ta.value = ta.value.substring(0, start) + insertion + ta.value.substring(end);
+  ta.focus();
+  mdEditorInput(taId);
+}
+
+function mdInsertMaskedLink(taId) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const label = prompt('Link text:');
+  if (!label) return;
+  const url = prompt('URL:');
+  if (!url) return;
+  const start = ta.selectionStart;
+  const insertion = `[${label}](${url})`;
+  ta.value = ta.value.substring(0, start) + insertion + ta.value.substring(ta.selectionEnd);
+  ta.focus();
+  mdEditorInput(taId);
+}
+
+function mdEditorInput(taId) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const counter = document.getElementById(taId + '-count');
+  if (counter) counter.textContent = ta.value.length;
+  updatePreview();
+}
+
+function toggleEmojiPicker(taId) {
+  const existing = document.querySelector('.emoji-picker-popup');
+  if (existing) { existing.remove(); return; }
+
+  const ta = document.getElementById(taId);
+  const wrapper = ta.closest('.md-editor').querySelector('.emoji-picker-wrapper');
+  const popup = document.createElement('div');
+  popup.className = 'emoji-picker-popup';
+
+  const categories = Object.keys(EMOJI_DATA);
+  let currentCat = categories[0];
+
+  function renderPicker() {
+    const catBtns = categories.map(c =>
+      `<button type="button" class="emoji-cat-btn ${c === currentCat ? 'active' : ''}" onclick="switchEmojiCat('${taId}','${c}')">${EMOJI_DATA[c][0]}</button>`
+    ).join('');
+
+    const emojis = EMOJI_DATA[currentCat].map(e =>
+      `<button type="button" class="emoji-item" onclick="insertEmoji('${taId}','${e}')">${e}</button>`
+    ).join('');
+
+    popup.innerHTML = `
+      <input type="text" class="emoji-search" placeholder="Search emojis..." oninput="searchEmojis('${taId}', this.value)">
+      <div class="emoji-categories">${catBtns}</div>
+      <div class="emoji-grid" id="emojiGrid">${emojis}</div>
+    `;
+  }
+
+  renderPicker();
+  wrapper.appendChild(popup);
+  popup.querySelector('.emoji-search').focus();
+
+  popup._renderCat = function(cat) {
+    currentCat = cat;
+    renderPicker();
+  };
+
+  setTimeout(() => {
+    document.addEventListener('click', function closePicker(e) {
+      if (!popup.contains(e.target) && !e.target.closest('.emoji-picker-wrapper .md-btn')) {
+        popup.remove();
+        document.removeEventListener('click', closePicker);
+      }
+    });
+  }, 0);
+}
+
+function switchEmojiCat(taId, cat) {
+  const popup = document.querySelector('.emoji-picker-popup');
+  if (popup && popup._renderCat) popup._renderCat(cat);
+}
+
+function searchEmojis(taId, query) {
+  const grid = document.getElementById('emojiGrid');
+  if (!grid) return;
+  if (!query) {
+    const activeCat = document.querySelector('.emoji-cat-btn.active');
+    const btns = document.querySelectorAll('.emoji-cat-btn');
+    let catName = Object.keys(EMOJI_DATA)[0];
+    btns.forEach((btn, i) => { if (btn === activeCat) catName = Object.keys(EMOJI_DATA)[i]; });
+    grid.innerHTML = EMOJI_DATA[catName].map(e =>
+      `<button type="button" class="emoji-item" onclick="insertEmoji('${taId}','${e}')">${e}</button>`
+    ).join('');
+    return;
+  }
+  const q = query.toLowerCase();
+  const matches = [];
+  for (const [cat, emojis] of Object.entries(EMOJI_DATA)) {
+    if (cat.toLowerCase().includes(q)) {
+      matches.push(...emojis);
+    } else {
+      matches.push(...emojis.filter(e => e.includes(q)));
+    }
+  }
+  const all = matches.length > 0 ? matches : Object.values(EMOJI_DATA).flat();
+  grid.innerHTML = all.map(e =>
+    `<button type="button" class="emoji-item" onclick="insertEmoji('${taId}','${e}')">${e}</button>`
+  ).join('');
+}
+
+function insertEmoji(taId, emoji) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const pos = ta.selectionStart;
+  ta.value = ta.value.substring(0, pos) + emoji + ta.value.substring(ta.selectionEnd);
+  ta.focus();
+  ta.setSelectionRange(pos + emoji.length, pos + emoji.length);
+  mdEditorInput(taId);
+}
+
+function discordMdToHtml(text) {
+  if (!text) return '';
+  let html = escHtml(text);
+  html = html.replace(/```([^`]*?)```/gs, '<pre><code>$1</code></pre>');
+  html = html.replace(/`([^`]+?)`/g, '<code>$1</code>');
+  html = html.replace(/\|\|(.+?)\|\|/g, '<span style="background:#222;color:#222;cursor:pointer;border-radius:3px;padding:0 4px" onclick="this.style.color=\'#dcddde\'">$1</span>');
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.+?)__/g, '<u>$1</u>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
+  html = html.replace(/^### (.+)$/gm, '<strong style="font-size:14px">$1</strong>');
+  html = html.replace(/^## (.+)$/gm, '<strong style="font-size:16px">$1</strong>');
+  html = html.replace(/^# (.+)$/gm, '<strong style="font-size:18px">$1</strong>');
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/^- (.+)$/gm, '• $1');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#00b0f4;text-decoration:none" target="_blank">$1</a>');
+  return html;
+}
+
+function updatePreview() {
+  const descEl = document.getElementById('md-ta-pDesc');
+  const titleEl = document.getElementById('pTitle');
+  const previewTitle = document.getElementById('previewTitle');
+  const previewDesc = document.getElementById('previewDesc');
+  if (previewTitle && titleEl) previewTitle.textContent = titleEl.value;
+  if (previewDesc && descEl) previewDesc.innerHTML = discordMdToHtml(descEl.value);
 }
 
 init();
