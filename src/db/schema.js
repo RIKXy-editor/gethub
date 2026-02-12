@@ -183,6 +183,17 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_reminders_sub ON reminders(subscription_id);
       CREATE INDEX IF NOT EXISTS idx_logs_guild ON logs(guild_id);
       CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created_at);
+      CREATE TABLE IF NOT EXISTS plan_pricing (
+        id SERIAL PRIMARY KEY,
+        plan_id INTEGER NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+        payment_method_id INTEGER NOT NULL REFERENCES payment_methods(id) ON DELETE CASCADE,
+        price DECIMAL(10,2) NOT NULL,
+        currency TEXT DEFAULT 'INR',
+        UNIQUE(plan_id, payment_method_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_plan_pricing_plan ON plan_pricing(plan_id);
+      CREATE INDEX IF NOT EXISTS idx_plan_pricing_method ON plan_pricing(payment_method_id);
       CREATE INDEX IF NOT EXISTS idx_plans_guild ON plans(guild_id);
       CREATE INDEX IF NOT EXISTS idx_payment_methods_guild ON payment_methods(guild_id);
       CREATE INDEX IF NOT EXISTS idx_panels_guild ON ticket_panels(guild_id);
