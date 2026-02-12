@@ -20,16 +20,20 @@ export async function handleTicketButton(interaction) {
   const panelId = interaction.customId.replace('ticket:open:', '');
   const panel = await Panel.getById(panelId);
   if (!panel || !panel.enabled) {
-    return interaction.reply({ content: 'This ticket panel is currently disabled.', ephemeral: true });
+    try { return await interaction.reply({ content: 'This ticket panel is currently disabled.', ephemeral: true }); } catch (e) { return; }
   }
 
   const guildId = interaction.guild.id;
   const openTickets = await Ticket.getOpenByUser(guildId, interaction.user.id);
   if (openTickets.length >= panel.max_tickets_per_user) {
-    return interaction.reply({ content: `You already have ${openTickets.length} open ticket(s). Please close existing tickets first.`, ephemeral: true });
+    try { return await interaction.reply({ content: `You already have ${openTickets.length} open ticket(s). Please close existing tickets first.`, ephemeral: true }); } catch (e) { return; }
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  try {
+    await interaction.deferReply({ ephemeral: true });
+  } catch (e) {
+    console.log('[TICKET] deferReply failed (already acked), continuing...', e.code);
+  }
 
   try {
     const categoryId = panel.category_id || null;
@@ -97,10 +101,10 @@ export async function handleTicketButton(interaction) {
       await sendPlanSelection(channel, interaction.user.id, ticket.id, plans);
     }
 
-    await interaction.editReply({ content: `Your ticket has been created: <#${channel.id}>` });
+    try { await interaction.editReply({ content: `Your ticket has been created: <#${channel.id}>` }); } catch (e) {}
   } catch (err) {
     console.error('[TICKET] Error creating ticket:', err);
-    await interaction.editReply({ content: 'Failed to create ticket. Please try again.' });
+    try { await interaction.editReply({ content: 'Failed to create ticket. Please try again.' }); } catch (e) {}
   }
 }
 
@@ -351,7 +355,7 @@ export async function handleConfirmPayment(interaction) {
   try {
     const isAdmin = await checkStaffPermission(interaction);
     if (!isAdmin) {
-      return interaction.reply({ content: 'Only staff members can confirm payments.', ephemeral: true });
+      try { return await interaction.reply({ content: 'Only staff members can confirm payments.', ephemeral: true }); } catch (e) { return; }
     }
 
     try { await interaction.deferUpdate(); } catch (e) {}
@@ -400,7 +404,7 @@ export async function handleDenyPayment(interaction) {
   const ticketId = parseInt(interaction.customId.split(':')[2]);
   const isAdmin = await checkStaffPermission(interaction);
   if (!isAdmin) {
-    return interaction.reply({ content: 'Only staff members can deny payments.', ephemeral: true });
+    try { return await interaction.reply({ content: 'Only staff members can deny payments.', ephemeral: true }); } catch (e) { return; }
   }
 
   try {
@@ -424,7 +428,7 @@ export async function handleEmailButton(interaction) {
     const ticketId = parseInt(interaction.customId.split(':')[2]);
     const ticket = await Ticket.getById(ticketId);
     if (!ticket || ticket.user_id !== interaction.user.id) {
-      return interaction.reply({ content: 'This is not your ticket.', ephemeral: true });
+      try { return await interaction.reply({ content: 'This is not your ticket.', ephemeral: true }); } catch (e) { return; }
     }
 
     const modal = new ModalBuilder()
@@ -453,14 +457,14 @@ export async function handleEmailModal(interaction) {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return interaction.reply({ content: 'Please enter a valid email address.', ephemeral: true });
+    try { return await interaction.reply({ content: 'Please enter a valid email address.', ephemeral: true }); } catch (e) { return; }
   }
 
   try {
     const ticket = await Ticket.getById(ticketId);
-    if (!ticket) return interaction.reply({ content: 'Ticket not found.', ephemeral: true });
+    if (!ticket) { try { return await interaction.reply({ content: 'Ticket not found.', ephemeral: true }); } catch (e) { return; } }
 
-    await interaction.deferReply({ ephemeral: true });
+    try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
 
     await Ticket.update(ticketId, { email });
     const plan = await Plan.getById(ticket.plan_id);
@@ -560,7 +564,7 @@ export async function handleCloseTicket(interaction) {
   const ticketId = parseInt(interaction.customId.split(':')[2]);
   const isAdmin = await checkStaffPermission(interaction);
   if (!isAdmin) {
-    return interaction.reply({ content: 'Only staff members can close tickets.', ephemeral: true });
+    try { return await interaction.reply({ content: 'Only staff members can close tickets.', ephemeral: true }); } catch (e) { return; }
   }
 
   try {
@@ -593,7 +597,7 @@ export async function handleClaimTicket(interaction) {
   const ticketId = parseInt(interaction.customId.split(':')[2]);
   const isAdmin = await checkStaffPermission(interaction);
   if (!isAdmin) {
-    return interaction.reply({ content: 'Only staff members can claim tickets.', ephemeral: true });
+    try { return await interaction.reply({ content: 'Only staff members can claim tickets.', ephemeral: true }); } catch (e) { return; }
   }
 
   try {
