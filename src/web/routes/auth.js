@@ -2,95 +2,31 @@ import { Router } from 'express';
 
 export const authRouter = Router();
 
-const DISCORD_API = 'https://discord.com/api/v10';
-const REDIRECT_URI = () => {
-  const domain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN || 'localhost:5000';
-  return `https://${domain}/auth/callback`;
-};
+authRouter.post('/login', (req, res) => {
+  const { password } = req.body;
+  const dashPassword = process.env.DASHBOARD_PASSWORD;
 
-authRouter.get('/login', (req, res) => {
-  const clientId = process.env.DISCORD_CLIENT_ID;
-  const redirect = encodeURIComponent(REDIRECT_URI());
-  const scope = encodeURIComponent('identify guilds');
-  res.redirect(`https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}`);
-});
-
-authRouter.get('/callback', async (req, res) => {
-  const { code } = req.query;
-  if (!code) {
-    console.log('[AUTH] No code in callback');
-    return res.redirect('/?error=no_code');
+  if (!dashPassword) {
+    console.error('[AUTH] DASHBOARD_PASSWORD not set');
+    return res.redirect('/?error=not_configured');
   }
 
-  try {
-    const redirectUri = REDIRECT_URI();
-    console.log('[AUTH] Exchanging code, redirect_uri:', redirectUri);
-
-    const tokenRes = await fetch(`${DISCORD_API}/oauth2/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: process.env.DISCORD_CLIENT_ID,
-        client_secret: process.env.DISCORD_CLIENT_SECRET,
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri
-      })
-    });
-
-    const tokens = await tokenRes.json();
-    console.log('[AUTH] Token response:', tokens.access_token ? 'got token' : JSON.stringify(tokens));
-    if (!tokens.access_token) return res.redirect('/?error=auth_failed');
-
-    const userRes = await fetch(`${DISCORD_API}/users/@me`, {
-      headers: { Authorization: `Bearer ${tokens.access_token}` }
-    });
-    const user = await userRes.json();
-    console.log('[AUTH] User:', user.username);
-
-    const guildsRes = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-      headers: { Authorization: `Bearer ${tokens.access_token}` }
-    });
-    const guilds = await guildsRes.json();
-
-    const guildId = process.env.DISCORD_GUILD_ID;
-    const targetGuild = guilds.find(g => g.id === guildId);
-
-    if (!targetGuild) {
-      console.log('[AUTH] User not in guild', guildId);
-      return res.redirect('/?error=not_in_guild');
-    }
-
-    const isOwner = targetGuild.owner;
-    const perms = BigInt(targetGuild.permissions);
-    const isAdmin = isOwner || (perms & BigInt(0x8)) === BigInt(0x8) || (perms & BigInt(0x20)) === BigInt(0x20);
-
-    if (!isAdmin) {
-      console.log('[AUTH] User not admin');
-      return res.redirect('/?error=no_permission');
-    }
-
-    req.session.user = {
-      id: user.id,
-      username: user.username,
-      discriminator: user.discriminator,
-      avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
-      isAdmin: true,
-      guildId
-    };
-
-    req.session.save((err) => {
-      if (err) {
-        console.error('[AUTH] Session save error:', err);
-        return res.redirect('/?error=session_error');
-      }
-      console.log('[AUTH] Session saved, redirecting to dashboard');
-      res.redirect('/dashboard');
-    });
-  } catch (err) {
-    console.error('[AUTH] OAuth error:', err);
-    res.redirect('/?error=auth_error');
+  if (password !== dashPassword) {
+    return res.redirect('/?error=wrong_password');
   }
+
+  req.session.user = {
+    isAdmin: true,
+    guildId: process.env.DISCORD_GUILD_ID
+  };
+
+  req.session.save((err) => {
+    if (err) {
+      console.error('[AUTH] Session save error:', err);
+      return res.redirect('/?error=session_error');
+    }
+    res.redirect('/dashboard');
+  });
 });
 
 authRouter.get('/logout', (req, res) => {

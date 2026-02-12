@@ -56,14 +56,32 @@ body {
   transition: all 0.2s;
 }
 
-.btn-discord {
-  background: var(--accent);
-  color: white;
+.login-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 15px;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.login-input:focus { border-color: var(--accent); }
+.login-input::placeholder { color: var(--text-muted); }
+
+.btn-login {
   width: 100%;
   justify-content: center;
+  padding: 14px 24px;
 }
 
-.btn-discord:hover { background: var(--accent-hover); }
+.login-error {
+  color: var(--danger);
+  font-size: 14px;
+  margin-top: 12px;
+}
 
 .btn-primary { background: var(--accent); color: white; }
 .btn-primary:hover { background: var(--accent-hover); }
