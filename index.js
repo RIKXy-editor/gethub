@@ -185,8 +185,9 @@ async function start() {
     await deployCommands();
 
     const app = createWebServer(client);
-    app.listen(5000, '0.0.0.0', () => {
-      console.log('Dashboard running on http://0.0.0.0:5000');
+    const port = process.env.PORT || 5000;
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Dashboard running on http://0.0.0.0:${port}`);
     });
 
     if (process.env.DISCORD_TOKEN) {
