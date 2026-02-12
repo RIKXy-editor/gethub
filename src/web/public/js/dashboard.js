@@ -249,6 +249,7 @@ async function loadPlans() {
       <td>${p.recommended ? '🔥 Yes' : 'No'}</td>
       <td>${p.enabled ? '✅' : '❌'}</td>
       <td class="actions-cell">
+        <button class="btn btn-sm btn-primary" onclick="showPlanPricing(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Pricing</button>
         <button class="btn btn-sm btn-outline" onclick="editPlan(${p.id})">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deletePlan(${p.id})">Delete</button>
       </td>
@@ -316,6 +317,71 @@ async function deletePlan(id) {
   if (!confirm('Delete this plan?')) return;
   await api(`/api/plans/${id}`, { method: 'DELETE' });
   loadPlans(); toast('Plan deleted');
+}
+
+async function showPlanPricing(planId, planName) {
+  const [pricing, methods] = await Promise.all([
+    api(`/api/plan-pricing/${planId}`),
+    api('/api/payment-methods')
+  ]);
+  const pricingMap = {};
+  for (const p of (pricing || [])) {
+    pricingMap[p.payment_method_id] = p;
+  }
+  const rows = (methods || []).map(m => {
+    const pp = pricingMap[m.id];
+    return `
+      <tr>
+        <td>${m.emoji || ''} ${m.label}</td>
+        <td>
+          <input type="number" step="0.01" class="pricing-input" id="pp_price_${m.id}" value="${pp ? pp.price : ''}" placeholder="Default plan price" style="width:120px">
+        </td>
+        <td>
+          <select id="pp_currency_${m.id}" style="width:80px">
+            <option value="INR" ${(!pp || pp.currency === 'INR') ? 'selected' : ''}>INR</option>
+            <option value="USD" ${pp?.currency === 'USD' ? 'selected' : ''}>USD</option>
+          </select>
+        </td>
+        <td class="actions-cell">
+          <button class="btn btn-sm btn-primary" onclick="savePlanPrice(${planId}, ${m.id})">Save</button>
+          ${pp ? `<button class="btn btn-sm btn-danger" onclick="deletePlanPrice(${planId}, ${m.id}, '${planName.replace(/'/g, "\\'")}')">Remove</button>` : ''}
+        </td>
+      </tr>`;
+  }).join('');
+
+  showModal(`
+    <h2>Pricing for "${planName}"</h2>
+    <p style="color:var(--text-secondary);margin-bottom:16px">Set different prices per payment method. Leave blank to use the default plan price.</p>
+    <table class="data-table">
+      <thead><tr><th>Payment Method</th><th>Price</th><th>Currency</th><th>Actions</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" class="empty-state">No payment methods configured</td></tr>'}</tbody>
+    </table>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-outline" onclick="hideModal()">Close</button>
+    </div>
+  `);
+}
+
+async function savePlanPrice(planId, methodId) {
+  const priceEl = document.getElementById(`pp_price_${methodId}`);
+  const currencyEl = document.getElementById(`pp_currency_${methodId}`);
+  const price = parseFloat(priceEl.value);
+  if (isNaN(price) || price < 0) return toast('Enter a valid price', 'error');
+  await api('/api/plan-pricing', {
+    method: 'POST',
+    body: { plan_id: planId, payment_method_id: methodId, price, currency: currencyEl.value }
+  });
+  toast('Price saved!');
+  const plans = await api('/api/plans');
+  const plan = plans.find(p => p.id === planId);
+  if (plan) showPlanPricing(planId, plan.name);
+}
+
+async function deletePlanPrice(planId, methodId, planName) {
+  if (!confirm('Remove custom price? Default plan price will be used.')) return;
+  await api(`/api/plan-pricing/${planId}/${methodId}`, { method: 'DELETE' });
+  toast('Custom price removed');
+  showPlanPricing(planId, planName);
 }
 
 async function loadPayments() {

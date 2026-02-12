@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Guild, Panel, Plan, PaymentMethod, Ticket, Subscription, Reminder, Log } from '../../db/models.js';
+import { Guild, Panel, Plan, PaymentMethod, PlanPricing, Ticket, Subscription, Reminder, Log } from '../../db/models.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export const apiRouter = Router();
@@ -153,6 +153,47 @@ apiRouter.put('/plans/:id', async (req, res) => {
 apiRouter.delete('/plans/:id', async (req, res) => {
   try {
     await Plan.delete(req.params.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+apiRouter.get('/plan-pricing', async (req, res) => {
+  try { res.json(await PlanPricing.getAllForGuild(getGuildId(req))); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+apiRouter.get('/plan-pricing/:planId', async (req, res) => {
+  try { res.json(await PlanPricing.getByPlan(req.params.planId)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+apiRouter.post('/plan-pricing', async (req, res) => {
+  try {
+    const { plan_id, payment_method_id, price, currency } = req.body;
+    if (!plan_id || !payment_method_id || price === undefined) {
+      return res.status(400).json({ error: 'plan_id, payment_method_id, and price are required' });
+    }
+    const guildId = getGuildId(req);
+    const plan = await Plan.getById(plan_id);
+    const method = await PaymentMethod.getById(payment_method_id);
+    if (!plan || plan.guild_id !== guildId || !method || method.guild_id !== guildId) {
+      return res.status(403).json({ error: 'Plan or payment method not found in your server' });
+    }
+    const result = await PlanPricing.upsert(plan_id, payment_method_id, price, currency || 'INR');
+    await Log.create(guildId, 'plan_pricing_updated', req.session.user.id, null, { plan_id, payment_method_id, price });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+apiRouter.delete('/plan-pricing/:planId/:methodId', async (req, res) => {
+  try {
+    const guildId = getGuildId(req);
+    const plan = await Plan.getById(req.params.planId);
+    if (!plan || plan.guild_id !== guildId) {
+      return res.status(403).json({ error: 'Plan not found in your server' });
+    }
+    await PlanPricing.delete(req.params.planId, req.params.methodId);
+    await Log.create(guildId, 'plan_pricing_deleted', req.session.user.id, null, { plan_id: req.params.planId, method_id: req.params.methodId });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

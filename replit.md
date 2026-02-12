@@ -145,9 +145,10 @@ Private Discord bot for Editors Club server with a Ticket & Subscription SaaS sy
 
 ## Recent Changes (Feb 2026)
 1. Built comprehensive Ticket & Subscription SaaS system
-2. Added PostgreSQL schema with 10+ tables
+2. Added PostgreSQL schema with 10+ tables (including plan_pricing for per-method pricing)
 3. Built Express web dashboard with Discord OAuth2
 4. Implemented full ticket flow (plan → payment → confirm → email → subscription)
 5. Added node-cron automated reminder system (3/2/1 days before expiry)
 6. Dashboard with full CRUD for panels, plans, payment methods, subscriptions
 7. Resubscribe channel is DB-configurable per guild (no hardcoded values)
+8. Per-payment-method pricing: Different prices per plan for each payment method (e.g., UPI vs PayPal)

@@ -3,7 +3,7 @@ import {
   StringSelectMenuBuilder, ChannelType, PermissionFlagsBits,
   ModalBuilder, TextInputBuilder, TextInputStyle
 } from 'discord.js';
-import { Panel, Plan, PaymentMethod, Ticket, Subscription, Reminder, Payment, Log, Guild } from '../db/models.js';
+import { Panel, Plan, PaymentMethod, PlanPricing, Ticket, Subscription, Reminder, Payment, Log, Guild } from '../db/models.js';
 
 const BUTTON_STYLES = {
   Primary: ButtonStyle.Primary,
@@ -178,10 +178,19 @@ export async function handlePlanSelect(interaction) {
       return interaction.channel.send('No payment methods configured. Please contact an admin.');
     }
 
-    let description = `**Selected Plan:** ${plan.name} — ₹${plan.price}\n\nChoose your preferred payment method:\n\n`;
+    const pricingList = await PlanPricing.getByPlan(planId);
+    const pricingMap = {};
+    for (const pp of pricingList) {
+      pricingMap[pp.payment_method_id] = pp;
+    }
+
+    let description = `**Selected Plan:** ${plan.name}\n\nChoose your preferred payment method:\n\n`;
     for (const m of methods) {
       const rec = m.recommended ? ' ⭐ **Recommended**' : '';
-      description += `${m.emoji || ''} **${m.label}**${rec}\n`;
+      const methodPrice = pricingMap[m.id]?.price ?? plan.price;
+      const currency = pricingMap[m.id]?.currency || plan.currency || 'INR';
+      const symbol = currency === 'USD' ? '$' : '₹';
+      description += `${m.emoji || ''} **${m.label}** — ${symbol}${parseFloat(methodPrice).toLocaleString()}${rec}\n`;
     }
 
     const embed = new EmbedBuilder()
@@ -243,9 +252,13 @@ export async function handlePaymentSelect(interaction) {
     try { await interaction.message.edit({ components: [] }); } catch (e) {}
 
     const plan = await Plan.getById(ticket.plan_id);
+    const pricing = await PlanPricing.getPrice(ticket.plan_id, methodId);
+    const methodPrice = pricing.price;
+    const currency = pricing.currency || 'INR';
+    const symbol = currency === 'USD' ? '$' : '₹';
 
     let description = method.instructions || 'Please complete the payment and click the button below.';
-    if (plan) description += `\n\n**Plan:** ${plan.name}\n**Amount:** ₹${plan.price}`;
+    if (plan) description += `\n\n**Plan:** ${plan.name}\n**Amount:** ${symbol}${parseFloat(methodPrice).toLocaleString()}`;
     if (method.payment_link) description += `\n**Payment Link:** ${method.payment_link}`;
 
     const embed = new EmbedBuilder()
@@ -301,9 +314,12 @@ export async function handlePaidButton(interaction) {
     const staffRoleId = panel?.staff_role_id || guild?.staff_role_ids?.[0] || null;
     const staffPing = staffRoleId ? `<@&${staffRoleId}>` : '';
 
+    const pricing = ticket.plan_id && ticket.payment_method_id ? await PlanPricing.getPrice(ticket.plan_id, ticket.payment_method_id) : { price: plan?.price || 0, currency: plan?.currency || 'INR' };
+    const paidSymbol = (pricing.currency || 'INR') === 'USD' ? '$' : '₹';
+
     const embed = new EmbedBuilder()
       .setTitle('💰 Payment Submitted')
-      .setDescription(`<@${interaction.user.id}> has indicated they completed payment.\n\n**Plan:** ${plan?.name || 'N/A'}\n**Method:** ${method?.label || 'N/A'}\n**Amount:** ₹${plan?.price || '0'}\n\nAn admin will verify and confirm your payment.`)
+      .setDescription(`<@${interaction.user.id}> has indicated they completed payment.\n\n**Plan:** ${plan?.name || 'N/A'}\n**Method:** ${method?.label || 'N/A'}\n**Amount:** ${paidSymbol}${parseFloat(pricing.price).toLocaleString()}\n\nAn admin will verify and confirm your payment.`)
       .setColor('#FFA500')
       .setTimestamp();
 
@@ -449,6 +465,9 @@ export async function handleEmailModal(interaction) {
     await Ticket.update(ticketId, { email });
     const plan = await Plan.getById(ticket.plan_id);
     const method = await PaymentMethod.getById(ticket.payment_method_id);
+    const pricing = ticket.plan_id && ticket.payment_method_id ? await PlanPricing.getPrice(ticket.plan_id, ticket.payment_method_id) : { price: plan?.price || 0, currency: plan?.currency || 'INR' };
+    const finalPrice = pricing.price;
+    const finalCurrency = pricing.currency || 'INR';
 
     const startDate = new Date();
     const endDate = new Date(startDate);
@@ -461,8 +480,8 @@ export async function handleEmailModal(interaction) {
       plan_id: plan?.id,
       email,
       plan_name: plan?.name || 'Unknown',
-      price: plan?.price || 0,
-      currency: plan?.currency || 'INR',
+      price: finalPrice,
+      currency: finalCurrency,
       start_date: startDate.toISOString(),
       end_date: endDate.toISOString(),
       payment_method: method?.label || 'Unknown',
@@ -474,8 +493,8 @@ export async function handleEmailModal(interaction) {
       ticket_id: ticket.id,
       subscription_id: subscription.id,
       user_id: ticket.user_id,
-      amount: plan?.price || 0,
-      currency: plan?.currency || 'INR',
+      amount: finalPrice,
+      currency: finalCurrency,
       payment_method: method?.label,
       status: 'confirmed'
     });
@@ -504,12 +523,13 @@ export async function handleEmailModal(interaction) {
 
     await interaction.editReply({ content: 'Email submitted successfully!' });
 
+    const subSymbol = finalCurrency === 'USD' ? '$' : '₹';
     const embed = new EmbedBuilder()
       .setTitle('🎉 Subscription Activated!')
       .setDescription([
         `**Email:** ${email}`,
         `**Plan:** ${plan?.name || 'N/A'}`,
-        `**Price:** ₹${plan?.price || '0'}`,
+        `**Price:** ${subSymbol}${parseFloat(finalPrice).toLocaleString()}`,
         `**Start Date:** ${startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
         `**End Date:** ${endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
         `**Payment Method:** ${method?.label || 'N/A'}`,

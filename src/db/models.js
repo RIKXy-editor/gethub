@@ -162,6 +162,55 @@ export const PaymentMethod = {
   }
 };
 
+export const PlanPricing = {
+  async getByPlan(planId) {
+    const r = await pool.query(
+      `SELECT pp.*, pm.name as method_name, pm.label as method_label, pm.emoji as method_emoji
+       FROM plan_pricing pp
+       JOIN payment_methods pm ON pp.payment_method_id = pm.id
+       WHERE pp.plan_id = $1
+       ORDER BY pm.display_order, pm.id`, [planId]);
+    return r.rows;
+  },
+  async getByPlanAndMethod(planId, methodId) {
+    const r = await pool.query(
+      'SELECT * FROM plan_pricing WHERE plan_id = $1 AND payment_method_id = $2', [planId, methodId]);
+    return r.rows[0] || null;
+  },
+  async getAllForGuild(guildId) {
+    const r = await pool.query(
+      `SELECT pp.*, p.name as plan_name, pm.label as method_label
+       FROM plan_pricing pp
+       JOIN plans p ON pp.plan_id = p.id
+       JOIN payment_methods pm ON pp.payment_method_id = pm.id
+       WHERE p.guild_id = $1
+       ORDER BY p.display_order, pm.display_order`, [guildId]);
+    return r.rows;
+  },
+  async upsert(planId, methodId, price, currency = 'INR') {
+    const r = await pool.query(
+      `INSERT INTO plan_pricing (plan_id, payment_method_id, price, currency)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (plan_id, payment_method_id) DO UPDATE SET price = $3, currency = $4
+       RETURNING *`,
+      [planId, methodId, price, currency]);
+    return r.rows[0];
+  },
+  async delete(planId, methodId) {
+    await pool.query('DELETE FROM plan_pricing WHERE plan_id = $1 AND payment_method_id = $2', [planId, methodId]);
+  },
+  async deleteAllForPlan(planId) {
+    await pool.query('DELETE FROM plan_pricing WHERE plan_id = $1', [planId]);
+  },
+  async getPrice(planId, methodId) {
+    const specific = await pool.query(
+      'SELECT price, currency FROM plan_pricing WHERE plan_id = $1 AND payment_method_id = $2', [planId, methodId]);
+    if (specific.rows.length > 0) return specific.rows[0];
+    const plan = await pool.query('SELECT price, currency FROM plans WHERE id = $1', [planId]);
+    return plan.rows[0] || { price: 0, currency: 'INR' };
+  }
+};
+
 export const Ticket = {
   async create(data) {
     const r = await pool.query(
