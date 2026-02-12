@@ -24,8 +24,9 @@ export function createWebServer(client) {
     secret: process.env.SESSION_SECRET || 'editors-club-fallback-secret',
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
-      secure: process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT,
+      secure: 'auto',
       maxAge: 24 * 60 * 60 * 1000,
       sameSite: 'lax',
       httpOnly: true
