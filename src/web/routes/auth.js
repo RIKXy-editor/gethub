@@ -17,9 +17,15 @@ authRouter.get('/login', (req, res) => {
 
 authRouter.get('/callback', async (req, res) => {
   const { code } = req.query;
-  if (!code) return res.redirect('/');
+  if (!code) {
+    console.log('[AUTH] No code in callback');
+    return res.redirect('/?error=no_code');
+  }
 
   try {
+    const redirectUri = REDIRECT_URI();
+    console.log('[AUTH] Exchanging code, redirect_uri:', redirectUri);
+
     const tokenRes = await fetch(`${DISCORD_API}/oauth2/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -28,17 +34,19 @@ authRouter.get('/callback', async (req, res) => {
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: 'authorization_code',
         code,
-        redirect_uri: REDIRECT_URI()
+        redirect_uri: redirectUri
       })
     });
 
     const tokens = await tokenRes.json();
+    console.log('[AUTH] Token response:', tokens.access_token ? 'got token' : JSON.stringify(tokens));
     if (!tokens.access_token) return res.redirect('/?error=auth_failed');
 
     const userRes = await fetch(`${DISCORD_API}/users/@me`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     });
     const user = await userRes.json();
+    console.log('[AUTH] User:', user.username);
 
     const guildsRes = await fetch(`${DISCORD_API}/users/@me/guilds`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
@@ -49,6 +57,7 @@ authRouter.get('/callback', async (req, res) => {
     const targetGuild = guilds.find(g => g.id === guildId);
 
     if (!targetGuild) {
+      console.log('[AUTH] User not in guild', guildId);
       return res.redirect('/?error=not_in_guild');
     }
 
@@ -57,6 +66,7 @@ authRouter.get('/callback', async (req, res) => {
     const isAdmin = isOwner || (perms & BigInt(0x8)) === BigInt(0x8) || (perms & BigInt(0x20)) === BigInt(0x20);
 
     if (!isAdmin) {
+      console.log('[AUTH] User not admin');
       return res.redirect('/?error=no_permission');
     }
 
@@ -69,7 +79,14 @@ authRouter.get('/callback', async (req, res) => {
       guildId
     };
 
-    res.redirect('/dashboard');
+    req.session.save((err) => {
+      if (err) {
+        console.error('[AUTH] Session save error:', err);
+        return res.redirect('/?error=session_error');
+      }
+      console.log('[AUTH] Session saved, redirecting to dashboard');
+      res.redirect('/dashboard');
+    });
   } catch (err) {
     console.error('[AUTH] OAuth error:', err);
     res.redirect('/?error=auth_error');
