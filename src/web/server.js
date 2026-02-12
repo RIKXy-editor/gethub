@@ -11,6 +11,8 @@ const __dirname = path.dirname(__filename);
 export function createWebServer(client) {
   const app = express();
 
+  app.set('trust proxy', 1);
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
@@ -19,9 +21,9 @@ export function createWebServer(client) {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,
+      secure: true,
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'lax'
+      sameSite: 'none'
     }
   }));
 
