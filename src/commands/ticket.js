@@ -42,6 +42,17 @@ export async function execute(interaction) {
 
     if (Object.keys(updates).length > 0) {
       await Guild.update(guildId, updates);
+      
+      // Sync with ticketConfig used by dashboard
+      const { loadData, saveData } = await import('../utils/storage.js');
+      const configs = loadData('ticketConfig', {});
+      if (!configs[guildId]) configs[guildId] = {};
+      
+      if (category) configs[guildId].ticketCategoryId = category.id;
+      if (logs) configs[guildId].logsChannelId = logs.id;
+      if (staffRole) configs[guildId].supportRoleId = staffRole.id;
+      
+      saveData('ticketConfig', configs);
       guild = await Guild.get(guildId);
     }
 
