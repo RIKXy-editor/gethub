@@ -12,14 +12,18 @@ Private Discord bot for Editors Club server with **complete admin website contro
 
 ## Architecture
 
-**Website → Config → Bot**
+**Dual System:**
+- **Admin Dashboard** — Website-based control panel for settings, panels, giveaways, etc.
+- **Database-driven Tickets** — PostgreSQL stores ticket panels, plans, payment methods, tickets, subscriptions, payments
 
-1. Admin logs into dashboard (password-protected)
-2. Admin toggles features/commands in dark red/black UI
-3. Admin clicks "SAVE"
-4. Changes written to `data/admin-config.json`
-5. Bot reads config and enforces rules immediately
-6. No restart needed
+**Ticket Flow (DB-driven):**
+1. Admin posts panel via `/ticket panel #channel` or dashboard
+2. User clicks "Open Ticket" → ticket channel created
+3. User selects plan → payment method → per-method pricing shown
+4. User clicks "I've Paid" → staff confirms/denies
+5. On confirm → user enters email → subscription created automatically
+
+**Legacy Config:** `data/admin-config.json` still used for features like welcomer, giveaways, announcements, keywords
 
 ## Bot Features (All Controllable from Website)
 
@@ -96,9 +100,12 @@ Single source of truth containing:
 
 ## Key Files
 
-- `server.js` - Express backend for dashboard
-- `public/admin.html` - Admin control panel UI
-- `data/admin-config.json` - Configuration (single source of truth)
+- `index.js` - Main bot entry point, interaction routing
+- `src/commands/ticket.js` - `/ticket setup` and `/ticket panel` slash commands (DB-driven)
+- `src/db/models.js` - Database model wrappers (Guild, Panel, Plan, PaymentMethod, Ticket, Subscription, Payment, PlanPricing)
+- `src/services/ticketService.js` - All ticket button interaction handlers (open, plan, pay, confirm, close, claim, email)
+- `src/admin/routes.js` - Express API routes for dashboard
+- `data/admin-config.json` - Legacy config for non-ticket features
 - `src/utils/botExecutor.js` - Bot config checking functions
 - `src/middleware/commandCheck.js` - Command execution guard
 
