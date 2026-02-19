@@ -47,10 +47,6 @@ function requireApiAuth(req, res, next) {
 export function createAdminRoutes(discordClient) {
   const router = express.Router();
 
-  router.get('/health', (req, res) => {
-    res.json({ status: 'ok', hasToken: !!ADMIN_TOKEN });
-  });
-
   router.post('/login', express.json(), (req, res) => {
     if (!ADMIN_TOKEN) {
       return res.status(500).json({ success: false, error: 'Admin token not configured' });
@@ -118,67 +114,17 @@ export function createAdminRoutes(discordClient) {
     }
   });
 
-  router.get('/api/config/:guildId', requireApiAuth, async (req, res) => {
+  router.get('/api/config/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
-    const config = configs[guildId] || {};
-    
-    // Merge with DB data to ensure consistency
-    const { Guild } = await import('../db/models.js');
-    const dbGuild = await Guild.get(guildId);
-    if (dbGuild) {
-      if (dbGuild.ticket_category_id) config.ticketCategoryId = dbGuild.ticket_category_id;
-      if (dbGuild.logs_channel_id) config.logsChannelId = dbGuild.logs_channel_id;
-      if (dbGuild.staff_role_ids?.length) config.supportRoleId = dbGuild.staff_role_ids[0];
-    }
-
-    // Ensure all required nested objects exist for the frontend
-    if (!config.panelEmbed) config.panelEmbed = {};
-    if (!config.ticketEmbed) config.ticketEmbed = {};
-    if (!config.transcriptSettings) {
-      config.transcriptSettings = {
-        enabled: true,
-        htmlFormat: true,
-        textFormat: false,
-        sendToLogs: true,
-        dmOpener: true
-      };
-    }
-    
-    res.json(config);
+    res.json(configs[guildId] || {});
   });
 
-  router.put('/api/config/:guildId', requireApiAuth, express.json(), async (req, res) => {
+  router.put('/api/config/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
     const configs = loadData('ticketConfig', {});
-    
-    const currentConfig = configs[guildId] || {};
-    const updatedConfig = {
-      ...currentConfig,
-      ...req.body,
-      panelEmbed: req.body.panelEmbed ? { ...currentConfig.panelEmbed, ...req.body.panelEmbed } : currentConfig.panelEmbed,
-      ticketEmbed: req.body.ticketEmbed ? { ...currentConfig.ticketEmbed, ...req.body.ticketEmbed } : currentConfig.ticketEmbed,
-      transcriptSettings: req.body.transcriptSettings ? { ...currentConfig.transcriptSettings, ...req.body.transcriptSettings } : currentConfig.transcriptSettings
-    };
-    
-    configs[guildId] = updatedConfig;
+    configs[guildId] = { ...configs[guildId], ...req.body };
     saveData('ticketConfig', configs);
-
-    // Sync to Postgres
-    try {
-      const { Guild } = await import('../db/models.js');
-      const updates = {};
-      if (req.body.ticketCategoryId) updates.ticket_category_id = req.body.ticketCategoryId;
-      if (req.body.logsChannelId) updates.logs_channel_id = req.body.logs_channel_id;
-      if (req.body.supportRoleId) updates.staff_role_ids = [req.body.supportRoleId];
-      
-      if (Object.keys(updates).length > 0) {
-        await Guild.update(guildId, updates);
-      }
-    } catch (err) {
-      console.error('Error syncing config to DB:', err);
-    }
-
     res.json({ success: true });
   });
 
@@ -194,77 +140,34 @@ export function createAdminRoutes(discordClient) {
     res.json(guilds);
   });
 
-  router.get('/api/plans/:guildId', requireApiAuth, async (req, res) => {
+  router.get('/api/plans/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
-    try {
-      const { Plan } = await import('../db/models.js');
-      const plans = await Plan.getAll(guildId);
-      res.json(plans);
-    } catch (err) {
-      console.error('Error fetching plans:', err);
-      const configs = loadData('ticketConfig', {});
-      res.json(configs[guildId]?.subscriptionPlans || []);
-    }
+    const configs = loadData('ticketConfig', {});
+    const config = configs[guildId] || {};
+    res.json(config.subscriptionPlans || []);
   });
 
-  router.put('/api/plans/:guildId', requireApiAuth, express.json(), async (req, res) => {
+  router.put('/api/plans/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
-    const { plans } = req.body;
-    
-    try {
-      const { Plan } = await import('../db/models.js');
-      for (const plan of plans) {
-        if (plan.id) {
-          await Plan.update(plan.id, plan);
-        } else {
-          await Plan.create({ ...plan, guild_id: guildId });
-        }
-      }
-    } catch (err) {
-      console.error('Error syncing plans to DB:', err);
-    }
-
     const configs = loadData('ticketConfig', {});
     if (!configs[guildId]) configs[guildId] = {};
-    configs[guildId].subscriptionPlans = plans;
+    configs[guildId].subscriptionPlans = req.body.plans;
     saveData('ticketConfig', configs);
     res.json({ success: true });
   });
 
-  router.get('/api/payments/:guildId', requireApiAuth, async (req, res) => {
+  router.get('/api/payments/:guildId', requireApiAuth, (req, res) => {
     const { guildId } = req.params;
-    try {
-      const { PaymentMethod } = await import('../db/models.js');
-      const methods = await PaymentMethod.getAll(guildId);
-      res.json(methods);
-    } catch (err) {
-      console.error('Error fetching payments:', err);
-      const configs = loadData('ticketConfig', {});
-      res.json(configs[guildId]?.paymentMethods || {});
-    }
+    const configs = loadData('ticketConfig', {});
+    const config = configs[guildId] || {};
+    res.json(config.paymentMethods || {});
   });
 
-  router.put('/api/payments/:guildId', requireApiAuth, express.json(), async (req, res) => {
+  router.put('/api/payments/:guildId', requireApiAuth, express.json(), (req, res) => {
     const { guildId } = req.params;
-    const { methods } = req.body;
-    
-    try {
-      const { PaymentMethod } = await import('../db/models.js');
-      const methodArray = Array.isArray(methods) ? methods : Object.values(methods);
-      for (const method of methodArray) {
-        if (method.id) {
-          // Update logic
-        } else {
-          await PaymentMethod.create({ ...method, guild_id: guildId });
-        }
-      }
-    } catch (err) {
-      console.error('Error syncing payments to DB:', err);
-    }
-
     const configs = loadData('ticketConfig', {});
     if (!configs[guildId]) configs[guildId] = {};
-    configs[guildId].paymentMethods = methods;
+    configs[guildId].paymentMethods = req.body.methods;
     saveData('ticketConfig', configs);
     res.json({ success: true });
   });
